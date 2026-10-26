@@ -1,4 +1,7 @@
 // https://github.com/kachurovskiy/nanoels
+// CNC fork: https://github.com/Marioskiv/nanoels - the GCODE mode is a real CNC (look-ahead, G93, X/Z/C
+// together). All other modes are unchanged. The motion code (cnc_core.cpp) is ported from Grbl, so this
+// fork is distributed under the GNU GPL v3 (see LICENSE); the original NanoEls code is MIT.
 
 /* Change values in this section to suit your hardware. */
 
@@ -87,8 +90,13 @@ const long STEPPED_ENABLE_DELAY_MS = 100; // Delay after stepper is enabled and 
 // GCode-related constants.
 const float LINEAR_INTERPOLATION_PRECISION = 0.1; // 0 < x <= 1, smaller values make for quicker G0 and G1 moves
 const long GCODE_WAIT_EPSILON_STEPS = 10;
-const bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops
+const bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops. Set to false for polar milling, where the chuck is turned by the C motor
 const int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
+
+// GCODE mode as a CNC. Axis speeds and accelerations are the SPEED_MANUAL_MOVE_* and ACCELERATION_* values above.
+const float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl $11). Smaller = slower corners
+const int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
+const bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
 
 // To be incremented whenever a measurable improvement is made.
 #define SOFTWARE_VERSION 12
@@ -259,6 +267,14 @@ bool splashScreen = false;
 
 #include <Adafruit_TCA8418.h>
 Adafruit_TCA8418 keypad;
+
+#include "driver/gptimer.h"
+#include "soc/gpio_reg.h"
+#include "esp_timer.h"
+#include "esp_cpu.h"
+#include "esp_rom_sys.h"
+#include "cnc_core.h"
+#include "cnc_gcode.h"
 unsigned long keypadTimeUs = 0;
 
 // Most buttons we only have "down" handling, holding them has no effect.
@@ -569,6 +585,30 @@ int gcodeProgramCharIndex = 0;
 
 hw_timer_t *async_timer = timerBegin(80);
 bool timerAttached = false;
+
+// GCODE mode as a CNC: state shared by taskGcode (core 0), loop() (core 1) and the step interrupt.
+#define CNC_TIMER_HZ 20000000
+#define CNC_IDLE 0
+#define CNC_RUN 1
+gptimer_handle_t cncTimer = NULL;
+portMUX_TYPE cncMux = portMUX_INITIALIZER_UNLOCKED;
+volatile bool cncStepsEnabled = true; // false after an emergency stop
+volatile int cncState = CNC_IDLE;
+volatile bool cncPaused = false; // M0, M1, M6: waiting for ON or '~'
+volatile bool cncSpindleHold = false; // stopped because the spindle stopped
+volatile bool cncResumeRequest = false;
+volatile bool cncStopRequest = false; // OFF / '!' / error: decelerate, then drop the rest of the program
+volatile bool cncStartRequest = false;
+bool cncOwesDisable = false; // steppers to release once a stopped program has come to rest
+// Shown on the display. Never a String: the display task reads it while taskGcode (higher priority) runs.
+const char* volatile cncStatusText = "";
+char gcodeDisplayLine[21] = ""; // the G-code line being run, for the display
+String gcodeSerialBacklog = ""; // characters read while waiting for the planner
+bool gcodePollInBrace = false;
+bool gcodePollInSemicolon = false;
+unsigned long gcodeAwaitOnMs = 0;
+uint32_t cncLineNo = 0;
+volatile uint32_t cncCpuCyclesPerTick = 12; // set in setup() from the CPU clock
 
 int getApproxRpm() {
   unsigned long t = micros();
@@ -886,14 +926,15 @@ void updateDisplay() {
 
   long numpadResult = getNumpadResult();
   long gcodeCommandHash = 0;
-  for (int i = 0; i < gcodeCommand.length(); i++) {
-    gcodeCommandHash += gcodeCommand.charAt(i);
+  // From the copy, not from gcodeCommand: taskGcode changes that String while the display runs.
+  for (int i = 0; gcodeDisplayLine[i]; i++) {
+    gcodeCommandHash += gcodeDisplayLine[i] * (i + 1);
   }
   bool spindleStopped = micros() > spindleEncTime + 100000;
   long newHashLine3 = z.pos + (showAngle ? spindlePos : -1) + (showTacho ? rpm : -2) + measure + (numpadResult > 0 ? numpadResult : -1) + mode * 5 + dupr +
       (mode == MODE_CONE ? round(coneRatio * 10000) : 0) + turnPasses + opIndex + setupIndex + gcodeProgramIndex + gcodeProgramCount + spindleStopped * 3 + (isOn ? 139 : -117) + (inNumpad ? 10 : 0) + (auxForward ? 17 : -31) +
       (z.leftStop == LONG_MAX ? 123 : z.leftStop) + (z.rightStop == LONG_MIN ? 1234 : z.rightStop) +
-      (x.leftStop == LONG_MAX ? 1235 : x.leftStop) + (x.rightStop == LONG_MIN ? 123456 : x.rightStop) + gcodeCommandHash +
+      (x.leftStop == LONG_MAX ? 1235 : x.leftStop) + (x.rightStop == LONG_MIN ? 123456 : x.rightStop) + gcodeCommandHash + (long)(intptr_t)cncStatusText +
       (mode == MODE_A1 ? a1.pos + a1.originPos + (a1.leftStop == LONG_MAX ? 123 : a1.leftStop) + (a1.rightStop == LONG_MIN ? 1234 : a1.rightStop) + a1.disabled : 0) + x.pos + z.pos;
   if (lcdHashLine3 != newHashLine3) {
     lcdHashLine3 = newHashLine3;
@@ -928,8 +969,10 @@ void updateDisplay() {
       } else if (setupIndex == 2) {
         if (spindleStopped) charIndex += lcd.print("Turn on the spindle!");
         else charIndex += lcd.print("Spindle on. Go?");
+      } else if (isOn && cncStatusText[0]) {
+        charIndex += lcd.print((const char*)cncStatusText);
       } else if (isOn) {
-        charIndex += lcd.print(gcodeCommand.substring(0, 20));
+        charIndex += lcd.print(gcodeDisplayLine);
       }
     } else if (isPassMode()) {
       bool missingZStops = needZStops() && (z.leftStop == LONG_MAX || z.rightStop == LONG_MIN);
@@ -1051,7 +1094,8 @@ void taskDisplay(void *param) {
     // Calling Preferences.commit() blocks all interrupts for 30ms, don't call saveIfChanged() if
     // encoder is likely to move soon.
     unsigned long now = micros();
-    if (!stepperIsRunning(&z) && !stepperIsRunning(&x) && (now > spindleEncTime + SAVE_DELAY_US) && (now < saveTime || now > saveTime + SAVE_DELAY_US) && (now < keypadTimeUs || now > keypadTimeUs + SAVE_DELAY_US)) {
+    // Never while the GCODE mode moves: a Preferences write stops the CPU for ~30 ms.
+    if (!cncBusy() && !stepperIsRunning(&z) && !stepperIsRunning(&x) && (now > spindleEncTime + SAVE_DELAY_US) && (now < saveTime || now > saveTime + SAVE_DELAY_US) && (now < keypadTimeUs || now > keypadTimeUs + SAVE_DELAY_US)) {
       if (saveIfChanged()) {
         saveTime = now;
       }
@@ -1185,6 +1229,10 @@ void taskMoveZ(void *param) {
     if (isOn && !manualMovesAllowedWhenOn()) {
       setIsOnFromTask(false);
     }
+    // GCODE mode: a handwheel turned during a program stops it; move only once it has stopped.
+    while (mode == MODE_GCODE && (cncBusy() || cncStopRequest) && emergencyStop == ESTOP_NONE) {
+      taskYIELD();
+    }
     int sign = pulseDelta == 0 ? (left ? 1 : -1) : (pulseDelta > 0 ? 1 : -1);
     bool stepperOn = true;
     stepperEnable(&z, true);
@@ -1284,6 +1332,10 @@ void taskMoveX(void *param) {
     if (isOn && !manualMovesAllowedWhenOn()) {
       setIsOnFromTask(false);
     }
+    // GCODE mode: a handwheel turned during a program stops it; move only once it has stopped.
+    while (mode == MODE_GCODE && (cncBusy() || cncStopRequest) && emergencyStop == ESTOP_NONE) {
+      taskYIELD();
+    }
     x.movingManually = true;
     x.speedMax = getStepMaxSpeed(&x);
     stepperEnable(&x, true);
@@ -1370,10 +1422,345 @@ void taskMoveA1(void *param) {
   vTaskDelete(NULL);
 }
 
+// ============================================================ GCODE mode as a CNC
+// The planner and the step segments are prepared in taskGcode (core 0). The step interrupt (core 1)
+// only takes ready segments, as in Grbl, and keeps the H4 axis positions (pos, motorPos, posGlobal)
+// exactly as moveAxis() does, so the display and every other mode see the true position.
+
+Axis* cncAxis(int i) {
+  return i == CNC_X ? &x : (i == CNC_Z ? &z : &a1);
+}
+
+// Step pulse, H4 style: the step pin idles HIGH and a step is a LOW pulse.
+static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* edata, void* ctx) {
+  uint32_t cycles0 = esp_cpu_get_cycle_count();
+  cnc_tick_t t;
+  bool active = false;
+  portENTER_CRITICAL_ISR(&cncMux);
+  if (cncStepsEnabled) active = cnc_isr(&t);
+  portEXIT_CRITICAL_ISR(&cncMux);
+  if (!cncStepsEnabled) t.period = CNC_TIMER_HZ / 1000;
+  if (active && t.step) {
+    bool dirChanged = false;
+    uint32_t stepMask = 0;
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      if (!(t.step & (1 << i))) continue;
+      Axis* a = cncAxis(i);
+      bool positive = !(t.dirNeg & (1 << i));
+      // a->direction is the cache that setDir() uses: keep it true so manual moves set the pin correctly later.
+      if (!a->directionInitialized || a->direction != positive) {
+        a->direction = positive;
+        a->directionInitialized = true;
+        if (positive ^ a->invertStepper) REG_WRITE(GPIO_OUT_W1TS_REG, 1UL << a->dir);
+        else REG_WRITE(GPIO_OUT_W1TC_REG, 1UL << a->dir);
+        dirChanged = true;
+      }
+      stepMask |= 1UL << a->step;
+    }
+    if (dirChanged) esp_rom_delay_us(DIRECTION_SETUP_DELAY_US);
+    REG_WRITE(GPIO_OUT_W1TC_REG, stepMask);
+    esp_rom_delay_us(CNC_STEP_PULSE_US);
+    REG_WRITE(GPIO_OUT_W1TS_REG, stepMask);
+    unsigned long nowUs = (unsigned long)esp_timer_get_time();
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      if (!(t.step & (1 << i))) continue;
+      Axis* a = cncAxis(i);
+      int d = (t.dirNeg & (1 << i)) ? -1 : 1;
+      a->motorPos += d;
+      a->posGlobal += d;
+      if (!t.motorOnly) a->pos += d;
+      a->stepStartUs = nowUs;
+    }
+  }
+  // Next tick, never in the past even if this one took long.
+  uint64_t elapsed = (uint32_t)(esp_cpu_get_cycle_count() - cycles0) / cncCpuCyclesPerTick;
+  uint64_t next = edata->alarm_value + t.period;
+  uint64_t earliest = edata->count_value + elapsed + 100;
+  gptimer_alarm_config_t alarm = {};
+  alarm.alarm_count = next > earliest ? next : earliest;
+  gptimer_set_alarm_action(timer, &alarm);
+  return false;
+}
+
+void cncConfigure() {
+  cnc_settings_t s;
+  cnc_machine_t m;
+  memset(&m, 0, sizeof(m));
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    float stepsPerUnit = a->motorSteps / (a->screwPitch / 10000.0); // steps per mm, or per degree for a rotary axis
+    s.stepsPerUnit[i] = stepsPerUnit;
+    s.maxRate[i] = a->speedManualMove / stepsPerUnit * 60;
+    s.acceleration[i] = a->acceleration / stepsPerUnit * 3600;
+    m.name[i] = a->name;
+    m.active[i] = a->active;
+    m.rotary[i] = a->rotational;
+    m.backlashSteps[i] = a->backlashSteps;
+  }
+  s.junctionDeviation = CNC_JUNCTION_DEVIATION;
+  s.timerHz = CNC_TIMER_HZ;
+  m.checkLimits = CNC_RESPECT_STOPS;
+  // The step interrupt writes the GPIO registers of pins 0-31 directly (all H4 motor pins are there).
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    if (a->active && (a->step >= 32 || a->dir >= 32)) {
+      cncStepsEnabled = false;
+      Serial.println("error: GCODE mode needs step/dir pins below 32");
+    }
+  }
+  m.defaultFeed = GCODE_FEED_DEFAULT_DU_SEC * 60 / 10000.0;
+  cnc_core_settings(&s);
+  cnc_gc_init(&m);
+  cnc_plan_reset();
+  cnc_st_reset();
+}
+
+void cncStartTimer() {
+  cncCpuCyclesPerTick = max(1UL, (unsigned long)(getCpuFrequencyMhz() * 1000000UL / CNC_TIMER_HZ));
+  gptimer_config_t config;
+  memset(&config, 0, sizeof(config));
+  config.clk_src = GPTIMER_CLK_SRC_DEFAULT;
+  config.direction = GPTIMER_COUNT_UP;
+  config.resolution_hz = CNC_TIMER_HZ;
+  if (gptimer_new_timer(&config, &cncTimer) != ESP_OK) {
+    Serial.println("error: CNC step timer not available");
+    return;
+  }
+  gptimer_event_callbacks_t callbacks;
+  memset(&callbacks, 0, sizeof(callbacks));
+  callbacks.on_alarm = cncOnTimer;
+  gptimer_register_event_callbacks(cncTimer, &callbacks, NULL);
+  gptimer_enable(cncTimer);
+  gptimer_alarm_config_t alarm = {};
+  alarm.alarm_count = CNC_TIMER_HZ / 1000;
+  gptimer_set_alarm_action(cncTimer, &alarm);
+  gptimer_start(cncTimer);
+}
+
+bool cncBusy() {
+  return cncState != CNC_IDLE || cnc_st_busy();
+}
+
+// Takes the tool position, the work zero, the backlash state and the stops from the H4 axes.
+// Only when nothing is queued.
+void cncSyncFromAxes() {
+  int32_t pos[CNC_N_AXIS], zero[CNC_N_AXIS];
+  bool neg[CNC_N_AXIS];
+  cnc_machine_t m;
+  memset(&m, 0, sizeof(m));
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    pos[i] = a->pos;
+    zero[i] = -a->originPos;
+    // After a move down, moveAxis() leaves the motor backlashSteps below the tool.
+    neg[i] = a->backlashSteps > 0 && a->motorPos != a->pos;
+    m.name[i] = a->name;
+    m.active[i] = a->active;
+    m.rotary[i] = a->rotational;
+    m.backlashSteps[i] = a->backlashSteps;
+    m.minSteps[i] = a->rightStop == LONG_MIN ? INT32_MIN : a->rightStop;
+    m.maxSteps[i] = a->leftStop == LONG_MAX ? INT32_MAX : a->leftStop;
+  }
+  m.checkLimits = CNC_RESPECT_STOPS;
+  m.defaultFeed = GCODE_FEED_DEFAULT_DU_SEC * 60 / 10000.0;
+  portENTER_CRITICAL(&cncMux);
+  cnc_st_reset();
+  cnc_plan_reset();
+  portEXIT_CRITICAL(&cncMux);
+  cnc_gc_init(&m);
+  cnc_gc_sync(pos, zero, neg);
+}
+
+// Called often from taskGcode: stop requests, the spindle check and the step segments.
+void cncService() {
+  if (cncStopRequest) {
+    cnc_hold_start();
+    cnc_st_prep_buffer();
+    if (cnc_hold_complete() || !cnc_st_busy()) {
+      cncState = CNC_IDLE;
+      cncPaused = false;
+      cncSpindleHold = false;
+      cncStatusText = "";
+      cncSyncFromAxes(); // drops what is left of the program; the position is exact
+      if (cncOwesDisable) {
+        cncOwesDisable = false;
+        stepperEnable(&z, false);
+        stepperEnable(&x, false);
+        stepperEnable(&a1, false);
+      }
+      cncStopRequest = false;
+    }
+    return;
+  }
+  if (SPINDLE_PAUSES_GCODE && isOn && mode == MODE_GCODE && cnc_st_busy()) {
+    bool spindleOn = getApproxRpm() >= GCODE_MIN_RPM;
+    if (!spindleOn && !cncSpindleHold) {
+      cnc_hold_start();
+      cncSpindleHold = true;
+      cncStatusText = "Spindle stopped";
+    } else if (spindleOn && cncSpindleHold && cnc_hold_complete()) {
+      cnc_hold_resume();
+      cncSpindleHold = false;
+      cncStatusText = "";
+    }
+  }
+  cnc_st_prep_buffer();
+  if (cncState == CNC_RUN && !cnc_st_busy() && !cncSpindleHold) cncState = CNC_IDLE;
+}
+
+void cncPrintStatus() {
+  Serial.print("<");
+  Serial.print(cncSpindleHold || cncPaused ? "Hold" : (isOn ? "Run" : "Idle"));
+  Serial.print("|WPos:");
+  float divisor = measure == MEASURE_METRIC ? 10000.0 : 254000.0;
+  Serial.print(getAxisPosDu(&x) / divisor, 3);
+  Serial.print(",0.000,");
+  Serial.print(getAxisPosDu(&z) / divisor, 3);
+  if (a1.active) {
+    Serial.print(",");
+    Serial.print(getAxisPosDu(&a1) / 10000.0, 3);
+  }
+  Serial.print("|FS:");
+  Serial.print(mode == MODE_GCODE ? round(cnc_st_realtime_rate()) : round(gcodeFeedDuPerSec * 60 / 10000.0));
+  Serial.print(",");
+  Serial.print(getApproxRpm());
+  Serial.print("|Un:");
+  Serial.print(cnc_st_underruns()); // the step buffer ran empty while moving: should always be 0
+  Serial.print("|Id:");
+  Serial.print("H" + String(HARDWARE_VERSION) + "V" + String(SOFTWARE_VERSION) + "CNC");
+  Serial.print(">"); // no new line to allow client to easily cut out the status response
+}
+
+// While taskGcode waits for the planner: answer '!', '~' and '?' at once, keep everything else for later.
+void cncPollSerial() {
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+    if (gcodePollInBrace) {
+      if (c == ')') gcodePollInBrace = false;
+    } else if (gcodePollInSemicolon) {
+      if (c < 32) gcodePollInSemicolon = false;
+    } else if (c == '(') {
+      gcodePollInBrace = true;
+    } else if (c == ';') {
+      gcodePollInSemicolon = true;
+    } else if (c == '!') {
+      setIsOnFromTask(false);
+      continue;
+    } else if (c == '~') {
+      if (cncPaused) {
+        cncResumeRequest = true;
+      } else {
+        setIsOnFromTask(true);
+        if (!isOn) gcodeAwaitOnMs = millis(); // the lines after '~' wait until loop() has turned on
+      }
+      continue;
+    } else if (c == '?') {
+      cncPrintStatus();
+      continue;
+    }
+    gcodeSerialBacklog += c;
+  }
+}
+
+// Waits in taskGcode until all motion is done. False if the program was stopped meanwhile.
+bool cncWaitIdle() {
+  while (cncBusy()) {
+    if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) return false;
+    cncService();
+    cncPollSerial();
+    vTaskDelay(1);
+  }
+  return isOn && !cncStopRequest;
+}
+
+// Runs one G-code line in the GCODE mode. False on an error (printed) or if the program was stopped.
+bool cncProcessLine(const String& line, bool isSerial) {
+  if (cncStartRequest && !cncBusy()) {
+    cncStartRequest = false;
+    cncSyncFromAxes();
+  }
+  cncLineNo++;
+  strncpy(gcodeDisplayLine, line.c_str(), sizeof(gcodeDisplayLine) - 1);
+  gcodeDisplayLine[sizeof(gcodeDisplayLine) - 1] = '\0';
+  char msg[96];
+  float dwell = 0;
+  int r;
+  while (true) {
+    if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) return false;
+    r = cnc_gc_line(line.c_str(), cncLineNo, msg, sizeof(msg), &dwell);
+    if (r != CNC_WAIT) break;
+    cncService();
+    cncPollSerial();
+    vTaskDelay(1);
+  }
+  if (r == CNC_ERROR) {
+    Serial.print("error: ");
+    Serial.print(msg);
+    Serial.print(" in: ");
+    Serial.println(line);
+    return false;
+  }
+  if (msg[0]) {
+    Serial.print("[MSG:");
+    Serial.print(msg);
+    Serial.println("]");
+  }
+  // G20 / G21 also switch the H4 display units, as in the old GCODE mode.
+  String upper = line;
+  upper.toUpperCase();
+  if (upper.indexOf("G20") >= 0) setMeasure(MEASURE_INCH);
+  else if (upper.indexOf("G21") >= 0) setMeasure(MEASURE_METRIC);
+  if (cnc_st_busy()) cncState = CNC_RUN;
+  cncService();
+
+  // A G94 program streamed over USB gets "ok" only after its move (the old protocol: senders such as
+  // lathecode send '!' after the last "ok"). G93 programs and stored programs run with look-ahead.
+  bool waitForMotion = r != CNC_OK || (isSerial && !cnc_gc_inverse_time());
+  if (waitForMotion && !cncWaitIdle()) return false;
+  if (r == CNC_DWELL) {
+    unsigned long until = millis() + (unsigned long)(dwell * 1000);
+    while ((long)(until - millis()) > 0) {
+      if (!isOn || cncStopRequest) return false;
+      cncPollSerial();
+      vTaskDelay(1);
+    }
+  } else if (r == CNC_PAUSE) {
+    cncPaused = true;
+    cncResumeRequest = false;
+    cncStatusText = "Paused: ON to go on";
+    beepFlag = true;
+    while (!cncResumeRequest) {
+      if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) {
+        cncPaused = false;
+        cncStatusText = "";
+        return false;
+      }
+      cncPollSerial();
+      vTaskDelay(10);
+    }
+    cncPaused = false;
+    cncResumeRequest = false;
+    cncStatusText = "";
+  } else if (r == CNC_END) {
+    gcodeProgramCharIndex = gcodeProgram.length(); // a stored program stops reading here
+    setIsOnFromTask(false);
+  }
+  return true;
+}
+
 void taskGcode(void *param) {
   while (emergencyStop == ESTOP_NONE) {
+    if (cncStartRequest && !cncBusy()) {
+      // A program starts (ON pressed or '~' received): positions and modes from the H4.
+      cncStartRequest = false;
+      cncSyncFromAxes();
+    }
+    bool gotChar = false;
     if (mode != MODE_GCODE) {
       gcodeInitialized = false;
+      gcodeSerialBacklog = "";
+      gcodePollInBrace = false;
+      gcodePollInSemicolon = false;
     } else if (!gcodeInitialized) {
       gcodeInitialized = true;
       gcodeCommand = "";
@@ -1385,15 +1772,27 @@ void taskGcode(void *param) {
     // Implementing a relevant subset of RS274 (Gcode) and GRBL (state management) covering basic use cases.
     char receivedChar = '\0';
     bool isSerial = false;
+    // GCODE mode: all USB input goes through cncPollSerial(), which acts on '!', '~' and '?' at once
+    // (also while a line waits for the planner) and keeps the rest, in order, in gcodeSerialBacklog.
+    if (mode == MODE_GCODE) cncPollSerial();
     if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex < gcodeProgram.length()) {
       receivedChar = gcodeProgram.charAt(gcodeProgramCharIndex);
       gcodeProgramCharIndex++;
+    } else if (mode == MODE_GCODE) {
+      bool awaitingOn = gcodeAwaitOnMs != 0 && !isOn && millis() - gcodeAwaitOnMs < 200;
+      if (isOn || !awaitingOn) gcodeAwaitOnMs = 0;
+      if (gcodeSerialBacklog.length() > 0 && !awaitingOn) {
+        isSerial = true;
+        receivedChar = gcodeSerialBacklog.charAt(0);
+        gcodeSerialBacklog.remove(0, 1);
+      }
     } else if (Serial.available() > 0) {
       isSerial = true;
       receivedChar = Serial.read();
     }
     int charCode = int(receivedChar);
     if (charCode > 0) {
+      gotChar = true;
       if (gcodeInBrace) {
         if (receivedChar == ')') gcodeInBrace = false;
       } else if (serialInKeycode) {
@@ -1476,6 +1875,23 @@ void taskGcode(void *param) {
           gcodeInSemicolon = false;
           Serial.println("ok");
         }
+      } else if (isOn && mode == MODE_GCODE) {
+        // CNC: one whole line at a time, all words of it together.
+        if (charCode < 32) {
+          String line = gcodeCommand;
+          line.trim();
+          gcodeCommand = "";
+          gcodeInSemicolon = false;
+          if (line.length() == 0) {
+            if (isSerial) Serial.println("ok");
+          } else if (cncProcessLine(line, isSerial)) {
+            if (isSerial) Serial.println("ok");
+          } else {
+            setIsOnFromTask(false); // error or stop: the program does not go on
+          }
+        } else {
+          gcodeCommand += receivedChar;
+        }
       } else if (isOn) {
         if (gcodeInBrace && charCode < 32) {
           Serial.println("error: comment not closed");
@@ -1503,10 +1919,13 @@ void taskGcode(void *param) {
         // to flush any commands coming after an error
       }
     }
-    if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex > 0 && gcodeProgramCharIndex == gcodeProgram.length()) {
-      setIsOnFromTask(false);
+    if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex > 0 && gcodeProgramCharIndex == gcodeProgram.length() && !cncBusy()) {
+      setIsOnFromTask(false); // a stored program ends when its motion has ended
     }
-    taskYIELD();
+    cncService();
+    // Wait a tick when there was nothing to read, so the lower-priority tasks on this core run.
+    if (gotChar) taskYIELD();
+    else vTaskDelay(1);
   }
   vTaskDelete(NULL);
 }
@@ -1609,6 +2028,7 @@ void taskAttachInterrupts(void *param) {
 
 void setEmergencyStop(int kind) {
   emergencyStop = kind;
+  cncStepsEnabled = false; // GCODE mode: no more steps at all
   setAsyncTimerEnable(false);
   xSemaphoreTake(z.mutex, 10);
   xSemaphoreTake(x.mutex, 10);
@@ -1662,6 +2082,7 @@ void setup() {
   initAxis(&z, NAME_Z, true, false, MOTOR_STEPS_Z, SCREW_Z_DU, SPEED_START_Z, SPEED_MANUAL_MOVE_Z, ACCELERATION_Z, INVERT_Z, NEEDS_REST_Z, MAX_TRAVEL_MM_Z, BACKLASH_DU_Z, Z_ENA, Z_DIR, Z_STEP);
   initAxis(&x, NAME_X, true, false, MOTOR_STEPS_X, SCREW_X_DU, SPEED_START_X, SPEED_MANUAL_MOVE_X, ACCELERATION_X, INVERT_X, NEEDS_REST_X, MAX_TRAVEL_MM_X, BACKLASH_DU_X, X_ENA, X_DIR, X_STEP);
   initAxis(&a1, NAME_A1, ACTIVE_A1, ROTARY_A1, MOTOR_STEPS_A1, SCREW_A1_DU, SPEED_START_A1, SPEED_MANUAL_MOVE_A1, ACCELERATION_A1, INVERT_A1, NEEDS_REST_A1, MAX_TRAVEL_MM_A1, BACKLASH_DU_A1, A11, A12, A13);
+  cncConfigure();
 
   isOn = false;
   savedDupr = dupr = pref.getLong(PREF_DUPR);
@@ -1723,6 +2144,8 @@ void setup() {
   }
   pref.end();
 
+  cncStartTimer(); // after the positions are restored; the timer idles until a program runs
+
   lcd.begin(20, 4);
   lcd.createChar(customCharMmCode, customCharMm);
   lcd.createChar(customCharLimLeftCode, customCharLimLeft);
@@ -1758,7 +2181,8 @@ void setup() {
   xTaskCreatePinnedToCore(taskMoveX, "taskMoveX", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
   if (a1.active) xTaskCreatePinnedToCore(taskMoveA1, "taskMoveA1", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
   xTaskCreatePinnedToCore(taskAttachInterrupts, "taskAttachInterrupts", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
-  xTaskCreatePinnedToCore(taskGcode, "taskGcode", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
+  // Priority 1: it prepares the step segments of the GCODE mode and must not wait behind the display.
+  xTaskCreatePinnedToCore(taskGcode, "taskGcode", 10000 /* stack size */, NULL, 1 /* priority */, NULL, 0 /* core */);
 }
 
 bool saveIfChanged() {
@@ -2143,12 +2567,21 @@ void setIsOnFromLoop(bool on) {
   if (!on) {
     isOn = false;
     setupIndex = 0;
+    if (mode == MODE_GCODE && cncBusy()) {
+      // GCODE mode still moving: decelerate along the path, then drop the rest. The steppers stay
+      // enabled until it has stopped (taskGcode releases them), so no step and no position is lost.
+      cncStopRequest = true;
+      cncOwesDisable = true;
+      return;
+    }
   }
   stepperEnable(&z, on);
   stepperEnable(&x, on);
   stepperEnable(&a1, on);
   markOrigin();
   if (on) {
+    // GCODE mode: taskGcode takes the new positions before it reads the first line (flag set before isOn).
+    if (mode == MODE_GCODE) cncStartRequest = true;
     isOn = true;
     opDuprSign = dupr >= 0 ? 1 : -1;
     opDupr = dupr;
@@ -2502,8 +2935,9 @@ void processKeypadEvent() {
   }
 
   if (mode == MODE_GCODE && isOn) {
-    // Not allowed to interfere other than turn off.
-    if (isPress && keyCode != B_OFF) beep();
+    // Not allowed to interfere other than turn off, or ON to go on after M0 / M1 / M6.
+    if (isPress && keyCode == B_ON && cncPaused) cncResumeRequest = true;
+    else if (isPress && keyCode != B_OFF) beep();
     return;
   }
 

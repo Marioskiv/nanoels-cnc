@@ -1,3 +1,7 @@
+> **This is a fork** ([Marioskiv/nanoels](https://github.com/Marioskiv/nanoels)): the GCODE mode of **H4** is a
+> real CNC (look-ahead, G93 inverse time, X/Z/C together) — see [h4/CNC.md](h4/CNC.md). Everything else is
+> the original NanoEls. Because the new motion code comes from Grbl, the fork is GPL v3 (`COPYING`).
+
 This software and instructions are [provided as is](LICENSE), without warranty of any kind. [🇷🇺 Перевод на русский](https://translate.google.com/translate?hl=en&sl=en&tl=ru&u=https%3A%2F%2Fgithub.com%2Fkachurovskiy%2Fnanoels%2Fblob%2Fmain%2FREADME.md), [🇩🇪 deutsche Übersetzung](https://translate.google.com/translate?hl=en&sl=en&tl=de&u=https%3A%2F%2Fgithub.com%2Fkachurovskiy%2Fnanoels%2Fblob%2Fmain%2FREADME.md)
 
 **Design lathe parts in the browser with [LatheCode](https://kachurovskiy.com/lathecode/):** start from sample shapes, dimensions, drawings, saved profiles, or STL meshes; preview the result in 2D/3D; then export STL or G-code for machining. It fits naturally with NanoELS and Modulathe workflows: design the turned profile, inspect the generated toolpath, and run or save G-code for your controller, with drafts and settings kept locally in your browser.

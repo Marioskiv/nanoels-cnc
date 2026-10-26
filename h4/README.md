@@ -30,6 +30,10 @@ Advanced CNC features via [lathecode online CAD](https://github.com/kachurovskiy
 - Running GCode over USB
 - Saving GCode to device to run later
 
+## GCODE mode as a CNC (this fork)
+
+See [CNC.md](CNC.md): look-ahead, G93, X/Z/C together. All other modes are unchanged.
+
 ## Hardware
 
 [Datasheet PDF](https://raw.githubusercontent.com/kachurovskiy/nanoels/main/h4/h4.pdf) contains schematic, screen, terminals and other hardware details that aren't specific do the electronic lead screw application.
