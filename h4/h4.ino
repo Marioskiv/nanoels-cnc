@@ -97,6 +97,7 @@ const int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 const float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl $11). Smaller = slower corners
 const int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
 const bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
+const bool WIFI_ENABLED = true; // web page on the controller: G-code files, status, control (see wifi.ino)
 
 // To be incremented whenever a measurable improvement is made.
 #define SOFTWARE_VERSION 12
@@ -271,6 +272,10 @@ Adafruit_TCA8418 keypad;
 #include "driver/gptimer.h"
 #include "soc/gpio_reg.h"
 #include "esp_timer.h"
+#include <WiFi.h>
+#include <WebServer.h>
+#include <LittleFS.h>
+#include <Update.h>
 #include "esp_cpu.h"
 #include "esp_rom_sys.h"
 #include "cnc_core.h"
@@ -582,6 +587,10 @@ int gcodeProgramIndex = 0;
 int gcodeProgramCount = 0;
 String gcodeProgram = "";
 int gcodeProgramCharIndex = 0;
+// The program the GCODE mode runs: a program stored in Preferences (gcodeProgram) or a G-code file
+// loaded from the controller's flash into RAM by the web page (wifi.ino). Read only through these.
+const char* volatile gcodeProgramData = "";
+volatile int gcodeProgramSize = 0;
 
 hw_timer_t *async_timer = timerBegin(80);
 bool timerAttached = false;
@@ -599,6 +608,8 @@ volatile bool cncSpindleHold = false; // stopped because the spindle stopped
 volatile bool cncResumeRequest = false;
 volatile bool cncStopRequest = false; // OFF / '!' / error: decelerate, then drop the rest of the program
 volatile bool cncStartRequest = false;
+volatile bool wifiFsBusy = false; // the web page is reading or writing the flash: no program may start now
+volatile bool cncUserHold = false; // Pause from the web page: decelerate and wait for Resume
 bool cncOwesDisable = false; // steppers to release once a stopped program has come to rest
 // Shown on the display. Never a String: the display task reads it while taskGcode (higher priority) runs.
 const char* volatile cncStatusText = "";
@@ -1580,6 +1591,7 @@ void cncService() {
       cncState = CNC_IDLE;
       cncPaused = false;
       cncSpindleHold = false;
+      cncUserHold = false;
       cncStatusText = "";
       cncSyncFromAxes(); // drops what is left of the program; the position is exact
       if (cncOwesDisable) {
@@ -1592,7 +1604,14 @@ void cncService() {
     }
     return;
   }
-  if (SPINDLE_PAUSES_GCODE && isOn && mode == MODE_GCODE && cnc_st_busy()) {
+  if (cncUserHold && !cnc_hold_active()) {
+    cnc_hold_start();
+    cncStatusText = "Paused from the web";
+  } else if (!cncUserHold && cnc_hold_active() && !cncSpindleHold && cnc_hold_complete()) {
+    cnc_hold_resume();
+    cncStatusText = "";
+  }
+  if (SPINDLE_PAUSES_GCODE && isOn && mode == MODE_GCODE && cnc_st_busy() && !cncUserHold) {
     bool spindleOn = getApproxRpm() >= GCODE_MIN_RPM;
     if (!spindleOn && !cncSpindleHold) {
       cnc_hold_start();
@@ -1610,7 +1629,7 @@ void cncService() {
 
 void cncPrintStatus() {
   Serial.print("<");
-  Serial.print(cncSpindleHold || cncPaused ? "Hold" : (isOn ? "Run" : "Idle"));
+  Serial.print(cncSpindleHold || cncPaused || cncUserHold ? "Hold" : (isOn ? "Run" : "Idle"));
   Serial.print("|WPos:");
   float divisor = measure == MEASURE_METRIC ? 10000.0 : 254000.0;
   Serial.print(getAxisPosDu(&x) / divisor, 3);
@@ -1742,7 +1761,7 @@ bool cncProcessLine(const String& line, bool isSerial) {
     cncResumeRequest = false;
     cncStatusText = "";
   } else if (r == CNC_END) {
-    gcodeProgramCharIndex = gcodeProgram.length(); // a stored program stops reading here
+    gcodeProgramCharIndex = gcodeProgramSize; // a stored program stops reading here
     setIsOnFromTask(false);
   }
   return true;
@@ -1775,8 +1794,8 @@ void taskGcode(void *param) {
     // GCODE mode: all USB input goes through cncPollSerial(), which acts on '!', '~' and '?' at once
     // (also while a line waits for the planner) and keeps the rest, in order, in gcodeSerialBacklog.
     if (mode == MODE_GCODE) cncPollSerial();
-    if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex < gcodeProgram.length()) {
-      receivedChar = gcodeProgram.charAt(gcodeProgramCharIndex);
+    if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex < gcodeProgramSize) {
+      receivedChar = gcodeProgramData[gcodeProgramCharIndex];
       gcodeProgramCharIndex++;
     } else if (mode == MODE_GCODE) {
       bool awaitingOn = gcodeAwaitOnMs != 0 && !isOn && millis() - gcodeAwaitOnMs < 200;
@@ -1919,7 +1938,7 @@ void taskGcode(void *param) {
         // to flush any commands coming after an error
       }
     }
-    if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex > 0 && gcodeProgramCharIndex == gcodeProgram.length() && !cncBusy()) {
+    if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex > 0 && gcodeProgramCharIndex == gcodeProgramSize && !cncBusy()) {
       setIsOnFromTask(false); // a stored program ends when its motion has ended
     }
     cncService();
@@ -2183,6 +2202,7 @@ void setup() {
   xTaskCreatePinnedToCore(taskAttachInterrupts, "taskAttachInterrupts", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
   // Priority 1: it prepares the step segments of the GCODE mode and must not wait behind the display.
   xTaskCreatePinnedToCore(taskGcode, "taskGcode", 10000 /* stack size */, NULL, 1 /* priority */, NULL, 0 /* core */);
+  if (WIFI_ENABLED) xTaskCreatePinnedToCore(taskWifi, "taskWifi", 12000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
 }
 
 bool saveIfChanged() {
@@ -2546,6 +2566,8 @@ void buttonOnOffPress(bool on) {
         gcodeProgramCharIndex = 0;
         gcodeProgram = pref.getString(programName.c_str());
         gcodeProgram += '\n'; // ensures the last line is executed
+        gcodeProgramData = gcodeProgram.c_str();
+        gcodeProgramSize = gcodeProgram.length();
         setIsOnFromTask(on);
       }
     }
@@ -2578,6 +2600,11 @@ void setIsOnFromLoop(bool on) {
   stepperEnable(&z, on);
   stepperEnable(&x, on);
   stepperEnable(&a1, on);
+  if (on && mode == MODE_GCODE && wifiFsBusy) {
+    // A file is being written or read on the flash: starting now would make the motors stutter.
+    beepFlag = true;
+    return;
+  }
   markOrigin();
   if (on) {
     // GCODE mode: taskGcode takes the new positions before it reads the first line (flag set before isOn).

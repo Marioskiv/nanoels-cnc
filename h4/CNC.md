@@ -50,8 +50,35 @@ compensation, any other axis letter, numbers that cannot be read.
   `M30` (the polar converter writes `M30`); the `ok` for that line comes after the last move.
 - `?` reports `<Run|WPos:X,0.000,Z,C|FS:feed,rpm|Un:0|Id:H4V12CNC>`. `Un` counts how often the step buffer
   ran empty while moving: it must stay 0.
-- Stored programs (saved on the H4) run with look-ahead. The H4 stores at most about 4000 characters per
-  program, so long polar programs are streamed over USB.
+- Programs saved with the H4 keys (the original stored programs, about 4000 characters each) also run with
+  look-ahead. Long programs go over WiFi (below).
+
+## WiFi: files, status and controls on a phone or tablet
+
+`WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if
+it cannot connect, it opens its own access point **`NanoEls-H4-Setup`**, password **`nanoels-h4`**, page
+`http://192.168.4.1`. The address it got on your network is printed on USB at start-up and shown on the page.
+
+The page shows X, Z and C, the program name, a progress bar and the current line, Start / Pause / Resume and
+a large STOP, a drawing of the program (polar programs as seen from the cutter, the done part in blue, the
+tool as a red dot), the files, the 25 H4 keys, the WiFi settings and a firmware update. The page is a
+convenience, **not** an emergency stop: keep a real one within reach.
+
+- **Files** are uploaded to the H4's own flash (about 9.9 MB, folder `/gcode`), streamed, so the size of the
+  upload is not limited by RAM.
+- **Running**: Start reads the whole program into memory first (PSRAM, up to about 2 MB; 120 kB on a board
+  without PSRAM) and then runs it from memory with look-ahead. Nothing is read from or written to the flash
+  while the machine moves (the step timer must not stop during a flash write), so uploads, deletions and
+  settings are refused while a program runs.
+- **Firmware updates** go over WiFi after the first flash (`.bin` from *Sketch → Export Compiled Binary*).
+  USB is needed only once, for the first flash with the partition table below.
+
+### Arduino IDE settings (needed once, for the first flash over USB)
+
+Board *ESP32S3 Dev Module*, **Flash Size: 16MB**, **PSRAM: QSPI PSRAM**, **Partition Scheme: 16M Flash
+(3MB APP/9.9MB FATFS)**. The `partitions.csv` next to the sketch then gives two 3 MB firmware slots (for the
+WiFi update) and 9.9 MB for programs; the settings area (`nvs`) stays where it was, so saved H4 settings
+are kept.
 
 ## Settings for a polar machine (X radial, Z axial, chuck on C)
 
