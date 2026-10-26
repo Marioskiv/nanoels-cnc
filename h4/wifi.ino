@@ -2,8 +2,9 @@
 // Start / Pause / Resume / Stop, the H4 keys, WiFi settings and firmware update.
 // https://github.com/Marioskiv/nanoels
 //
-// WiFi set-up (setup access point, credentials in Preferences) and the firmware upload follow the
-// NanoEls H5 firmware (MIT, Copyright (c) Maxim Kachurovskiy). The file storage is different from H5:
+// WiFi set-up (setup access point, credentials in Preferences), the firmware upload, the machine settings
+// (config.ino) and the held keys with a fail-safe release follow the NanoEls H5 firmware (MIT,
+// Copyright (c) Maxim Kachurovskiy). The file storage is different from H5:
 // files are written to and read from flash in pieces, so a program can be much larger than the RAM,
 // and it is loaded into RAM (PSRAM when the board has it) before it starts.
 //
@@ -44,6 +45,15 @@ String fwUploadMessage = "";
 // Cached free space: LittleFS usedBytes() reads the flash, so it is only measured when nothing runs.
 size_t fsTotalBytes = 0;
 size_t fsUsedBytes = 0;
+
+// A key held on the page (arrows for jogging): the page repeats the press every 150 ms while the finger
+// is down. If the repeats stop (page closed, phone asleep, WiFi lost), the key is released here.
+const unsigned long HELD_KEY_TIMEOUT_MS = 500;
+int heldKey = 0;
+unsigned long heldKeyMs = 0;
+
+// One G-code line typed on the page (MDI), run as a one-line program.
+char mdiProgram[200];
 
 bool cncRunActive() {
   return mode == MODE_GCODE && (isOn || cncBusy() || cncStopRequest);
@@ -92,6 +102,79 @@ void handlePage() {
   server.send_P(200, "text/html", H4_WEB_PAGE);
 }
 
+// One line of the H4 display as JSON text; its special characters as Unicode.
+String lcdLineJson(int r) {
+  String out;
+  for (int i = 0; i < 20; i++) {
+    unsigned char c = lcd.shadow[r][i];
+    switch (c) {
+      case 8: out += "\\u339c"; break;   // mm (custom character 0)
+      case 1: out += "\\u2191"; break;   // stops: up, down, left, right, up-down, left-right
+      case 2: out += "\\u2193"; break;
+      case 3: out += "\\u2190"; break;
+      case 4: out += "\\u2192"; break;
+      case 5: out += "\\u2195"; break;
+      case 6: out += "\\u2194"; break;
+      case 223: out += "\\u00b0"; break; // degree
+      case 126: out += "\\u2192"; break;
+      case 127: out += "\\u2190"; break;
+      case '"': out += "\\\""; break;
+      case '\\': out += "\\\\"; break;
+      default: out += (c >= 32 && c < 127) ? (char)c : ' ';
+    }
+  }
+  return out;
+}
+
+void handleLog() {
+  String json = "[";
+  portENTER_CRITICAL(&cncLogMux);
+  uint32_t count = cncLogCount;
+  portEXIT_CRITICAL(&cncLogMux);
+  int n = count < CNC_LOG_LINES ? count : CNC_LOG_LINES;
+  for (int i = 0; i < n; i++) {
+    char copy[sizeof(cncLogText[0])];
+    portENTER_CRITICAL(&cncLogMux);
+    memcpy(copy, cncLogText[(count - n + i) % CNC_LOG_LINES], sizeof(copy));
+    portEXIT_CRITICAL(&cncLogMux);
+    if (i > 0) json += ",";
+    json += "\"" + jsonEscape(String(copy)) + "\"";
+  }
+  json += "]";
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send(200, "application/json", json);
+}
+
+// MDI: one line, typed on the page, in the GCODE mode while no program runs. The modes start fresh
+// (G90 G1 G94 mm), as for every program.
+void handleMdi() {
+  if (refuseWhileRunning()) return;
+  if (emergencyStop != ESTOP_NONE) {
+    server.send(409, "text/plain", "Emergency stop: restart the controller.");
+    return;
+  }
+  String line = server.arg("line");
+  line.trim();
+  if (line.length() == 0 || line.length() >= sizeof(mdiProgram) - 2 || line.indexOf('\n') >= 0 || line.indexOf('\r') >= 0) {
+    server.send(400, "text/plain", "One line, up to 190 characters.");
+    return;
+  }
+  if (mode != MODE_GCODE) setModeFromTask(MODE_GCODE);
+  unsigned long t0 = millis();
+  while (mode != MODE_GCODE && millis() - t0 < 500) vTaskDelay(5);
+  if (mode != MODE_GCODE) {
+    server.send(500, "text/plain", "Could not switch to GCODE mode.");
+    return;
+  }
+  snprintf(mdiProgram, sizeof(mdiProgram), "%s\n", line.c_str());
+  gcodeProgramCharIndex = 0;
+  gcodeProgramData = mdiProgram;
+  gcodeProgramSize = strlen(mdiProgram);
+  cncUserHold = false;
+  setIsOnFromTask(true);
+  server.send(200, "text/plain", "Running: " + line);
+}
+
 void handleStatus() {
   float divisor = measure == MEASURE_METRIC ? 10000.0 : 254000.0;
   const char* state = "Idle";
@@ -126,6 +209,14 @@ void handleStatus() {
   json += ",\"psram\":" + String((unsigned long)(psramFound() ? ESP.getFreePsram() : 0));
   json += ",\"heap\":" + String((unsigned long)ESP.getFreeHeap());
   json += ",\"wifi\":\"" + jsonEscape(wifiStatusText) + "\"";
+  json += ",\"lcd\":[";
+  for (int r = 0; r < 4; r++) {
+    if (r > 0) json += ",";
+    json += "\"" + lcdLineJson(r) + "\"";
+  }
+  json += "],\"log\":" + String((unsigned long)cncLogCount);
+  json += ",\"held\":" + String(heldKey);
+  json += ",\"mdi\":" + String(gcodeProgramData == mdiProgram && cncRunActive() ? 1 : 0);
   json += "}";
   server.sendHeader("Cache-Control", "no-cache");
   server.send(200, "application/json", json);
@@ -353,21 +444,52 @@ void handleCommand() {
   }
 }
 
-// One H4 key: press, then release (the same path as the keycodes sent over USB).
+// Hands one key event to the keypad task (the same path as the keycodes sent over USB).
+bool sendKeyEvent(int event) {
+  unsigned long t0 = millis();
+  while (serialKeycode != 0 && millis() - t0 < 300) vTaskDelay(2);
+  if (serialKeycode != 0) return false;
+  serialKeycode = event;
+  return true;
+}
+
+void releaseHeldKey() {
+  if (heldKey == 0) return;
+  int code = heldKey;
+  heldKey = 0;
+  // The release must arrive: retry while the keypad task is busy (each try waits up to 300 ms).
+  for (int i = 0; i < 10 && !sendKeyEvent(code); i++) vTaskDelay(5);
+}
+
+// Key on the page. hold=1: pressed and kept down (repeat every 150 ms); hold=0: released;
+// no hold: one press and release.
 void handleKey() {
   int code = server.arg("code").toInt();
   if (code <= 0 || code > 127) {
     server.send(400, "text/plain", "Bad key");
     return;
   }
-  for (int pass = 0; pass < 2; pass++) {
-    unsigned long t0 = millis();
-    while (serialKeycode != 0 && millis() - t0 < 300) vTaskDelay(2);
-    if (serialKeycode != 0) {
+  String hold = server.arg("hold");
+  if (hold == "1") {
+    if (heldKey == code) {
+      heldKeyMs = millis(); // still held
+    } else {
+      releaseHeldKey();
+      if (!sendKeyEvent(code | 128)) {
+        server.send(503, "text/plain", "Busy");
+        return;
+      }
+      heldKey = code;
+      heldKeyMs = millis();
+    }
+  } else if (hold == "0") {
+    if (heldKey == code) releaseHeldKey();
+  } else {
+    releaseHeldKey();
+    if (!sendKeyEvent(code | 128) || !sendKeyEvent(code)) {
       server.send(503, "text/plain", "Busy");
       return;
     }
-    serialKeycode = pass == 0 ? (code | 128) : code;
   }
   server.send(200, "text/plain", "ok");
 }
@@ -459,6 +581,78 @@ void handleFirmwareDone() {
   server.send(fwUploadFailed ? 400 : 200, "text/plain", fwUploadMessage);
 }
 
+// Machine settings (config.ino).
+void handleConfigGet() {
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send(200, "application/json", machineConfigJson());
+}
+
+void handleConfigSave() {
+  if (refuseWhileRunning()) return;
+  if (isOn) {
+    server.send(409, "text/plain", "Turn the machine off first.");
+    return;
+  }
+  bool reset = server.arg("reset") == "1";
+  double values[MACHINE_CONFIG_COUNT];
+  for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) {
+    const MachineConfigItem& it = MACHINE_CONFIG[i];
+    values[i] = reset ? machineConfigDefaults[i] : configGet(i);
+    if (reset || !server.hasArg(it.key)) continue;
+    String text = server.arg(it.key);
+    text.trim();
+    double v;
+    if (it.type == 'a') {
+      v = text.length() == 1 ? (double)toupper(text.charAt(0)) : NAN;
+    } else {
+      char* end;
+      v = strtod(text.c_str(), &end);
+      if (text.length() == 0 || *end != '\0') v = NAN;
+    }
+    if (!configValid(i, v)) {
+      server.send(400, "text/plain", String(it.group) + ", " + it.label + ": value not allowed (" + text + ")");
+      return;
+    }
+    values[i] = v;
+  }
+  String problem = configCrossCheck(values);
+  if (problem.length() > 0) {
+    server.send(400, "text/plain", problem);
+    return;
+  }
+  bool scaleChanged = configScaleChanged(values);
+  wifiFsBusy = true;
+  Preferences cfg;
+  bool ok = cfg.begin(MACHINE_CONFIG_NAMESPACE, false);
+  if (ok) {
+    cfg.clear();
+    if (!reset) {
+      cfg.putInt("v", MACHINE_CONFIG_VERSION);
+      for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) {
+        if (values[i] != machineConfigDefaults[i]) ok = ok && cfg.putDouble(MACHINE_CONFIG[i].key, values[i]) > 0;
+      }
+    }
+    cfg.end();
+  }
+  if (ok && scaleChanged) {
+    Preferences pref;
+    if (pref.begin(PREF_NAMESPACE, false)) {
+      pref.clear();
+      pref.end();
+    }
+  }
+  wifiFsBusy = false;
+  if (!ok) {
+    server.send(500, "text/plain", "Could not save the settings.");
+    return;
+  }
+  wifiRestartPending = true;
+  wifiRestartAt = millis() + 1500;
+  server.send(200, "text/plain", String(reset ? "Defaults restored." : "Saved.") +
+      (scaleChanged ? " The axis scale changed: positions, stops and the other saved H4 values were cleared." : "") +
+      " The controller restarts now.");
+}
+
 // ------------------------------------------------------------------ WiFi
 
 bool wifiJoin() {
@@ -518,9 +712,14 @@ void taskWifi(void* param) {
   server.on("/wifi", HTTP_GET, handleWifiGet);
   server.on("/wifi", HTTP_POST, handleWifiSave);
   server.on("/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareData);
+  server.on("/config", HTTP_GET, handleConfigGet);
+  server.on("/config", HTTP_POST, handleConfigSave);
+  server.on("/mdi", HTTP_POST, handleMdi);
+  server.on("/log", HTTP_GET, handleLog);
   server.begin();
   while (emergencyStop == ESTOP_NONE) {
     server.handleClient();
+    if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
     if (wifiRestartPending && (long)(millis() - wifiRestartAt) >= 0 && !cncRunActive()) ESP.restart();
     if (!wifiSetupAp && WiFi.status() != WL_CONNECTED) {
       wifiStatusText = "WiFi lost";

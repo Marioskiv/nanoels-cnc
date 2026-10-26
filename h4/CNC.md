@@ -33,6 +33,7 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 | G93, G94 | inverse time / units per minute. After G93 a G94 move must give its own F |
 | G8, G17, G18, G19, G40, G49, G54, G61, G64 (P), G80 | accepted, nothing to do |
 | G43 H | accepted with a note: set tool lengths by touching off Z |
+| G32 X.. Z.. F*lead* / G33 X.. Z.. K*lead* | threading move synchronised to the spindle encoder, as `G32` on the NanoEls H5. The lead is per spindle turn (current units); G33 with K is the LinuxCNC form. Each pass waits for the same spindle angle, so repeated passes cut the same groove. Not modal; F of a G32 line does not change the feed rate. Like the threading mode of the H4, the axis needs a short run-in to reach the spindle speed: start each pass a few mm before the thread |
 | M0, M1, M6 | pause; **ON** on the H4 (or `~` over USB) continues |
 | M2, M30 | end of program, after the motion has finished |
 | M3, M4, M5, M7, M8, M9, S, T, N | accepted (spindle and coolant are switched by hand) |
@@ -70,6 +71,19 @@ convenience, **not** an emergency stop: keep a real one within reach.
   without PSRAM) and then runs it from memory with look-ahead. Nothing is read from or written to the flash
   while the machine moves (the step timer must not stop during a flash write), so uploads, deletions and
   settings are refused while a program runs.
+- **H4 display and keys**: the page shows the 4 lines of the H4 display and all its keys. The arrows (and
+  GEARS / TURN, which move A1 in its mode) move while held; the page repeats the press every 150 ms and the
+  controller releases the key by itself if the repeats stop for half a second (page closed, phone asleep,
+  WiFi lost).
+- **Run line** (MDI): one G-code line typed on the page runs as a one-line program in the GCODE mode, for
+  example `G0 C90` or `G91 G0 X-1`. Every line starts with the program modes (G90, G1, mm, default feed).
+- **Messages**: errors and notes of the GCODE mode (which line, why).
+- **Machine settings**: encoder, Z / X / A1 axes (steps, travel per turn, speeds, acceleration, inverted,
+  driver release, backlash), handwheels, manual stepping and the GCODE-mode settings, shown in mm, mm/s and
+  mm/s². They are kept in the controller (Preferences) and used after the automatic restart; the values
+  at the top of `h4.ino` are the defaults (button *Defaults from the firmware*). Pins and axis letters stay
+  in `h4.ino`. If the steps or the travel per turn of an axis, or the encoder, change, the saved positions
+  and stops would be wrong, so they are cleared with the other saved H4 values.
 - **Firmware updates** go over WiFi after the first flash (`.bin` from *Sketch → Export Compiled Binary*).
   USB is needed only once, for the first flash with the partition table below.
 
@@ -82,10 +96,10 @@ are kept.
 
 ## Settings for a polar machine (X radial, Z axial, chuck on C)
 
-In `h4.ino`: the `MOTOR_STEPS_*`, `SCREW_*_DU`, `SPEED_MANUAL_MOVE_*`, `ACCELERATION_*`, `INVERT_*` and
-`BACKLASH_DU_*` of X, Z and A1 for the machine; `ACTIVE_A1 = true`, `NAME_A1 = 'C'`, `ROTARY_A1 = true`
-(the C motor on terminal AUX1: enable 9, direction 10, step 11); `SPINDLE_PAUSES_GCODE = false` (the
-chuck is turned by the C motor, the spindle encoder must not pause the program).
+On the web page (*Machine settings*) or in `h4.ino`: steps, travel per turn, speeds, accelerations,
+direction and backlash of X, Z and A1 for the machine; A1 *Connected* and *Rotary* (the C motor on terminal
+A1: enable 9, direction 10, step 11, letter `NAME_A1 = 'C'` in `h4.ino`); *Pause the program when the
+spindle stops* off (the chuck is turned by the C motor, the spindle encoder must not pause the program).
 
 ## Tests (on a PC)
 

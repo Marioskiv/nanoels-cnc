@@ -128,6 +128,54 @@ int main() {
   if (cnc_plan_blocks_used() != used1 + 2) { printf("FAIL backlash block not added (%d -> %d)\n", used1, cnc_plan_blocks_used()); failures++; }
   expectPos(0, 0, 0, "after reversal");
 
+  // G32 / G33 threading: nothing planned, the target and lead are handed over, the feed rate stays
+  setup(true, 0);
+  expect("G1 X1 F150", CNC_OK);
+  uint8_t usedT = cnc_plan_blocks_used();
+  expect("G32 Z-10 F1.5", CNC_THREAD);
+  {
+    int32_t t[3]; float lead;
+    cnc_gc_thread(t, &lead);
+    checks++;
+    if (t[0] != 1200 || t[1] != -4000 || t[2] != 0 || lead != 1.5f || cnc_plan_blocks_used() != usedT) {
+      printf("FAIL G32 target %d %d %d lead %g\n", t[0], t[1], t[2], lead); failures++;
+    }
+  }
+  expect("G33 X2 Z-12 K2", CNC_THREAD);
+  {
+    int32_t t[3]; float lead;
+    cnc_gc_thread(t, &lead);
+    checks++;
+    if (t[0] != 2400 || t[1] != -4800 || lead != 2.0f) { printf("FAIL G33 target %d %d lead %g\n", t[0], t[1], lead); failures++; }
+  }
+  expect("G20 G33 Z-0.5 K0.1", CNC_THREAD);
+  {
+    int32_t t[3]; float lead;
+    cnc_gc_thread(t, &lead);
+    checks++;
+    if (t[1] != -5080 || lead < 2.539f || lead > 2.541f) { printf("FAIL G33 inch %d lead %g\n", t[1], lead); failures++; }
+  }
+  expect("G21", CNC_OK);
+  expect("G32 Z-10", CNC_ERROR, "needs F");
+  expect("G33 Z-10 F1", CNC_ERROR, "needs K");
+  expect("G32 Z-10 K1", CNC_ERROR, "arcs");
+  expect("G32 C10 Z-10 F1", CNC_ERROR, "X and Z only");
+  expect("G32 F1", CNC_ERROR, "needs X or Z");
+  expect("G32 G1 Z-10 F1", CNC_ERROR, "alone");
+  expect("G33 Z-10 K30", CNC_ERROR, "at most");
+  // the next plain move still uses F150, not the lead
+  cnc_plan_reset();
+  {
+    int32_t p0[3] = {2400, -5080, 0}, z0[3] = {0, 0, 0};
+    bool n0[3] = {false, false, false};
+    cnc_gc_sync(p0, z0, n0);
+  }
+  expect("X0", CNC_OK);
+  checks++;
+  if (cnc_plan_last_block_minutes() < 2.0f / 150 * 0.99f || cnc_plan_last_block_minutes() > 2.0f / 150 * 1.01f) {
+    printf("FAIL feed after G32: %g min\n", cnc_plan_last_block_minutes()); failures++;
+  }
+
   printf("parse: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

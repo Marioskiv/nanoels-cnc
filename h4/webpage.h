@@ -28,6 +28,13 @@ canvas{width:100%;aspect-ratio:1;background:#000;border-radius:8px}
 .keys{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.keys button{padding:12px 4px;font-size:14px}
 input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px;border:1px solid var(--line);background:#000;color:var(--fg);width:100%}
 #msg{min-height:1.4em;color:var(--warn)}code{font-size:14px;word-break:break-all}
+.lcd{background:#0b1f10;color:#7cf08f;font:600 17px ui-monospace,monospace;padding:10px;border-radius:8px;white-space:pre;overflow-x:auto;line-height:1.35}
+.keys button.hold{touch-action:none;user-select:none;-webkit-user-select:none}.keys button.down{background:var(--acc)}
+#log{font:13px ui-monospace,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;color:var(--dim)}
+details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;font-weight:600;padding:4px 0}
+.cfg{display:grid;grid-template-columns:1fr 150px;gap:6px 10px;align-items:center;font-size:14px;margin:6px 0}
+.cfg input[type=number],.cfg select{font:inherit;padding:6px;border-radius:6px;border:1px solid var(--line);background:#000;color:var(--fg);width:100%}
+.cfg .hint{grid-column:1/-1;font-size:12px;color:var(--dim);margin-top:-4px}.changed{outline:2px solid var(--warn)}
 </style></head><body>
 <header><h1>NanoEls H4 CNC</h1><span class="badge" id="state">-</span><span class="small" id="wifi"></span></header>
 <main>
@@ -42,6 +49,7 @@ input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px
 <div class="row"><button class="start" id="bStart" onclick="startSel()">Start</button>
 <button class="pause" onclick="cmd('pause')">Pause</button><button onclick="cmd('resume')">Resume</button></div>
 <div class="row"><button class="stop" onclick="cmd('stop')">STOP</button></div>
+<form class="row" id="mdiform"><input type="text" id="mdi" placeholder="one G-code line, e.g. G0 C90" autocomplete="off" style="flex:1"><input type="submit" id="bMdi" value="Run line"></form>
 <div class="small">Keep a real emergency stop within reach. The page is a convenience, not a safety device.</div>
 <div id="msg"></div></section>
 
@@ -53,8 +61,16 @@ input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px
 <div class="bar"><div id="ubar"></div></div>
 <table id="files"></table><div class="small" id="fs"></div></section>
 
-<section><h2>H4 keys</h2><div class="keys" id="keys"></div>
-<div class="small">The same as the keys on the controller (one press each).</div></section>
+<section><h2>H4 display and keys</h2><div class="lcd" id="lcd"></div><div style="height:8px"></div><div class="keys" id="keys"></div>
+<div class="small">The same as the keys on the controller. Arrows, GEARS and TURN move while held; if the page loses
+the connection the key is released within half a second.</div></section>
+
+<section><h2>Messages</h2><div id="log">No messages.</div></section>
+
+<section><h2>Machine settings</h2><div id="cfg" class="small">Loading...</div>
+<div class="row"><button onclick="saveCfg()">Save and restart</button><button onclick="resetCfg()">Defaults from the firmware</button></div>
+<div class="small">Only while the machine is off. If the steps or the travel per turn of an axis (or the encoder) change,
+the saved positions, stops and other H4 values are cleared.</div></section>
 
 <section><h2>WiFi and firmware</h2>
 <div class="row"><input type="text" id="ssid" placeholder="WiFi network name"><input type="password" id="pw" placeholder="password (empty = keep)">
@@ -78,6 +94,8 @@ function show(){const u=st.inch?' in':' mm';$('state').textContent=st.state+(st.
  $('wifi').textContent=st.wifi;$('pname').textContent=st.program||'no program';$('stext').textContent=st.text;
  const p=st.running||st.programLoaded?st.progress:0;$('pbar').style.width=(p*100)+'%';$('ppct').textContent=(p*100).toFixed(1)+' %';$('pline').textContent=st.line;
  $('bStart').disabled=!!st.running;$('fs').textContent=st.fsTotal?('free '+((st.fsTotal-st.fsUsed)/1048576).toFixed(2)+' MB of '+(st.fsTotal/1048576).toFixed(2)+' MB, program memory '+(st.psram?(st.psram/1048576).toFixed(2)+' MB (PSRAM)':'without PSRAM: up to 120 kB')):'';
+ $('lcd').textContent=(st.lcd||[]).join('\n');$('bMdi').disabled=!!st.running;
+ if(st.log!==logSeen){logSeen=st.log;loadLog()}
  drawPath()}
 async function listFiles(){try{const r=await fetch('/files');if(!r.ok){msg(await r.text());return}files=await r.json();
  $('files').innerHTML=files.map(f=>`<tr><td><label><input type="radio" name="sel" value="${f.name}" ${f.name==selected?'checked':''} onchange="selected=this.value"> ${f.name}</label></td><td>${(f.size/1024).toFixed(1)} kB</td><td><button onclick="draw('${f.name}')">Draw</button> <button onclick="del('${f.name}')">Delete</button></td></tr>`).join('')||'<tr><td>No files yet.</td></tr>'}catch(e){msg(e.message)}}
@@ -104,16 +122,57 @@ function drawPath(){const cv=$('cv'),g=cv.getContext('2d');g.clearRect(0,0,cv.wi
  if(drawn.hasC){g.strokeStyle='#444';g.beginPath();g.arc(ox,oy,3,0,7);g.stroke()}
  const cur=T(xy([st.x,st.z,st.c],drawn.hasC));g.fillStyle='#e33';g.beginPath();g.arc(cur[0],cur[1],6,0,7);g.fill();
  $('pathinfo').textContent=drawn.name+': '+drawn.pts.length+' moves'+(drawn.hasC?', seen from the cutter (X radius, C angle)':', Z across, X up')}
+let logSeen=-1,mdiBusy=false;
+$('mdiform').onsubmit=async e=>{e.preventDefault();const l=$('mdi').value.trim();if(!l)return;
+ try{msg(await post('/mdi',new URLSearchParams({line:l})))}catch(err){msg(err.message)}};
+async function loadLog(){try{const r=await fetch('/log');const a=await r.json();$('log').textContent=a.length?a.join('\n'):'No messages.'}catch(e){}}
+const HOLD=new Set([47,67,57,37,42,52]);let holdCode=0,holdTimer=0;
+function holdStart(c,b){holdEnd();holdCode=c;b.classList.add('down');const send=()=>fetch('/key?code='+c+'&hold=1',{method:'POST'}).catch(()=>{});send();holdTimer=setInterval(send,150)}
+function holdEnd(){if(!holdCode)return;clearInterval(holdTimer);fetch('/key?code='+holdCode+'&hold=0',{method:'POST'}).catch(()=>{});holdCode=0;
+ document.querySelectorAll('.keys .down').forEach(b=>b.classList.remove('down'))}
+addEventListener('blur',holdEnd);document.addEventListener('visibilitychange',holdEnd);
 const KEYS=[['↑',47],['↓',67],['←',57],['→',37],['STEP',24],['-',5],['+',64],['ON',17],['OFF',27],['DISPL',14],
  ['GEARS',42],['TURN',52],['FACE',62],['CONE',3],['CUT',13],['THREAD',23],['MODE',33],['MEAS',54],['REV',44],['⌫',32],
  ['STOP L',7],['STOP R',15],['STOP U',6],['STOP D',16],['X0',53],['Z0',43],['A',4],['B',63],['7',11],['8',22],['9',1],['4',2],['5',21],['6',12],['1',41],['2',61],['3',31],['0',51]];
-$('keys').innerHTML=KEYS.map(([t,c])=>`<button onclick="key(${c})">${t}</button>`).join('');
+$('keys').innerHTML=KEYS.map(([t,c])=>HOLD.has(c)?`<button class="hold" data-c="${c}">${t}</button>`:`<button onclick="key(${c})">${t}</button>`).join('');
+document.querySelectorAll('.keys .hold').forEach(b=>{const c=+b.dataset.c;
+ b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);holdStart(c,b)});
+ for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,holdEnd);
+ b.addEventListener('contextmenu',e=>e.preventDefault())});
+// Machine settings: stored in the firmware's units (steps, deci-microns), shown in mm, mm/s, mm/s2.
+let cfg=null;
+function cfgVal(k){const it=cfg.items.find(i=>i.k==k);const el=$('c_'+k);return el?(it.t=='b'?(el.checked?1:0):el.value):it.v}
+function spu(p){const steps=+cfgVal(p+'Steps');const it=cfg.items.find(i=>i.k==p+'Screw');const el=$('c_'+p+'Screw');
+ const screw=el?+el.value*10000:it.v;return steps/(screw/10000)}
+function unitText(it){const rot=it.k[0]=='a'&&cfg.items.find(i=>i.k=='aRot').v;const L=rot?'°':'mm';
+ if(it.u=='du')return L;if(it.u.startsWith('v:'))return L+'/s';if(it.u.startsWith('a:'))return L+'/s²';return it.u}
+function toShow(it,v){if(it.u=='du')return +(v/10000).toPrecision(8);if(it.u.startsWith('v:')||it.u.startsWith('a:'))return +(v/spu(it.u[2])).toPrecision(7);return v}
+function renderCfg(){const groups={};for(const it of cfg.items)(groups[it.g]=groups[it.g]||[]).push(it);let h='';
+ for(const g in groups){h+=`<details><summary>${g}</summary><div class="cfg">`;for(const it of groups[g]){const id='c_'+it.k,u=unitText(it);let inp;
+  if(it.t=='b')inp=`<input type="checkbox" id="${id}" ${it.v?'checked':''}>`;
+  else if(it.t=='a')inp=`<select id="${id}"><option ${it.v=='Z'?'selected':''}>Z</option><option ${it.v=='X'?'selected':''}>X</option></select>`;
+  else inp=`<input type="number" step="any" id="${id}" value="${toShow(it,it.v)}">`;
+  h+=`<label for="${id}">${it.l}${u?' ('+u+')':''}</label>${inp}`}
+  h+='</div></details>'}
+ $('cfg').innerHTML=h;$('cfg').classList.remove('small');
+ $('cfg').querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>el.classList.add('changed')))}
+async function loadCfg(){try{const r=await fetch('/config');cfg=await r.json();renderCfg()}catch(e){$('cfg').textContent='Could not load the settings.'}}
+async function saveCfg(){if(!cfg)return;const q=new URLSearchParams();
+ for(const it of cfg.items){const el=$('c_'+it.k);let v;
+  if(it.t=='b')v=el.checked?1:0;else if(it.t=='a')v=el.value;
+  else{const x=parseFloat(el.value);if(!isFinite(x)){msg(it.g+', '+it.l+': not a number');return}
+   if(it.u=='du')v=Math.round(x*10000);else if(it.u.startsWith('v:')||it.u.startsWith('a:'))v=Math.round(x*spu(it.u[2]));
+   else if(it.t=='f')v=x;else v=Math.round(x)}
+  q.append(it.k,v)}
+ if(!confirm('Save the machine settings? The controller restarts.'))return;try{msg(await post('/config',q))}catch(e){msg(e.message)}}
+async function resetCfg(){if(!confirm('Go back to the values written in the firmware? The controller restarts.'))return;
+ try{msg(await post('/config?reset=1'))}catch(e){msg(e.message)}}
 async function key(c){try{await post('/key?code='+c)}catch(e){msg(e.message)}}
 async function saveWifi(){const fd=new URLSearchParams({ssid:$('ssid').value,password:$('pw').value});try{msg(await post('/wifi',fd))}catch(e){msg(e.message)}}
 function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmware with '+f.name+'?'))return;const fd=new FormData();fd.append('fw',f,f.name);
  const x=new XMLHttpRequest();x.open('POST','/firmware');x.upload.onprogress=ev=>{$('fwmsg').textContent=Math.round(ev.loaded/ev.total*100)+' %'};
  x.onload=()=>{$('fwmsg').textContent=x.responseText};x.send(fd)}
 fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{});
-listFiles();poll();
+listFiles();loadCfg();poll();
 </script></body></html>
 )rawpage";

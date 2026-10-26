@@ -26,10 +26,12 @@ enum {
   CNC_WAIT,       // the planner is too full: call cnc_st_prep_buffer() and try the same line again
   CNC_DWELL,      // wait until motion is done, then wait *dwell seconds
   CNC_PAUSE,      // wait until motion is done, then pause until the operator resumes (M0, M1, M6)
-  CNC_END         // wait until motion is done, then end the program (M2, M30)
+  CNC_END,        // wait until motion is done, then end the program (M2, M30)
+  CNC_THREAD      // wait until motion is done, then run the threading move of cnc_gc_thread() (G32, G33)
 };
 
 void cnc_gc_init(const cnc_machine_t* m);
+void cnc_gc_set_machine(const cnc_machine_t* m);  // as cnc_gc_init, but the modes (G90, G93, F...) stay
 // Sets the tool position (steps), the work zero (steps) and which way each axis last moved.
 // Call only when no motion is queued.
 void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t workZero[CNC_N_AXIS], const bool lastNeg[CNC_N_AXIS]);
@@ -37,3 +39,6 @@ void cnc_gc_reset_modes();           // G0 G90 G94 G21, start of a program
 int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float* dwell);
 bool cnc_gc_inverse_time();          // G93 active
 bool cnc_gc_last_neg(int axis);
+// Target (steps) and lead (mm per spindle turn) of the last CNC_THREAD line. The caller moves the axes,
+// then calls cnc_gc_sync() with the reached position.
+void cnc_gc_thread(int32_t target[CNC_N_AXIS], float* leadMm);

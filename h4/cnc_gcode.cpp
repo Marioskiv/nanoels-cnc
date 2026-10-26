@@ -14,6 +14,9 @@
     G93 G94           inverse time (F = 1/minutes of each move) / units per minute
     G8 G17 G18 G19 G40 G49 G54 G61 G64 G80   accepted, nothing to do on this machine
     G43               accepted; tool lengths are set by touching off Z (a note is sent)
+    G32 X.. Z.. F<lead>   spindle-synchronised threading move (as on the NanoEls H5): F is the lead per
+    G33 X.. Z.. K<lead>   spindle turn in the current units; G33 is the LinuxCNC form. Not modal, and F of
+                      a G32 line does not change the feed rate. Executed by the H4 with the spindle encoder
     M0 M1 M6          pause until the operator resumes (tool change by hand)
     M2 M30            end of program
     M3 M4 M5 M7 M8 M9 accepted (spindle and coolant are switched by hand)
@@ -38,10 +41,16 @@ static bool incremental;
 static bool inches;
 static bool inverseTime;
 static float feedRate;               // units/min (G94)
+static int32_t threadTarget[CNC_N_AXIS];
+static float threadLead;             // mm per spindle turn
 
 void cnc_gc_init(const cnc_machine_t* m) {
   machine = *m;
   cnc_gc_reset_modes();
+}
+
+void cnc_gc_set_machine(const cnc_machine_t* m) {
+  machine = *m;
 }
 
 void cnc_gc_reset_modes() {
@@ -66,6 +75,10 @@ void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t zero[CNC_N_AXIS], 
 
 bool cnc_gc_inverse_time() { return inverseTime; }
 bool cnc_gc_last_neg(int axis) { return lastNeg[axis]; }
+void cnc_gc_thread(int32_t target[CNC_N_AXIS], float* leadMm) {
+  for (int i = 0; i < CNC_N_AXIS; i++) target[i] = threadTarget[i];
+  *leadMm = threadLead;
+}
 
 static int fail(char* msg, int msgLen, const char* text) {
   snprintf(msg, msgLen, "%s", text);
@@ -116,12 +129,16 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   int newMotion = motionMode;
   bool newIncremental = incremental, newInches = inches, newInverse = inverseTime;
   bool dwellCode = false, g43 = false, g64 = false, motionCode = false;
+  int threadCode = 0;  // 32 or 33
   int mAction = 0;  // 1 pause, 2 end
   bool hasAxis[CNC_N_AXIS] = {false, false, false};
   double axisValue[CNC_N_AXIS] = {0, 0, 0};
-  bool hasF = false, hasP = false;
-  double fValue = 0, pValue = 0;
+  bool hasF = false, hasP = false, hasK = false;
+  double fValue = 0, pValue = 0, kValue = 0;
 
+  for (int w = 0; w < n; w++) {  // a G33 anywhere on the line makes K its lead
+    if (letters[w] == 'G' && fabs(values[w] - 33) < 1e-6) threadCode = 33;
+  }
   for (int w = 0; w < n; w++) {
     char c = letters[w];
     double v = values[w];
@@ -140,6 +157,8 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
         case 940: newInverse = false; break;
         case 430: g43 = true; break;
         case 640: g64 = true; break;  // path tolerance P: the planner keeps the exact path anyway
+        case 320: threadCode = 32; break;
+        case 330: threadCode = 33; break;
         case 80: case 170: case 180: case 190: case 400: case 490: case 540: case 610: case 800:
           break;
         case 20: case 30: return fail(msg, msgLen, "arcs (G2/G3) are not supported: post the program with lines only");
@@ -165,6 +184,8 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
       hasP = true; pValue = v;
     } else if (c == 'N' || c == 'S' || c == 'T' || c == 'H') {
       // line number, spindle speed, tool number, tool length register: nothing to do
+    } else if (c == 'K' && threadCode == 33) {
+      hasK = true; kValue = v;
     } else if (c == 'I' || c == 'J' || c == 'K' || c == 'R') {
       return fail(msg, msgLen, "arcs are not supported: post the program with lines only");
     } else {
@@ -189,6 +210,39 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (hasP && !dwellCode && !g64) return fail(msg, msgLen, "P without G4");
   if (motionCode && dwellCode) return fail(msg, msgLen, "G0/G1 and G4 on one line");
   if (hasF && !(fValue > 0) && !(newInverse && !anyAxis)) return fail(msg, msgLen, "F must be positive");
+
+  if (threadCode) {
+    if (motionCode || dwellCode || mAction) return fail(msg, msgLen, "G32/G33 must be alone on its line");
+    if (hasAxis[CNC_C]) return fail(msg, msgLen, "G32/G33 moves X and Z only");
+    if (!hasAxis[CNC_X] && !hasAxis[CNC_Z]) return fail(msg, msgLen, "G32/G33 needs X or Z");
+    if (threadCode == 32 && hasK) return fail(msg, msgLen, "G32 takes the lead as F");
+    if (threadCode == 33 && !hasK) return fail(msg, msgLen, "G33 needs K (lead per spindle turn)");
+    if (threadCode == 32 && !hasF) return fail(msg, msgLen, "G32 needs F (lead per spindle turn)");
+    double lead = (threadCode == 32 ? fValue : kValue) * (newInches ? 25.4 : 1.0);
+    if (!(lead > 0) || lead > 25.4) return fail(msg, msgLen, "thread lead must be above 0 and at most 25.4 mm");
+    const cnc_settings_t* s = cnc_core_get_settings();
+    double prog[CNC_N_AXIS];
+    int32_t target[CNC_N_AXIS];
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      prog[i] = progPos[i];
+      if (hasAxis[i]) prog[i] = newIncremental ? progPos[i] + axisValue[i] * (newInches ? 25.4 : 1.0) : axisValue[i] * (newInches ? 25.4 : 1.0);
+      target[i] = workZero[i] + (int32_t)llround(prog[i] * s->stepsPerUnit[i]);
+      if (machine.checkLimits && hasAxis[i] && (target[i] < machine.minSteps[i] || target[i] > machine.maxSteps[i])) {
+        snprintf(msg, msgLen, "%c%.4f is outside the limits", machine.name[i], prog[i]);
+        return CNC_ERROR;
+      }
+    }
+    // Valid: the modes of the line apply, the feed rate does not change (F is the lead).
+    incremental = newIncremental;
+    inches = newInches;
+    inverseTime = newInverse;
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      threadTarget[i] = target[i];
+      progPos[i] = prog[i];
+    }
+    threadLead = (float)lead;
+    return CNC_THREAD;
+  }
 
   // Motion: check everything before anything is planned.
   int32_t target[CNC_N_AXIS];

@@ -4,72 +4,74 @@
 // fork is distributed under the GNU GPL v3 (see LICENSE); the original NanoEls code is MIT.
 
 /* Change values in this section to suit your hardware. */
+// CNC fork: these values are the defaults. Most of them can also be changed on the web page (Machine
+// settings, stored in Preferences); the web values win over the ones written here.
 
 // Define your hardware parameters here.
-const int ENCODER_PPR = 600; // 600 step spindle optical rotary encoder. Fractional values not supported.
-const int ENCODER_BACKLASH = 3; // Numer of impulses encoder can issue without movement of the spindle
+int ENCODER_PPR = 600; // 600 step spindle optical rotary encoder. Fractional values not supported.
+int ENCODER_BACKLASH = 3; // Numer of impulses encoder can issue without movement of the spindle
 
 // Spindle rotary encoder pins. Swap values if the rotation direction is wrong.
 #define ENC_A 7
 #define ENC_B 15
 
 // Main lead screw (Z) parameters.
-const long SCREW_Z_DU = 20000; // 2mm lead screw in deci-microns (10^-7 of a meter)
-const long MOTOR_STEPS_Z = 800;
-const long SPEED_START_Z = 2 * MOTOR_STEPS_Z; // Initial speed of a motor, steps / second.
-const long ACCELERATION_Z = 30 * MOTOR_STEPS_Z; // Acceleration of a motor, steps / second ^ 2.
-const long SPEED_MANUAL_MOVE_Z = 6 * MOTOR_STEPS_Z; // Maximum speed of a motor during manual move, steps / second.
-const bool INVERT_Z = false; // change (true/false) if the carriage moves e.g. "left" when you press "right".
-const bool NEEDS_REST_Z = false; // Set to false for closed-loop drivers, true for open-loop.
-const long MAX_TRAVEL_MM_Z = 300; // Lathe bed doesn't allow to travel more than this in one go, 30cm / ~1 foot
-const long BACKLASH_DU_Z = 6500; // 0.65mm backlash in deci-microns (10^-7 of a meter)
+long SCREW_Z_DU = 20000; // 2mm lead screw in deci-microns (10^-7 of a meter)
+long MOTOR_STEPS_Z = 800;
+long SPEED_START_Z = 2 * MOTOR_STEPS_Z; // Initial speed of a motor, steps / second.
+long ACCELERATION_Z = 30 * MOTOR_STEPS_Z; // Acceleration of a motor, steps / second ^ 2.
+long SPEED_MANUAL_MOVE_Z = 6 * MOTOR_STEPS_Z; // Maximum speed of a motor during manual move, steps / second.
+bool INVERT_Z = false; // change (true/false) if the carriage moves e.g. "left" when you press "right".
+bool NEEDS_REST_Z = false; // Set to false for closed-loop drivers, true for open-loop.
+long MAX_TRAVEL_MM_Z = 300; // Lathe bed doesn't allow to travel more than this in one go, 30cm / ~1 foot
+long BACKLASH_DU_Z = 6500; // 0.65mm backlash in deci-microns (10^-7 of a meter)
 const char NAME_Z = 'Z'; // Text shown on screen before axis position value, GCode axis name
 
 // Cross-slide lead screw (X) parameters.
-const long SCREW_X_DU = 12500; // 1.25mm lead screw with 3x reduction in deci-microns (10^-7) of a meter
-const long MOTOR_STEPS_X = 2400; // 800 steps at 3x reduction
-const long SPEED_START_X = MOTOR_STEPS_X; // Initial speed of a motor, steps / second.
-const long ACCELERATION_X = 10 * MOTOR_STEPS_X; // Acceleration of a motor, steps / second ^ 2.
-const long SPEED_MANUAL_MOVE_X = 3 * MOTOR_STEPS_X; // Maximum speed of a motor during manual move, steps / second.
-const bool INVERT_X = true; // change (true/false) if the carriage moves e.g. "left" when you press "right".
-const bool NEEDS_REST_X = false; // Set to false for all kinds of drivers or X will be unlocked when not moving.
-const long MAX_TRAVEL_MM_X = 100; // Cross slide doesn't allow to travel more than this in one go, 10cm
-const long BACKLASH_DU_X = 1500; // 0.15mm backlash in deci-microns (10^-7 of a meter)
+long SCREW_X_DU = 12500; // 1.25mm lead screw with 3x reduction in deci-microns (10^-7) of a meter
+long MOTOR_STEPS_X = 2400; // 800 steps at 3x reduction
+long SPEED_START_X = MOTOR_STEPS_X; // Initial speed of a motor, steps / second.
+long ACCELERATION_X = 10 * MOTOR_STEPS_X; // Acceleration of a motor, steps / second ^ 2.
+long SPEED_MANUAL_MOVE_X = 3 * MOTOR_STEPS_X; // Maximum speed of a motor during manual move, steps / second.
+bool INVERT_X = true; // change (true/false) if the carriage moves e.g. "left" when you press "right".
+bool NEEDS_REST_X = false; // Set to false for all kinds of drivers or X will be unlocked when not moving.
+long MAX_TRAVEL_MM_X = 100; // Cross slide doesn't allow to travel more than this in one go, 10cm
+long BACKLASH_DU_X = 1500; // 0.15mm backlash in deci-microns (10^-7 of a meter)
 const char NAME_X = 'X'; // Text shown on screen before axis position value, GCode axis name
 
 // Manual stepping with left/right/up/down buttons. Only used when step isn't default continuous (1mm or 0.1").
-const long STEP_TIME_MS = 500; // Time in milliseconds it should take to make 1 manual step.
-const long DELAY_BETWEEN_STEPS_MS = 80; // Time in milliseconds to wait between steps.
+long STEP_TIME_MS = 500; // Time in milliseconds it should take to make 1 manual step.
+long DELAY_BETWEEN_STEPS_MS = 80; // Time in milliseconds to wait between steps.
 
 /* Changing anything below shouldn't be needed for basic use. */
 
 // Configuration for axis connected to A1. This is uncommon. Dividing head (C) motor parameters.
 // Throughout the configuration below we assume 1mm = 1degree of rotation, so 1du = 0.0001degree.
-const bool ACTIVE_A1 = false; // Whether the axis is connected
-const bool ROTARY_A1 = true; // Whether the axis is rotary or linear
-const long MOTOR_STEPS_A1 = 300; // Number of motor steps for 1 rotation of the the worm gear screw (full step with 20:30 reduction)
-const long SCREW_A1_DU = 20000; // Degrees multiplied by 10000 that the spindle travels per 1 turn of the worm gear. 2 degrees.
-const long SPEED_START_A1 = 1600; // Initial speed of a motor, steps / second.
-const long ACCELERATION_A1 = 16000; // Acceleration of a motor, steps / second ^ 2.
-const long SPEED_MANUAL_MOVE_A1 = 3200; // Maximum speed of a motor during manual move, steps / second.
-const bool INVERT_A1 = false; // change (true/false) if the carriage moves e.g. "left" when you press "right".
-const bool NEEDS_REST_A1 = false; // Set to false for closed-loop drivers. Open-loop: true if you need holding torque, false otherwise.
-const long MAX_TRAVEL_MM_A1 = 360; // Probably doesn't make sense to ask the dividin head to travel multiple turns.
-const long BACKLASH_DU_A1 = 0; // Assuming no backlash on the worm gear
+bool ACTIVE_A1 = false; // Whether the axis is connected
+bool ROTARY_A1 = true; // Whether the axis is rotary or linear
+long MOTOR_STEPS_A1 = 300; // Number of motor steps for 1 rotation of the the worm gear screw (full step with 20:30 reduction)
+long SCREW_A1_DU = 20000; // Degrees multiplied by 10000 that the spindle travels per 1 turn of the worm gear. 2 degrees.
+long SPEED_START_A1 = 1600; // Initial speed of a motor, steps / second.
+long ACCELERATION_A1 = 16000; // Acceleration of a motor, steps / second ^ 2.
+long SPEED_MANUAL_MOVE_A1 = 3200; // Maximum speed of a motor during manual move, steps / second.
+bool INVERT_A1 = false; // change (true/false) if the carriage moves e.g. "left" when you press "right".
+bool NEEDS_REST_A1 = false; // Set to false for closed-loop drivers. Open-loop: true if you need holding torque, false otherwise.
+long MAX_TRAVEL_MM_A1 = 360; // Probably doesn't make sense to ask the dividin head to travel multiple turns.
+long BACKLASH_DU_A1 = 0; // Assuming no backlash on the worm gear
 const char NAME_A1 = 'C'; // Text shown on screen before axis position value, GCode axis name
 
 // Manual handwheels on A1 and A2. Ignore if you don't have them installed.
-const bool PULSE_1_USE = false; // Whether there's a pulse generator connected on A11-A13 to be used for movement.
-const char PULSE_1_AXIS = NAME_Z; // Set to NAME_X to make A11-A13 pulse generator control X instead.
-const bool PULSE_1_INVERT = false; // Set to true to change the direction in which encoder moves the axis
-const bool PULSE_2_USE = false; // Whether there's a pulse generator connected on A21-A23 to be used for movement.
-const char PULSE_2_AXIS = NAME_X; // Set to NAME_Z to make A21-A23 pulse generator control Z instead.
-const bool PULSE_2_INVERT = true; // Set to false to change the direction in which encoder moves the axis
-const float PULSE_PER_REVOLUTION = 100; // PPR of handwheels used on A1 and/or A2.
+bool PULSE_1_USE = false; // Whether there's a pulse generator connected on A11-A13 to be used for movement.
+char PULSE_1_AXIS = NAME_Z; // Set to NAME_X to make A11-A13 pulse generator control X instead.
+bool PULSE_1_INVERT = false; // Set to true to change the direction in which encoder moves the axis
+bool PULSE_2_USE = false; // Whether there's a pulse generator connected on A21-A23 to be used for movement.
+char PULSE_2_AXIS = NAME_X; // Set to NAME_Z to make A21-A23 pulse generator control Z instead.
+bool PULSE_2_INVERT = true; // Set to false to change the direction in which encoder moves the axis
+float PULSE_PER_REVOLUTION = 100; // PPR of handwheels used on A1 and/or A2.
 const long PULSE_MIN_WIDTH_US = 1000; // Microseconds width of the pulse that is required for it to be registered. Prevents noise.
 const long PULSE_HALF_BACKLASH = 2; // Prevents spurious reverses when moving using a handwheel. Raise to 3 or 4 if they still happen.
 
-const int ENCODER_STEPS_INT = ENCODER_PPR * 2; // Number of encoder impulses PCNT counts per revolution of the spindle
+int ENCODER_STEPS_INT = ENCODER_PPR * 2; // Number of encoder impulses PCNT counts per revolution of the spindle
 const int ENCODER_FILTER = 2; // Encoder pulses shorter than this will be ignored. Clock cycles, 1 - 1023.
 const int PCNT_LIM = 31000; // Limit used in hardware pulse counter logic.
 const int PCNT_CLEAR = 30000; // Limit where we reset hardware pulse counter value to avoid overflow. Less than PCNT_LIM.
@@ -90,13 +92,13 @@ const long STEPPED_ENABLE_DELAY_MS = 100; // Delay after stepper is enabled and 
 // GCode-related constants.
 const float LINEAR_INTERPOLATION_PRECISION = 0.1; // 0 < x <= 1, smaller values make for quicker G0 and G1 moves
 const long GCODE_WAIT_EPSILON_STEPS = 10;
-const bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops. Set to false for polar milling, where the chuck is turned by the C motor
-const int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
+bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops. Set to false for polar milling, where the chuck is turned by the C motor
+int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 
 // GCODE mode as a CNC. Axis speeds and accelerations are the SPEED_MANUAL_MOVE_* and ACCELERATION_* values above.
-const float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl $11). Smaller = slower corners
-const int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
-const bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
+float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl $11). Smaller = slower corners
+int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
+bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
 const bool WIFI_ENABLED = true; // web page on the controller: G-code files, status, control (see wifi.ino)
 
 // To be incremented whenever a measurable improvement is made.
@@ -236,8 +238,8 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 // E.g. 80.02tpi would be shown as 80tpi but 80.04tpi would be shown as-is.
 const float TPI_ROUND_EPSILON = 0.03;
 
-const float ENCODER_STEPS_FLOAT = ENCODER_STEPS_INT; // Convenience float version of ENCODER_STEPS_INT
-const long RPM_BULK = ENCODER_STEPS_INT; // Measure RPM averaged over this number of encoder pulses
+float ENCODER_STEPS_FLOAT = ENCODER_STEPS_INT; // Convenience float version of ENCODER_STEPS_INT
+long RPM_BULK = ENCODER_STEPS_INT; // Measure RPM averaged over this number of encoder pulses
 const long RPM_UPDATE_INTERVAL_MICROS = 1000000; // Don't redraw RPM more often than once per second
 
 const long GCODE_FEED_DEFAULT_DU_SEC = 20000; // Default feed in du/sec in GCode mode
@@ -256,7 +258,31 @@ const float GCODE_FEED_MIN_DU_SEC = 167; // Minimum feed in du/sec in GCode mode
 #include <SPI.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
-LiquidCrystal lcd(21, 48, 47, 38, 39, 40, 41, 42, 2, 1);
+// The display keeps a copy of its 4 lines so that the web page can show the same screen.
+class MirroredLcd : public LiquidCrystal {
+public:
+  using LiquidCrystal::LiquidCrystal;
+  char shadow[4][21];
+  uint8_t col = 0, row = 0;
+  void clearShadow() {
+    for (int r = 0; r < 4; r++) {
+      memset(shadow[r], ' ', 20);
+      shadow[r][20] = '\0';
+    }
+    col = 0;
+    row = 0;
+  }
+  void clear() { LiquidCrystal::clear(); clearShadow(); }
+  void home() { LiquidCrystal::home(); col = 0; row = 0; }
+  void setCursor(uint8_t c, uint8_t r) { LiquidCrystal::setCursor(c, r); col = c; row = r; }
+  size_t write(uint8_t b) override {
+    if (row < 4 && col < 20) shadow[row][col] = b == 0 ? 8 : (char)b; // 0 would end the string: custom char 0 as 8
+    col++;
+    return LiquidCrystal::write(b);
+  }
+  using Print::write;
+};
+MirroredLcd lcd(21, 48, 47, 38, 39, 40, 41, 42, 2, 1);
 #define LCD_HASH_INITIAL -3845709 // Random number that's unlikely to naturally occur as an actual hash
 long lcdHashLine0 = LCD_HASH_INITIAL;
 long lcdHashLine1 = LCD_HASH_INITIAL;
@@ -611,6 +637,17 @@ volatile bool cncStartRequest = false;
 volatile bool wifiFsBusy = false; // the web page is reading or writing the flash: no program may start now
 volatile bool cncUserHold = false; // Pause from the web page: decelerate and wait for Resume
 bool cncOwesDisable = false; // steppers to release once a stopped program has come to rest
+// G32 / G33 threading move, run by loop() like the other spindle-synchronised modes.
+#define CNC_THREAD_NONE 0
+#define CNC_THREAD_PHASE 1 // waiting until the spindle reaches the thread start
+#define CNC_THREAD_RUN 2   // the axes follow the spindle encoder
+volatile int cncThreadState = CNC_THREAD_NONE;
+Axis* cncThreadLeadAxis = NULL;
+long cncThreadPitchDu = 0;   // lead in deci-microns, signed as the lead axis moves
+long cncThreadDiff[2] = {0, 0}; // X, Z steps from the thread start
+long cncThreadSpindleTarget = 0; // encoder counts for the whole move
+long cncThreadLastPhase = 0;
+bool cncThreadPhaseKnown = false;
 // Shown on the display. Never a String: the display task reads it while taskGcode (higher priority) runs.
 const char* volatile cncStatusText = "";
 char gcodeDisplayLine[21] = ""; // the G-code line being run, for the display
@@ -1438,6 +1475,21 @@ void taskMoveA1(void *param) {
 // only takes ready segments, as in Grbl, and keeps the H4 axis positions (pos, motorPos, posGlobal)
 // exactly as moveAxis() does, so the display and every other mode see the true position.
 
+// Last messages of the GCODE mode (errors, notes), shown on the web page.
+#define CNC_LOG_LINES 12
+char cncLogText[CNC_LOG_LINES][112];
+volatile uint32_t cncLogCount = 0;
+portMUX_TYPE cncLogMux = portMUX_INITIALIZER_UNLOCKED;
+
+void cncLog(const char* text) {
+  portENTER_CRITICAL(&cncLogMux);
+  char* dest = cncLogText[cncLogCount % CNC_LOG_LINES];
+  strncpy(dest, text, sizeof(cncLogText[0]) - 1);
+  dest[sizeof(cncLogText[0]) - 1] = '\0';
+  cncLogCount = cncLogCount + 1;
+  portEXIT_CRITICAL(&cncLogMux);
+}
+
 Axis* cncAxis(int i) {
   return i == CNC_X ? &x : (i == CNC_Z ? &z : &a1);
 }
@@ -1549,12 +1601,12 @@ void cncStartTimer() {
 }
 
 bool cncBusy() {
-  return cncState != CNC_IDLE || cnc_st_busy();
+  return cncState != CNC_IDLE || cnc_st_busy() || cncThreadState != CNC_THREAD_NONE;
 }
 
 // Takes the tool position, the work zero, the backlash state and the stops from the H4 axes.
 // Only when nothing is queued.
-void cncSyncFromAxes() {
+void cncSyncFromAxes(bool keepModes) {
   int32_t pos[CNC_N_AXIS], zero[CNC_N_AXIS];
   bool neg[CNC_N_AXIS];
   cnc_machine_t m;
@@ -1578,8 +1630,113 @@ void cncSyncFromAxes() {
   cnc_st_reset();
   cnc_plan_reset();
   portEXIT_CRITICAL(&cncMux);
-  cnc_gc_init(&m);
+  if (keepModes) cnc_gc_set_machine(&m);
+  else cnc_gc_init(&m);
   cnc_gc_sync(pos, zero, neg);
+}
+
+void cncSyncFromAxes() {
+  cncSyncFromAxes(false);
+}
+
+// ---- G32 / G33: the method of the G32 of the NanoEls H5 (MIT, Maxim Kachurovskiy), run from loop():
+// wait until the spindle reaches the same thread phase as every earlier pass, mark the origin there, then
+// move X and Z in proportion to the spindle turns counted by the encoder.
+long cncSpindleFromPosWithPitch(Axis* a, long pos, long pitchDu) {
+  return lround((double)pos * a->screwPitch * ENCODER_STEPS_INT / a->motorSteps / pitchDu);
+}
+
+long cncThreadPhase() {
+  return spindleModulo(spindlePosGlobal - cncSpindleFromPosWithPitch(cncThreadLeadAxis, cncThreadLeadAxis->posGlobal, cncThreadPitchDu));
+}
+
+// Called from loop() holding motionMutex.
+void cncThreadLoop() {
+  if (!isOn || cncStopRequest || mode != MODE_GCODE) {
+    cncThreadState = CNC_THREAD_NONE; // the axes finish the step they were given and stop
+    return;
+  }
+  if (cncThreadState == CNC_THREAD_PHASE) {
+    if (getApproxRpm() < GCODE_MIN_RPM) {
+      cncThreadPhaseKnown = false;
+      return;
+    }
+    long phase = cncThreadPhase();
+    bool start = phase == 0 || (cncThreadPhaseKnown && phase - cncThreadLastPhase < -ENCODER_STEPS_INT / 2);
+    cncThreadLastPhase = phase;
+    cncThreadPhaseKnown = true;
+    if (!start) return;
+    markOrigin();
+    spindlePos = phase;
+    spindlePosAvg = phase;
+    x.speedMax = LONG_MAX;
+    z.speedMax = LONG_MAX;
+    cncThreadState = CNC_THREAD_RUN;
+  }
+  long spindle = spindlePosAvg;
+  bool finished = spindle >= cncThreadSpindleTarget;
+  float progress = finished ? 1.0 : spindle / float(cncThreadSpindleTarget);
+  if (progress < 0) progress = 0;
+  if (finished) {
+    stepToFinal(&x, cncThreadDiff[0]);
+    stepToFinal(&z, cncThreadDiff[1]);
+    cncThreadState = CNC_THREAD_NONE;
+  } else {
+    stepToContinuous(&x, lround(cncThreadDiff[0] * progress));
+    stepToContinuous(&z, lround(cncThreadDiff[1] * progress));
+  }
+}
+
+// Runs in taskGcode after the planner has emptied. False if it was refused or stopped.
+bool cncThread() {
+  int32_t target[CNC_N_AXIS];
+  float leadMm;
+  cnc_gc_thread(target, &leadMm);
+  long xDiff = target[CNC_X] - x.pos;
+  long zDiff = target[CNC_Z] - z.pos;
+  Axis* lead = zDiff != 0 ? &z : (xDiff != 0 ? &x : NULL);
+  if (lead == NULL) return true;
+  long leadDiff = lead == &z ? zDiff : xDiff;
+  long pitchDuAbs = lround(leadMm * 10000.0);
+  long pitchDu = leadDiff > 0 ? pitchDuAbs : -pitchDuAbs;
+  long spindleTarget = cncSpindleFromPosWithPitch(lead, leadDiff, pitchDu);
+  if (pitchDuAbs <= 0 || spindleTarget <= 0) {
+    Serial.println("error: G32/G33 move too short for its lead");
+    cncLog("error: G32/G33 move too short for its lead");
+    cncSyncFromAxes(true);
+    return false;
+  }
+  if (xSemaphoreTake(motionMutex, 100) != pdTRUE) {
+    Serial.println("error: failed to start G32/G33");
+    cncLog("error: failed to start G32/G33");
+    cncSyncFromAxes(true);
+    return false;
+  }
+  cncThreadLeadAxis = lead;
+  cncThreadPitchDu = pitchDu;
+  cncThreadDiff[0] = xDiff;
+  cncThreadDiff[1] = zDiff;
+  cncThreadSpindleTarget = spindleTarget;
+  cncThreadPhaseKnown = false;
+  cncThreadState = CNC_THREAD_PHASE;
+  xSemaphoreGive(motionMutex);
+  cncStatusText = "Thread: waiting";
+  while (cncThreadState != CNC_THREAD_NONE) {
+    if (cncThreadState == CNC_THREAD_RUN) cncStatusText = "Thread";
+    if (emergencyStop != ESTOP_NONE) return false;
+    cncPollSerial();
+    vTaskDelay(1);
+  }
+  // Wait for the last steps, then the planner continues from where the axes are.
+  while (x.pendingPos != 0 || z.pendingPos != 0) {
+    if (emergencyStop != ESTOP_NONE) return false;
+    cncPollSerial();
+    vTaskDelay(1);
+  }
+  cncStatusText = "";
+  bool completed = isOn && !cncStopRequest && x.pos == cncThreadDiff[0] && z.pos == cncThreadDiff[1];
+  cncSyncFromAxes(true);
+  return completed;
 }
 
 // Called often from taskGcode: stop requests, the spindle check and the step segments.
@@ -1717,12 +1874,16 @@ bool cncProcessLine(const String& line, bool isSerial) {
     Serial.print(msg);
     Serial.print(" in: ");
     Serial.println(line);
+    String text = "error line " + String(cncLineNo) + ": " + msg + " in: " + line;
+    cncLog(text.c_str());
     return false;
   }
   if (msg[0]) {
     Serial.print("[MSG:");
     Serial.print(msg);
     Serial.println("]");
+    String text = "line " + String(cncLineNo) + ": " + msg;
+    cncLog(text.c_str());
   }
   // G20 / G21 also switch the H4 display units, as in the old GCODE mode.
   String upper = line;
@@ -1763,6 +1924,8 @@ bool cncProcessLine(const String& line, bool isSerial) {
   } else if (r == CNC_END) {
     gcodeProgramCharIndex = gcodeProgramSize; // a stored program stops reading here
     setIsOnFromTask(false);
+  } else if (r == CNC_THREAD) {
+    if (!cncThread()) return false;
   }
   return true;
 }
@@ -2055,6 +2218,7 @@ void setEmergencyStop(int kind) {
 }
 
 void setup() {
+  loadMachineConfig(); // machine settings saved from the web page (config.ino), before anything uses them
   pinMode(ENC_A, INPUT_PULLUP);
   pinMode(ENC_B, INPUT_PULLUP);
 
@@ -2166,6 +2330,7 @@ void setup() {
   cncStartTimer(); // after the positions are restored; the timer idles until a program runs
 
   lcd.begin(20, 4);
+  lcd.clearShadow();
   lcd.createChar(customCharMmCode, customCharMm);
   lcd.createChar(customCharLimLeftCode, customCharLimLeft);
   lcd.createChar(customCharLimRightCode, customCharLimRight);
@@ -3786,7 +3951,9 @@ void loop() {
   applySettings();
   processSpindleCounter();
   discountFullSpindleTurns();
-  if (!isOn || dupr == 0 || spindlePosSync != 0) {
+  if (cncThreadState != CNC_THREAD_NONE) {
+    cncThreadLoop(); // G32 / G33 in the GCODE mode
+  } else if (!isOn || dupr == 0 || spindlePosSync != 0) {
     // None of the modes work.
   } else if (mode == MODE_NORMAL) {
     modeGearbox();
