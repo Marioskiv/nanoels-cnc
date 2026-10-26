@@ -1,0 +1,17 @@
+; lathecode style: no G words, F lines, G91 (the old H4 GCODE protocol)
+G21 ; metric
+G18 ; ZX plane
+G90 ; absolute positioning
+F200
+X10 ; zero your tool X on centerline
+Z0 ; zero
+G91 ; relative positioning
+X-1
+Z-20 ; cut 1.2 mm2
+X1
+Z20
+
+F80
+X-2
+Z-20
+X2 Z20
