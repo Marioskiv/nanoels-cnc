@@ -1,6 +1,6 @@
 /*
   cnc_core.h - motion planner and step generator for the GCODE mode of NanoEls H4
-  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels
+  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
 
   Ported from Grbl 1.1 (planner.c, stepper.c):
     Copyright (c) 2011-2016 Sungeun K. Jeon for Gnea Research LLC

@@ -1,5 +1,5 @@
 // config.ino - machine settings of the NanoEls H4 CNC fork that can be changed on the web page.
-// https://github.com/Marioskiv/nanoels
+// https://github.com/Marioskiv/nanoels-cnc
 //
 // The idea follows the Machine Config of the NanoEls H5 firmware (MIT, Copyright (c) Maxim Kachurovskiy):
 // the values written at the top of h4.ino are the defaults; values saved from the web page are kept in

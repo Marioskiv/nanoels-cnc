@@ -1,4 +1,4 @@
-> **This is a fork** ([Marioskiv/nanoels](https://github.com/Marioskiv/nanoels)): the GCODE mode of **H4** is a
+> **This is a fork** ([Marioskiv/nanoels](https://github.com/Marioskiv/nanoels-cnc)): the GCODE mode of **H4** is a
 > real CNC (look-ahead, G93 inverse time, X/Z/C together) — see [h4/CNC.md](h4/CNC.md). Everything else is
 > the original NanoEls. Because the new motion code comes from Grbl, the fork is GPL v3 (`COPYING`).
 

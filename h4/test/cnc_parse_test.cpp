@@ -1,6 +1,6 @@
 /*
   cnc_parse_test.cpp - checks what the GCODE-mode reader of NanoEls H4 accepts and refuses
-  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels
+  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
   Copyright (c) 2026 Marioskiv
   SPDX-License-Identifier: GPL-3.0-or-later
 */

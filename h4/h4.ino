@@ -1,5 +1,5 @@
 // https://github.com/kachurovskiy/nanoels
-// CNC fork: https://github.com/Marioskiv/nanoels - the GCODE mode is a real CNC (look-ahead, G93, X/Z/C
+// CNC fork: https://github.com/Marioskiv/nanoels-cnc - the GCODE mode is a real CNC (look-ahead, G93, X/Z/C
 // together). All other modes are unchanged. The motion code (cnc_core.cpp) is ported from Grbl, so this
 // fork is distributed under the GNU GPL v3 (see LICENSE); the original NanoEls code is MIT.
 

@@ -1,6 +1,6 @@
 // wifi.ino - WiFi web page of the NanoEls H4 CNC fork: G-code files kept on the controller, live status,
 // Start / Pause / Resume / Stop, the H4 keys, WiFi settings and firmware update.
-// https://github.com/Marioskiv/nanoels
+// https://github.com/Marioskiv/nanoels-cnc
 //
 // WiFi set-up (setup access point, credentials in Preferences), the firmware upload, the machine settings
 // (config.ino) and the held keys with a fail-safe release follow the NanoEls H5 firmware (MIT,

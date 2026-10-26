@@ -1,5 +1,5 @@
 // webpage.h - the web page served by the NanoEls H4 CNC fork (wifi.ino).
-// https://github.com/Marioskiv/nanoels
+// https://github.com/Marioskiv/nanoels-cnc
 // Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: GPL-3.0-or-later (this fork)
 #pragma once
 #include <pgmspace.h>

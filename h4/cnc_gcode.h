@@ -1,6 +1,6 @@
 /*
   cnc_gcode.h - G-code reader for the GCODE mode of NanoEls H4 (X, Z and C)
-  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels
+  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
   Copyright (c) 2026 Marioskiv
   SPDX-License-Identifier: GPL-3.0-or-later (it is built together with cnc_core, derived from Grbl)
 

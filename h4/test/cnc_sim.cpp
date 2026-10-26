@@ -1,6 +1,6 @@
 /*
   cnc_sim.cpp - runs the GCODE-mode motion core of NanoEls H4 on a PC and checks what it would do
-  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels
+  Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
   Copyright (c) 2026 Marioskiv
   SPDX-License-Identifier: GPL-3.0-or-later
 
