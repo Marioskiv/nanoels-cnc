@@ -11,8 +11,8 @@ android {
         applicationId 'com.marioskiv.h4cnc'
         minSdk 21          // Android 5.0 and newer
         targetSdk 34
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
     }
 
     // Release signing: a keystore given by the environment (the GitHub secret ANDROID_KEYSTORE_BASE64, see
@@ -37,8 +37,28 @@ android {
         }
     }
 
+    sourceSets {
+        main.assets.srcDirs += "$buildDir/generated/h4page"
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
 }
+
+// The H4's own web page, taken from the firmware (h4/webpage.h), for the demo without an H4.
+def h4PageSource = rootProject.file('../h4/webpage.h')
+tasks.register('h4Page') {
+    inputs.file h4PageSource
+    outputs.dir "$buildDir/generated/h4page"
+    doLast {
+        def text = h4PageSource.getText('UTF-8')
+        def start = text.indexOf('R"rawpage(') + 'R"rawpage('.length()
+        def end = text.indexOf(')rawpage"')
+        def out = file("$buildDir/generated/h4page/h4/index.html")
+        out.parentFile.mkdirs()
+        out.setText(text.substring(start, end), 'UTF-8')
+    }
+}
+preBuild.dependsOn 'h4Page'

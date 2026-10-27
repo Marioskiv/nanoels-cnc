@@ -49,6 +49,7 @@ class GamepadJog {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService net = Executors.newSingleThreadExecutor();
     private volatile String address;
+    private volatile boolean demo;
 
     // settings from the page's Gamepad box
     private volatile double speed = 400, fast = 1000, cFactor = 6;
@@ -73,6 +74,10 @@ class GamepadJog {
 
     void setAddress(String a) {
         address = a;
+    }
+
+    void setDemo(boolean d) {
+        demo = d;
     }
 
     void setSettings(String json) {
@@ -236,6 +241,10 @@ class GamepadJog {
 
     // POST to the H4 on the network thread; the answer comes back on the main thread.
     private void post(final String path, final boolean isJog) {
+        if (demo) {  // the simulated machine of the page answers
+            activity.demoRequest(path);
+            return;
+        }
         final String a = address;
         if (a == null) return;
         if (isJog) jogsInFlight++;
