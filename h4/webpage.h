@@ -67,6 +67,18 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 <div class="small">The same as the keys on the controller. Arrows, GEARS and TURN move while held; if the page loses
 the connection the key is released within half a second.</div></section>
 
+<section><h2>Gamepad</h2><div id="gpstate">No gamepad.</div>
+<div class="small">PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). Hold <b>L1</b> to move:
+left stick Z, right stick X, L2 / R2 C+ / C-, R1 fast. L1 + Share = Home All, L1 + D-pad down = touch off Z,
+Options = STOP, PS = unlock ($X). Keep this page open in front; it stops when the page is hidden or the WiFi drops.
+Chrome on Android needs once: <code>chrome://flags</code> &rarr; <i>Insecure origins treated as secure</i> &rarr; add
+<code id="gporigin"></code> &rarr; Enabled &rarr; Relaunch.</div>
+<div class="cfg"><label for="gpN">Speed (mm/min)</label><input type="number" id="gpN" step="any">
+<label for="gpF">Speed with R1 (mm/min)</label><input type="number" id="gpF" step="any">
+<label for="gpC">C speed = speed x</label><input type="number" id="gpC" step="any">
+<label for="gpIX">Reverse X</label><input type="checkbox" id="gpIX"><label for="gpIZ">Reverse Z</label><input type="checkbox" id="gpIZ">
+<label for="gpIC">Reverse C</label><input type="checkbox" id="gpIC"></div></section>
+
 <section><h2>Messages</h2><div id="log">No messages.</div></section>
 
 <section><h2>Machine settings</h2><div id="cfg" class="small">Loading...</div>
@@ -180,6 +192,43 @@ async function saveWifi(){const fd=new URLSearchParams({ssid:$('ssid').value,pas
 function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmware with '+f.name+'?'))return;const fd=new FormData();fd.append('fw',f,f.name);
  const x=new XMLHttpRequest();x.open('POST','/firmware');x.upload.onprogress=ev=>{$('fwmsg').textContent=Math.round(ev.loaded/ev.total*100)+' %'};
  x.onload=()=>{$('fwmsg').textContent=x.responseText};x.send(fd)}
+// Gamepad: the layout of the LinuxCNC gamepad.hal. The page sends the wanted speeds to /jog every 100 ms while
+// L1 is held; the H4 turns them into short jogs and stops by itself 0.3 s after the last request.
+const GPD={n:400,f:1000,c:6,ix:false,iz:false,ic:false};let gp=Object.assign({},GPD);
+try{Object.assign(gp,JSON.parse(localStorage.getItem('h4gamepad')||'{}'))}catch(e){}
+const GPF={gpN:'n',gpF:'f',gpC:'c',gpIX:'ix',gpIZ:'iz',gpIC:'ic'};
+for(const id in GPF){const el=$(id),k=GPF[id];if(el.type=='checkbox')el.checked=!!gp[k];else el.value=gp[k];
+ el.addEventListener('change',()=>{gp[k]=el.type=='checkbox'?el.checked:(parseFloat(el.value)||GPD[k]);
+  try{localStorage.setItem('h4gamepad',JSON.stringify(gp))}catch(e){}})}
+$('gporigin').textContent=location.origin;
+let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
+function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
+function gpRumble(){try{gpPad&&gpPad.vibrationActuator&&gpPad.vibrationActuator.playEffect('dual-rumble',{duration:200,strongMagnitude:.5,weakMagnitude:.5})}catch(e){}}
+async function gpSend(x,z,c){gpLast=performance.now();gpBusy=true;
+ try{const r=await fetch('/jog?x='+x.toFixed(1)+'&z='+z.toFixed(1)+'&c='+c.toFixed(1),{method:'POST'});
+  if(!r.ok){const t=await r.text();if(t!=gpErr){gpErr=t;msg('Gamepad: '+t);gpRumble()}}else gpErr=''}catch(e){}
+ gpBusy=false}
+function gpMdi(l){post('/mdi',new URLSearchParams({line:l})).then(msg,e=>{msg(e.message);gpRumble()})}
+function gpLoop(){let pads=[];
+ try{pads=navigator.getGamepads?[...navigator.getGamepads()].filter(p=>p&&p.connected):[]}catch(e){}
+ const g=pads[0];gpPad=g||null;const now=performance.now();
+ if(!g||document.hidden){if(gpMoving||gpStops>0){if(now-gpLast>=100){gpSend(0,0,0);gpStops=gpMoving?3:gpStops-1;gpMoving=false}}
+  $('gpstate').textContent=!window.isSecureContext&&!g?'No gamepad. Connect it, press a button. (Chrome: see the flag below.)':'No gamepad: connect it, then press a button.';return}
+ const b=i=>!!(g.buttons[i]&&g.buttons[i].pressed),val=i=>g.buttons[i]?g.buttons[i].value:0,edge=i=>b(i)&&!gpPrev[i];
+ const l1=b(4),sp=b(5)?gp.f:gp.n;
+ const vz=(gp.iz?-1:1)*gpDz(g.axes[0]||0,.35)*sp,vx=(gp.ix?-1:1)*gpDz(g.axes[3]||0,.45)*sp;
+ const vc=(gp.ic?-1:1)*(gpDz(val(6),.05)-gpDz(val(7),.05))*sp*gp.c;
+ if(edge(9))cmd('stop');
+ if(edge(16))gpMdi('$X');
+ if(l1&&edge(8))cmd('home');
+ if(l1&&edge(13))gpMdi('G10 L20 P0 Z0');
+ gpPrev=g.buttons.map(x=>x.pressed);
+ const want=l1&&(vx!=0||vz!=0||vc!=0);
+ if(want){if(now-gpLast>=100&&!gpBusy){gpMoving=true;gpStops=3;gpSend(vx,vz,vc)}}
+ else if(gpStops>0&&now-gpLast>=100){gpSend(0,0,0);gpStops=gpMoving?2:gpStops-1;gpMoving=false} // stop, sent 3 times
+ $('gpstate').textContent=(g.mapping=='standard'?'':'(unknown button layout) ')+g.id+(want?' · moving':l1?' · L1 held':' · hold L1 to move')+(gpErr?' · '+gpErr:'')}
+setInterval(gpLoop,20);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(gpMoving||gpStops))gpSend(0,0,0)});
 fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{});
 listFiles();loadCfg();poll();
 </script></body></html>

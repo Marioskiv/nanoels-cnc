@@ -85,6 +85,15 @@ to the same interpreter as files. Machine settings are changed on the web page, 
 gamepad into a jog pendant through this port (L1 deadman, sticks X/Z, triggers C, Home All, touch off Z,
 STOP): see [`../h4_ps4_pendant/README.md`](../h4_ps4_pendant/README.md).
 
+**Gamepad on the phone (no extra board).** The H4 web page also reads a PS4 / PS5 gamepad connected to the
+phone or computer (Android: Settings > Bluetooth, pair it with Share + PS). Same layout; the page sends the wanted
+speeds to the H4 every 100 ms and the H4 turns them into the same short jogs (0.05 s pieces, at most 0.2 s queued,
+stop 0.3 s after the last request or at once on release). The page must stay open in front. Chrome only gives a
+page a gamepad on a secure origin, and the H4 page is plain `http://`: on Android open `chrome://flags`, search
+*Insecure origins treated as secure*, add the H4 address (e.g. `http://192.168.1.50`), Enabled, Relaunch. Speeds
+and reversed axes are set in the *Gamepad* box of the page (kept in that browser). The MDI line also accepts `$X`
+(allow moves before Home All).
+
 ## WiFi: files, status and controls on a phone or tablet
 
 `WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if

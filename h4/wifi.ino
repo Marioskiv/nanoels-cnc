@@ -155,6 +155,11 @@ void handleMdi() {
   }
   String line = server.arg("line");
   line.trim();
+  if (line.equalsIgnoreCase("$X")) { // unlock, as in Grbl: allow moves before Home All
+    cncHomeOverride = true;
+    server.send(200, "text/plain", "Unlocked: moves are allowed before Home All. Take care.");
+    return;
+  }
   if (line.equalsIgnoreCase("$H")) { // Home All, as in Grbl
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");
@@ -521,6 +526,27 @@ void handleKey() {
   server.send(200, "text/plain", "ok");
 }
 
+// Gamepad of the page: wanted speeds x, z (mm/min) and c (deg/min), repeated about every 100 ms while
+// moving; 0 0 0 (or no request for 0.3 s) stops. 409 with the reason when the H4 refused a jog.
+void handleJog() {
+  if (emergencyStop != ESTOP_NONE) {
+    server.send(409, "text/plain", "Emergency stop: restart the controller.");
+    return;
+  }
+  float v[3];
+  const char* names[3] = {"x", "z", "c"};
+  for (int i = 0; i < 3; i++) {
+    v[i] = server.arg(names[i]).toFloat();
+    if (!isfinite(v[i])) v[i] = 0;
+    v[i] = constrain(v[i], -100000.0f, 100000.0f);
+  }
+  if (!webJogRequest(v[0], v[1], v[2])) {
+    server.send(409, "text/plain", webJogError);
+    return;
+  }
+  server.send(200, "text/plain", "ok");
+}
+
 void handleWifiGet() {
   String json = "{\"ssid\":\"" + jsonEscape(wifiSsid) + "\",\"passwordSet\":" + String(wifiPassword.length() ? 1 : 0) +
       ",\"setupAp\":" + String(wifiSetupAp ? 1 : 0) + ",\"ip\":\"" + wifiIp + "\",\"apName\":\"" + WIFI_SETUP_AP_SSID + "\"}";
@@ -748,6 +774,7 @@ void taskWifi(void* param) {
   server.on("/upload", HTTP_POST, handleUploadDone, handleUploadData);
   server.on("/cmd", HTTP_POST, handleCommand);
   server.on("/key", HTTP_POST, handleKey);
+  server.on("/jog", HTTP_POST, handleJog);
   server.on("/wifi", HTTP_GET, handleWifiGet);
   server.on("/wifi", HTTP_POST, handleWifiSave);
   server.on("/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareData);

@@ -343,6 +343,20 @@ void grblAnswer(int ch, bool ok) {
   }
 }
 
+// A jog ($J= without "$J="): one move, the modal state stays as it was (Grbl).
+bool grblJog(int ch, const String& words) {
+  cnc_modes_t saved;
+  cnc_gc_get_modes(&saved);
+  grblJogging = true;
+  String line = "G1 " + words;
+  bool ok = grblRunGcode(ch, line.c_str());
+  cnc_modes_t after;
+  cnc_gc_get_modes(&after);
+  saved.coord = after.coord;  // (a jog may not change it anyway)
+  cnc_gc_set_modes(&saved);
+  return ok;
+}
+
 void grblSystemCommand(int ch, const char* text) {
   String cmd = String(text);
   cmd.trim();
@@ -399,21 +413,11 @@ void grblSystemCommand(int ch, const char* text) {
       grblWriteLine(ch, "error:9");
     }
   } else if (up.startsWith("$J=")) {
-    // jog: one move, the modal state stays as it was (Grbl)
     if (isOn && !grblSession) {
       grblWriteLine(ch, "error:8");
       return;
     }
-    cnc_modes_t saved;
-    cnc_gc_get_modes(&saved);
-    grblJogging = true;
-    String line = "G1 " + cmd.substring(3);
-    bool ok = grblRunGcode(ch, line.c_str());
-    cnc_modes_t after;
-    cnc_gc_get_modes(&after);
-    saved.coord = after.coord;  // (a jog may not change it anyway)
-    cnc_gc_set_modes(&saved);
-    grblAnswer(ch, ok);
+    grblAnswer(ch, grblJog(ch, cmd.substring(3)));
   } else if (up == "$SLP") {
     grblWriteLine(ch, "ok");
   } else if (up == "$C") {
@@ -479,5 +483,93 @@ bool grblServiceLine() {
     grblAnswer(line.channel, grblRunGcode(line.channel, line.text));
   }
   grblLastMs = millis();
+  return true;
+}
+
+// ------------------------------------------------------------------ gamepad of the web page
+
+// The web page reads a gamepad (on the phone / computer) and sends the wanted speeds to /jog about every 100 ms
+// (wifi.ino). Here they become short jogs, as a Grbl jog pendant sends them: pieces of WEB_JOG_PIECE_S seconds,
+// never more than WEB_JOG_LEAD_S seconds or WEB_JOG_MAX_BLOCKS of them queued. Speeds 0, or no request for
+// WEB_JOG_TIMEOUT_MS (page closed, WiFi lost), stop at once with a jog cancel.
+#define WEB_JOG_PIECE_S 0.05f
+#define WEB_JOG_LEAD_S 0.2f
+#define WEB_JOG_MAX_BLOCKS 4
+#define WEB_JOG_TIMEOUT_MS 300
+volatile float webJogSpeed[3] = {0, 0, 0};  // X mm/min, Z mm/min, C deg/min
+volatile unsigned long webJogMs = 0;
+volatile bool webJogRefused = false;        // set on a refusal; cleared when the page sends speeds 0
+char webJogError[100] = "";
+bool webJogRunning = false;
+float webJogQueuedS = 0;
+unsigned long webJogLastMs = 0;
+unsigned long webJogStopMs = 0;
+
+// From the web server (wifi.ino). False: the last jog was refused (reason in webJogError).
+bool webJogRequest(float vx, float vz, float vc) {
+  webJogSpeed[0] = vx;
+  webJogSpeed[1] = vz;
+  webJogSpeed[2] = vc;
+  webJogMs = millis();
+  if (vx == 0 && vz == 0 && vc == 0) webJogRefused = false;
+  return !webJogRefused;
+}
+
+void webJogStop() {
+  if (!webJogRunning) return;
+  webJogRunning = false;
+  webJogQueuedS = 0;
+  webJogStopMs = millis();
+  if (grblJogging) setIsOnFromTask(false);  // as the Grbl jog cancel: brake, drop the rest
+}
+
+// In taskGcode. True when a jog piece was planned.
+bool webJogService() {
+  unsigned long now = millis();
+  float vx = webJogSpeed[0], vz = webJogSpeed[1], vc = webJogSpeed[2];
+  bool wanted = now - webJogMs < WEB_JOG_TIMEOUT_MS && (vx != 0 || vz != 0 || vc != 0) && !webJogRefused;
+  if (!wanted) {
+    webJogStop();
+    return false;
+  }
+  webJogQueuedS = max(0.0f, webJogQueuedS - (now - webJogLastMs) / 1000.0f);
+  webJogLastMs = now;
+  if (!webJogRunning) {
+    if (now - webJogStopMs < 500 || (cncBusy() && !isOn)) return false;  // the last stop is still braking
+    if (isOn || cncBusy()) {
+      snprintf(webJogError, sizeof(webJogError), "A program is running");
+      webJogRefused = true;
+      return false;
+    }
+  }
+  if (webJogQueuedS >= WEB_JOG_LEAD_S || cnc_plan_blocks_used() >= WEB_JOG_MAX_BLOCKS) return false;
+  const char* refusal = isOn ? NULL : (homingActive || homingRequest ? "Home All is running" : cncStartRefusal());
+  if (refusal != NULL) {
+    snprintf(webJogError, sizeof(webJogError), "%s", refusal);
+    webJogRefused = true;
+    return false;
+  }
+  float dx = vx / 60 * WEB_JOG_PIECE_S, dz = vz / 60 * WEB_JOG_PIECE_S, dc = vc / 60 * WEB_JOG_PIECE_S;
+  // the feed as LinuxCNC and Grbl read it: along X/Z when they move (C follows in the same time), else C alone
+  float linear = sqrtf(dx * dx + dz * dz);
+  float feed = (linear > 0 ? linear : fabsf(dc)) / WEB_JOG_PIECE_S * 60;
+  char words[120];
+  int n = snprintf(words, sizeof(words), "G91 G94 G21");
+  if (dx != 0) n += snprintf(words + n, sizeof(words) - n, " X%.4f", dx);
+  if (dz != 0) n += snprintf(words + n, sizeof(words) - n, " Z%.4f", dz);
+  if (dc != 0) n += snprintf(words + n, sizeof(words) - n, " C%.4f", dc);
+  snprintf(words + n, sizeof(words) - n, " F%.1f", feed);
+  int channel = grblChannel;  // a connected sender keeps its messages
+  bool ok = grblJog(-1, String(words));
+  grblChannel = channel;
+  grblLastMs = millis();
+  if (!ok) {
+    snprintf(webJogError, sizeof(webJogError), "%s", cncLastError[0] ? cncLastError : "Jog refused");
+    webJogRefused = true;
+    webJogStop();
+    return false;
+  }
+  webJogRunning = true;
+  webJogQueuedS += WEB_JOG_PIECE_S;
   return true;
 }
