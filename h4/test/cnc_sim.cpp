@@ -30,6 +30,16 @@
 
 struct Target { int32_t p[CNC_N_AXIS]; uint32_t line; };
 
+// Every planned point (arcs are planned as many short lines): the tool must pass through each of them.
+static std::vector<Target>* traceTargets = nullptr;
+static int32_t traceFrom[CNC_N_AXIS] = {0, 0, 0};
+static void traceTarget(const int32_t p[CNC_N_AXIS], uint32_t line) {
+  const int32_t* last = traceTargets->empty() ? traceFrom : traceTargets->back().p;
+  if (memcmp(last, p, sizeof(int32_t) * CNC_N_AXIS) == 0) return;
+  Target t; memcpy(t.p, p, sizeof(t.p)); t.line = line;
+  traceTargets->push_back(t);
+}
+
 static const uint32_t TIMER_HZ = 20000000;
 
 static std::string stripComments(const std::string& raw) {
@@ -103,6 +113,8 @@ int main(int argc, char** argv) {
   uint64_t now = 0, nextIsr = 0, nextTask = 0;
   int32_t tool[CNC_N_AXIS] = {0, 0, 0}, motor[CNC_N_AXIS] = {0, 0, 0};
   std::vector<Target> targets;
+  traceTargets = &targets;
+  cnc_plan_trace = traceTarget;
   size_t lineIdx = 0, targetIdx = 0;
   int32_t from[CNC_N_AXIS] = {0, 0, 0};
   int errors = 0, underruns = 0, pauses = 0, warnings = 0;
@@ -156,14 +168,7 @@ int main(int argc, char** argv) {
             errors++; lineIdx = lines.size(); break;
           }
           if (msg[0]) { warnings++; }
-          // record the programmed end point of this line (if it moved)
-          const int32_t* pp = cnc_plan_position();
-          Target t; memcpy(t.p, pp, sizeof(t.p)); t.line = (uint32_t)(lineIdx + 1);
-          const int32_t* last = targets.empty() ? from : targets.back().p;
-          if (memcmp(last, t.p, sizeof(t.p)) != 0) {
-            targets.push_back(t);
-            idealMin += cnc_plan_last_block_minutes();
-          }
+          idealMin += cnc_plan_last_block_minutes();  // (an arc counts its last piece only: a rough figure)
           lineIdx++;
           if (r == CNC_DWELL || r == CNC_PAUSE || r == CNC_END) { waitingIdle = true; pendingAction = r; dwellLeft = dwell; break; }
         }

@@ -86,6 +86,7 @@ const cnc_settings_t* cnc_core_get_settings();
 void cnc_plan_reset();                                  // empties everything and sets the position
 void cnc_plan_sync_position(const int32_t steps[CNC_N_AXIS]);
 bool cnc_plan_buffer_line(const int32_t target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t line);
+extern void (*cnc_plan_trace)(const int32_t target[CNC_N_AXIS], uint32_t line);  // tests: every line target
 bool cnc_plan_buffer_backlash(int axis, int32_t steps, bool negative, uint32_t line);
 uint8_t cnc_plan_blocks_free();
 uint8_t cnc_plan_blocks_used();

@@ -24,4 +24,10 @@ for i in $(seq 1 60); do
 done
 for f in "$@"; do run "$f"; done
 echo "simulation: $fail failure(s)"
+# Second opinion: LinuxCNC's own interpreter, when its rs274 is given (RS274=/path/to/rs274)
+if [ -n "$RS274" ]; then
+  g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp
+  python3 lcnc_compare.py "$RS274" "$OUT/gcode_trace" 1000 1 || fail=$((fail + 1))
+  python3 lcnc_compare.py "$RS274" "$OUT/gcode_trace" polar_sample.ngc || fail=$((fail + 1))
+fi
 [ $fail = 0 ]

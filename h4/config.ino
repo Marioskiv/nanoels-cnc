@@ -77,6 +77,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"cncJd", 'f', (void*)&CNC_JUNCTION_DEVIATION, 0.001, 1, "GCODE mode", "Corner tolerance, junction deviation", "mm"},
   {"cncPulse", 'i', (void*)&CNC_STEP_PULSE_US, 1, 50, "GCODE mode", "Step pulse length", "µs"},
   {"cncStops", 'b', (void*)&CNC_RESPECT_STOPS, 0, 1, "GCODE mode", "Refuse moves outside the H4 stops", ""},
+  {"cncArc", 'f', (void*)&CNC_ARC_TOLERANCE, 0.0005, 0.1, "GCODE mode", "Arc tolerance (G2/G3 cut in straight pieces)", "mm"},
 
   {"hxUse", 'b', (void*)&HOME_X_USE, 0, 1, "Home switch and limits X (A21)", "Home switch connected", ""},
   {"hxNc", 'b', (void*)&HOME_X_NC, 0, 1, "Home switch and limits X (A21)", "Switch is normally closed (off: normally open)", ""},

@@ -24,22 +24,32 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 
 ### G-code read
 
-| Code | Meaning |
-|---|---|
-| G0, G1 | rapid / feed move on X, Z and C. A program starts in G1, so `X.. Z..` lines without a G word move at the feed rate (lathecode programs and the old H4 behaviour) |
-| G4 P | dwell, seconds |
-| G20, G21 | inch / mm (C stays in degrees) |
-| G90, G91 | absolute / incremental |
-| G93, G94 | inverse time / units per minute. After G93 a G94 move must give its own F |
-| G8, G17, G18, G19, G40, G49, G54, G61, G64 (P), G80 | accepted, nothing to do |
-| G43 H | accepted with a note: set tool lengths by touching off Z |
-| G32 X.. Z.. F*lead* / G33 X.. Z.. K*lead* | threading move synchronised to the spindle encoder, as `G32` on the NanoEls H5. The lead is per spindle turn (current units); G33 with K is the LinuxCNC form. Each pass waits for the same spindle angle, so repeated passes cut the same groove. Not modal; F of a G32 line does not change the feed rate. Like the threading mode of the H4, the axis needs a short run-in to reach the spindle speed: start each pass a few mm before the thread |
-| M0, M1, M6 | pause; **ON** on the H4 (or `~` over USB) continues |
-| M2, M30 | end of program, after the motion has finished |
-| M3, M4, M5, M7, M8, M9, S, T, N | accepted (spindle and coolant are switched by hand) |
+The language is **RS274/NGC as LinuxCNC reads it** (Grbl reads a subset of the same language), for a lathe
+with X, Z and C. Every line is checked as a whole before any of it runs; what cannot run exactly is refused
+with the line and the reason. It is checked against LinuxCNC's own interpreter: 5000 random programs (about
+28 000 moves and 8 000 arcs, with G7, G20, G90.1, G10, G92, G28, G53, G43.1 mixed in) and the author's real
+programs give the same positions as LinuxCNC 2.9 (`RS274=/path/to/rs274 sh h4/test/run_tests.sh`).
 
-Refused with a reason (the program stops): arcs G2/G3, G7, G28/G30/G53, G10/G92, canned cycles, cutter
-compensation, any other axis letter, numbers that cannot be read.
+| Group | Codes |
+|---|---|
+| motion | G0, G1, G2, G3 (arcs in the X-Z plane, I/K or R, P turns, C moves along), G33 K / G32 F (threading with the encoder), G80 |
+| plane | G18 (start); G17 / G19 accepted, but arcs there need a Y axis and are refused |
+| distance | G90, G91; arc centres G91.1 (start), G90.1 |
+| feed | G94 (start), G93 inverse time (F on every move), G95 per spindle turn (speed from the encoder) |
+| units, diameter | G21 (start), G20; G8 (start), G7: X words are diameters |
+| coordinates | G54 (= the H4's own zero, X0 / Z0 keys), G55, G56, G57, G58, G59, G59.1, G59.2, G59.3 |
+| offsets | G10 L2 P, G10 L20 P, G92, G92.1, G92.2, G92.3, G28 / G28.1, G30 / G30.1, G53 (machine coordinates) |
+| tool | G43.1 Z, G49; G43 H accepted with a note (no tool table yet: touch off Z); T, M6 pauses for the change, M61 |
+| other | G4 P (seconds), G40, G61, G61.1, G64 P Q, G97, G98, G99, M0, M1, M2, M30, M60, M3, M4, M5, M7, M8, M9, M48-M53, S, N, `/` |
+
+As in LinuxCNC: two codes of one group on a line are an error; G94 and G95 clear the feed, so the next feed
+move needs its F (a feed move before any F is refused, there is no hidden default feed); a program starts in
+G1, so lathecode-style lines `X.. Z..` without a G word work as before. The G55-G59.3, G28 and G30 positions
+are kept in the controller (machine coordinates: they mean something after Home All).
+
+Refused with the reason: G41 / G42 cutter compensation (post with compensation *in computer*), G96 (needs a
+spindle the H4 controls), canned cycles (G70-G76, G81-G89: post with the cycles expanded), G38 probing, Y A B U
+V W axes, parameters (`#`), expressions and O-word subroutines.
 
 ### USB protocol
 
