@@ -81,6 +81,10 @@ cancel, the status report `<Idle|WPos:X,0,Z,C|Bf:..|FS:..>` (Y is always 0), `$$
 to the same interpreter as files. Machine settings are changed on the web page, not with `$x=` (a sender gets
 `error:3` and a message). Feed / spindle overrides and check mode `$C` are not supported.
 
+**PS4 / PS5 gamepad.** A plain ESP32 board with the sketch `h4_ps4_pendant` (folder next to `h4`) turns the
+gamepad into a jog pendant through this port (L1 deadman, sticks X/Z, triggers C, Home All, touch off Z,
+STOP): see [`../h4_ps4_pendant/README.md`](../h4_ps4_pendant/README.md).
+
 ## WiFi: files, status and controls on a phone or tablet
 
 `WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if
