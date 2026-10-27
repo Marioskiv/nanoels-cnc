@@ -685,6 +685,17 @@ volatile bool cncHomeOverride = false; // Grbl $X: programs may run without Home
 bool cncGrblLine = false; // the line comes from the Grbl protocol: errors are answered there, not printed here
 bool cncStartKeepModes = false; // a Grbl session starts: keep G90 / G21 / F ... as they are
 char cncLastError[100] = "";
+// The WiFi address on the H4's own display (wifi.ino fills it): in the GCODE mode while nothing runs, and in
+// every mode for the first seconds after WiFi has started. Several texts are shown in turn.
+char wifiDisplayText[3][21];
+volatile int wifiDisplayCount = 0;
+volatile unsigned long wifiDisplayUntil = 0;
+
+const char* wifiDisplayLine() {
+  int n = wifiDisplayCount;
+  if (n <= 0) return NULL;
+  return wifiDisplayText[(millis() / 3000) % n];
+}
 const char* volatile cncFaultText = "";
 volatile bool homingRequest = false, homingAbort = false, homingActive = false;
 Axis* volatile homingWatchAxis = NULL; // loop() stops this axis when its switch reaches homingWantActive
@@ -1038,6 +1049,11 @@ void updateDisplay() {
       (z.leftStop == LONG_MAX ? 123 : z.leftStop) + (z.rightStop == LONG_MIN ? 1234 : z.rightStop) +
       (x.leftStop == LONG_MAX ? 1235 : x.leftStop) + (x.rightStop == LONG_MIN ? 123456 : x.rightStop) + gcodeCommandHash + (long)(intptr_t)cncStatusText +
       (mode == MODE_A1 ? a1.pos + a1.originPos + (a1.leftStop == LONG_MAX ? 123 : a1.leftStop) + (a1.rightStop == LONG_MIN ? 1234 : a1.rightStop) + a1.disabled : 0) + x.pos + z.pos;
+  const char* wifiLine = wifiDisplayLine();
+  if (wifiLine != NULL) {
+    for (int i = 0; wifiLine[i]; i++) newHashLine3 += wifiLine[i] * (i + 7);
+    newHashLine3 += (long)(wifiDisplayUntil - millis()) > 0 ? 4099 : 0;
+  }
   if (lcdHashLine3 != newHashLine3) {
     lcdHashLine3 = newHashLine3;
     charIndex = 0;
@@ -1054,6 +1070,8 @@ void updateDisplay() {
         charIndex += lcd.print(" ");
       }
       charIndex += printAxisPosWithName(&a1, false);
+    } else if (!isOn && !inNumpad && setupIndex == 0 && wifiDisplayLine() != NULL && (long)(wifiDisplayUntil - millis()) > 0) {
+      charIndex += lcd.print(wifiDisplayLine()); // just after start: where the web page is
     } else if (mode == MODE_GCODE) {
       if (setupIndex == 1 && gcodeProgramCount == 0) {
         charIndex += lcd.print("No stored programs");
@@ -1075,6 +1093,8 @@ void updateDisplay() {
         charIndex += lcd.print((const char*)cncStatusText);
       } else if (isOn) {
         charIndex += lcd.print(gcodeDisplayLine);
+      } else if (wifiDisplayLine() != NULL) {
+        charIndex += lcd.print(wifiDisplayLine()); // the address of the web page
       }
     } else if (isPassMode()) {
       bool missingZStops = needZStops() && (z.leftStop == LONG_MAX || z.rightStop == LONG_MIN);
