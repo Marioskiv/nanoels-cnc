@@ -1,5 +1,6 @@
 > **This is a fork** ([Marioskiv/nanoels](https://github.com/Marioskiv/nanoels-cnc)): the GCODE mode of **H4** is a
-> real CNC (look-ahead, G93 inverse time, X/Z/C together) — see [h4/CNC.md](h4/CNC.md). Everything else is
+> real CNC (look-ahead, G93 inverse time, X/Z/C together) — **setup guide (wiring, flashing, WiFi, first run):
+> [h4/GUIDE.md](h4/GUIDE.md)**, details [h4/CNC.md](h4/CNC.md). Everything else is
 > the original NanoEls. Because the new motion code comes from Grbl, the fork is GPL v3 (`COPYING`).
 
 This software and instructions are [provided as is](LICENSE), without warranty of any kind. [🇷🇺 Перевод на русский](https://translate.google.com/translate?hl=en&sl=en&tl=ru&u=https%3A%2F%2Fgithub.com%2Fkachurovskiy%2Fnanoels%2Fblob%2Fmain%2FREADME.md), [🇩🇪 deutsche Übersetzung](https://translate.google.com/translate?hl=en&sl=en&tl=de&u=https%3A%2F%2Fgithub.com%2Fkachurovskiy%2Fnanoels%2Fblob%2Fmain%2FREADME.md)

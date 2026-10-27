@@ -32,7 +32,8 @@ Advanced CNC features via [lathecode online CAD](https://github.com/kachurovskiy
 
 ## GCODE mode as a CNC (this fork)
 
-See [CNC.md](CNC.md): look-ahead, G93, X/Z/C together. All other modes are unchanged.
+**Setup guide: [GUIDE.md](GUIDE.md)** (wiring, power, flashing, your machine's values, WiFi, first start checklist,
+CAM posts, gamepad, safety, troubleshooting). Details: [CNC.md](CNC.md). All other modes are unchanged.
 
 ## Hardware
 
