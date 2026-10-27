@@ -40,7 +40,9 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 <main>
 <section><h2>Position</h2>
 <div class="dro"><span>X</span><span id="x">-</span><span>Z</span><span id="z">-</span><span id="cl">C</span><span id="c">-</span></div>
-<div class="small" id="info"></div></section>
+<div class="small" id="info"></div><div class="small" id="mach"></div>
+<div class="row"><button id="bHome" onclick="if(confirm('Home All? The axes move to their switches.'))cmd('home')">Home All</button></div>
+<div class="small">Inputs (terminal A2): <span id="ins"></span></div></section>
 
 <section><h2>Program</h2>
 <div><b id="pname">no program</b> <span class="small" id="stext"></span></div>
@@ -94,7 +96,13 @@ function show(){const u=st.inch?' in':' mm';$('state').textContent=st.state+(st.
  $('wifi').textContent=st.wifi;$('pname').textContent=st.program||'no program';$('stext').textContent=st.text;
  const p=st.running||st.programLoaded?st.progress:0;$('pbar').style.width=(p*100)+'%';$('ppct').textContent=(p*100).toFixed(1)+' %';$('pline').textContent=st.line;
  $('bStart').disabled=!!st.running;$('fs').textContent=st.fsTotal?('free '+((st.fsTotal-st.fsUsed)/1048576).toFixed(2)+' MB of '+(st.fsTotal/1048576).toFixed(2)+' MB, program memory '+(st.psram?(st.psram/1048576).toFixed(2)+' MB (PSRAM)':'without PSRAM: up to 120 kB')):'';
- $('lcd').textContent=(st.lcd||[]).join('\n');$('bMdi').disabled=!!st.running;
+ $('lcd').textContent=(st.lcd||[]).join('\n');
+ const H=st.homed||[0,0,0];$('mach').textContent='Homed: X '+(H[0]?'yes':'no')+' · Z '+(H[1]?'yes':'no')+' · C '+(H[2]?'yes':'no')+
+  (st.mx!==undefined?' · machine X '+st.mx.toFixed(3):'')+(st.mz!==undefined?' · machine Z '+st.mz.toFixed(3):'')+(st.homing?' · HOMING':'');
+ $('bHome').disabled=!!st.running||!!st.homing;
+ if(st.a2){const N=['A21 home X','A22 home Z','A23 alarm'],A=st.act||[0,0,0],U=st.use||[0,0,0];
+  $('ins').textContent=N.map((n,i)=>n+': '+((st.in>>i)&1?'high':'LOW')+(U[i]?(A[i]?' (ACTIVE)':' (ok)'):'')).join(' · ')}
+ else $('ins').textContent='used by handwheel 2';$('bMdi').disabled=!!st.running;
  if(st.log!==logSeen){logSeen=st.log;loadLog()}
  drawPath()}
 async function listFiles(){try{const r=await fetch('/files');if(!r.ok){msg(await r.text());return}files=await r.json();

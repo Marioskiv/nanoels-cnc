@@ -56,7 +56,7 @@ unsigned long heldKeyMs = 0;
 char mdiProgram[200];
 
 bool cncRunActive() {
-  return mode == MODE_GCODE && (isOn || cncBusy() || cncStopRequest);
+  return homingActive || homingRequest || (mode == MODE_GCODE && (isOn || cncBusy() || cncStopRequest));
 }
 
 bool refuseWhileRunning() {
@@ -155,6 +155,15 @@ void handleMdi() {
   }
   String line = server.arg("line");
   line.trim();
+  if (line.equalsIgnoreCase("$H")) { // Home All, as in Grbl
+    if (!homingConfigured()) {
+      server.send(409, "text/plain", "No home switch is set up (Machine settings).");
+      return;
+    }
+    homingRequest = true;
+    server.send(200, "text/plain", "Home All");
+    return;
+  }
   if (line.length() == 0 || line.length() >= sizeof(mdiProgram) - 2 || line.indexOf('\n') >= 0 || line.indexOf('\r') >= 0) {
     server.send(400, "text/plain", "One line, up to 190 characters.");
     return;
@@ -217,6 +226,14 @@ void handleStatus() {
   json += "],\"log\":" + String((unsigned long)cncLogCount);
   json += ",\"held\":" + String(heldKey);
   json += ",\"mdi\":" + String(gcodeProgramData == mdiProgram && cncRunActive() ? 1 : 0);
+  json += ",\"in\":" + String((int)inRaw);
+  json += ",\"act\":[" + String(inHomeX ? 1 : 0) + "," + String(inHomeZ ? 1 : 0) + "," + String(inAlarm ? 1 : 0) + "]";
+  json += ",\"use\":[" + String(HOME_X_USE ? 1 : 0) + "," + String(HOME_Z_USE ? 1 : 0) + "," + String(ALARM_USE ? 1 : 0) + "]";
+  json += ",\"homed\":[" + String(x.homed ? 1 : 0) + "," + String(z.homed ? 1 : 0) + "," + String(a1.homed ? 1 : 0) + "]";
+  json += ",\"homing\":" + String(homingActive ? 1 : 0);
+  json += ",\"a2\":" + String(PULSE_2_USE ? 0 : 1);
+  if (x.homed) json += ",\"mx\":" + String(machinePosMm(&x), 4);
+  if (z.homed) json += ",\"mz\":" + String(machinePosMm(&z), 4);
   json += "}";
   server.sendHeader("Cache-Control", "no-cache");
   server.send(200, "application/json", json);
@@ -396,9 +413,19 @@ bool loadProgram(const String& name, String* error) {
 void handleCommand() {
   String what = server.arg("do");
   if (what == "stop") {
+    homingAbort = true;
+    homingRequest = false;
     setIsOnFromTask(false); // decelerates along the path, then drops the rest (GCODE mode)
     cncUserHold = false;
     server.send(200, "text/plain", "Stopping");
+  } else if (what == "home") {
+    if (!homingConfigured()) {
+      server.send(409, "text/plain", "No home switch is set up (Machine settings).");
+      return;
+    }
+    if (refuseWhileRunning()) return;
+    homingRequest = true;
+    server.send(200, "text/plain", "Home All");
   } else if (what == "pause") {
     if (mode != MODE_GCODE || !isOn) {
       server.send(409, "text/plain", "Nothing runs.");
