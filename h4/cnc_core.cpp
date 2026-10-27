@@ -152,6 +152,7 @@ static void plan_discard_current_block() {
   }
 }
 
+
 static cnc_block_t* plan_get_current_block() {
   if (block_buffer_head == block_buffer_tail) return NULL;
   return &block_buffer[block_buffer_tail];
@@ -173,15 +174,37 @@ uint8_t cnc_plan_blocks_used() {
   return CNC_BLOCK_BUFFER_SIZE - (block_buffer_tail - block_buffer_head);
 }
 
+// Overrides in percent, as Grbl 1.1: the feed of every feed move (G1-G3, G93, G95) and the speed of rapids.
+static uint8_t feed_override = 100;
+static uint8_t rapid_override = 100;
+
 static float plan_compute_profile_nominal_speed(const cnc_block_t* block) {
   float nominal_speed = block->programmed_rate;
-  if (!(block->condition & CNC_COND_RAPID) && nominal_speed > block->rapid_rate) nominal_speed = block->rapid_rate;
+  if (block->condition & CNC_COND_RAPID) {
+    nominal_speed *= 0.01f * rapid_override;
+  } else {
+    if (!(block->condition & CNC_COND_BACKLASH)) nominal_speed *= 0.01f * feed_override;
+    if (nominal_speed > block->rapid_rate) nominal_speed = block->rapid_rate;
+  }
   return nominal_speed > CNC_MINIMUM_FEED_RATE ? nominal_speed : CNC_MINIMUM_FEED_RATE;
 }
 
 static void plan_compute_profile_parameters(cnc_block_t* block, float nominal_speed, float prev_nominal_speed) {
   block->max_entry_speed_sqr = nominal_speed > prev_nominal_speed ? prev_nominal_speed * prev_nominal_speed : nominal_speed * nominal_speed;
   if (block->max_entry_speed_sqr > block->max_junction_speed_sqr) block->max_entry_speed_sqr = block->max_junction_speed_sqr;
+}
+
+// The self-test (and the PC tests): every planned block leaves the planner as if it had been executed at once.
+// Gives the time of each one at its programmed speed, in minutes. Only when no motion is being executed.
+int cnc_plan_take_all(float* minutes, int max) {
+  int n = 0;
+  while (block_buffer_head != block_buffer_tail) {
+    cnc_block_t* block = &block_buffer[block_buffer_tail];
+    if (n < max) minutes[n] = block->millimeters / plan_compute_profile_nominal_speed(block);
+    n++;
+    plan_discard_current_block();
+  }
+  return n;
 }
 
 // Adds a block that moves from the planner position by delta_steps. The caller checks that a block is free.
@@ -268,12 +291,29 @@ bool cnc_plan_buffer_backlash(int axis, int32_t steps, bool negative, uint32_t l
   return plan_buffer_steps(delta, 0.0f, CNC_COND_BACKLASH, line);  // the planner position does not change
 }
 
-// Re-plans from a complete stop (after a feed hold).
+// Re-plans the buffer from the block being executed (after a feed hold, or when an override changed).
 static void plan_cycle_reinitialize() {
   st_update_plan_block_parameters();
   block_buffer_planned = block_buffer_tail;
   planner_recalculate();
 }
+
+// The nominal speeds changed (override): new speed limits for every planned block, as Grbl's
+// plan_update_velocity_profile_parameters().
+static void plan_update_velocity_profile_parameters() {
+  uint8_t block_index = block_buffer_tail;
+  float prev_nominal_speed = CNC_SOME_LARGE_VALUE;
+  while (block_index != block_buffer_head) {
+    cnc_block_t* block = &block_buffer[block_index];
+    float nominal_speed = plan_compute_profile_nominal_speed(block);
+    plan_compute_profile_parameters(block, nominal_speed, prev_nominal_speed);
+    prev_nominal_speed = nominal_speed;
+    block_index = plan_next_block_index(block_index);
+  }
+  pl.previous_nominal_speed = prev_nominal_speed;
+}
+
+
 
 // ============================================================================ step segments
 
@@ -597,6 +637,23 @@ bool cnc_st_busy() {
 float cnc_st_realtime_rate() { return cnc_st_busy() ? prep.current_speed : 0.0f; }
 uint32_t cnc_st_current_line() { return exec_line; }
 uint32_t cnc_st_underruns() { return underruns; }
+
+// ============================================================================ overrides
+
+void cnc_set_overrides(uint8_t feed, uint8_t rapid) {
+  if (feed < CNC_FEED_OVERRIDE_MIN) feed = CNC_FEED_OVERRIDE_MIN;
+  if (feed > CNC_FEED_OVERRIDE_MAX) feed = CNC_FEED_OVERRIDE_MAX;
+  if (rapid != 100 && rapid != 50 && rapid != 25) rapid = 100;
+  if (feed == feed_override && rapid == rapid_override) return;
+  feed_override = feed;
+  rapid_override = rapid;
+  plan_update_velocity_profile_parameters();
+  // In a hold the rest is re-planned on resume; otherwise at once, from the block being executed.
+  if (!(step_control & STEP_CONTROL_EXECUTE_HOLD)) plan_cycle_reinitialize();
+}
+
+uint8_t cnc_feed_override() { return feed_override; }
+uint8_t cnc_rapid_override() { return rapid_override; }
 
 // ============================================================================ feed hold
 

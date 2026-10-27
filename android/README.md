@@ -32,6 +32,8 @@ light flashes quickly. Then the PS button alone connects it. The layout is the o
 | L1 + D-pad down | touch off Z: the tool's current point becomes Z0 of the active work offset |
 | Options | **STOP** |
 | PS | unlock (`$X`, moves before Home All) |
+| D-pad up / down (without L1) | feed override +10 / -10 % (10-200 %) |
+| D-pad left | feed override back to 100 % |
 
 Speeds and reversed axes: the page's *Gamepad* box. The gamepad's state and any refusal of the H4 are shown
 there; a refusal also rumbles the gamepad.

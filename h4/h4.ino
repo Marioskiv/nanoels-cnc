@@ -350,6 +350,7 @@ Adafruit_TCA8418 keypad;
 #include "esp_rom_sys.h"
 #include "cnc_core.h"
 #include "cnc_gcode.h"
+#include "cnc_bench.h"
 unsigned long keypadTimeUs = 0;
 
 // Most buttons we only have "down" handling, holding them has no effect.
@@ -681,6 +682,25 @@ volatile bool cncPaused = false; // M0, M1, M6: waiting for ON or '~'
 volatile bool cncSpindleHold = false; // stopped because the spindle stopped
 volatile bool cncResumeRequest = false;
 volatile bool cncStopRequest = false; // OFF / '!' / error: decelerate, then drop the rest of the program
+// Overrides wanted by the Grbl real-time commands, the web page and the gamepad; taskGcode applies them.
+volatile int cncFeedOverrideWanted = 100;  // %, 10 ... 200
+volatile int cncRapidOverrideWanted = 100; // %, 100 / 50 / 25
+
+// The Grbl 1.1 override commands 0x90 ... 0x97 (feed 100 %, +10, -10, +1, -1; rapids 100, 50, 25 %).
+void cncOverrideCommand(int code) {
+  int f = cncFeedOverrideWanted;
+  switch (code) {
+    case 0x90: f = 100; break;
+    case 0x91: f += 10; break;
+    case 0x92: f -= 10; break;
+    case 0x93: f += 1; break;
+    case 0x94: f -= 1; break;
+    case 0x95: cncRapidOverrideWanted = 100; break;
+    case 0x96: cncRapidOverrideWanted = 50; break;
+    case 0x97: cncRapidOverrideWanted = 25; break;
+  }
+  cncFeedOverrideWanted = constrain(f, CNC_FEED_OVERRIDE_MIN, CNC_FEED_OVERRIDE_MAX);
+}
 volatile bool cncStartRequest = false;
 volatile bool wifiFsBusy = false; // the web page is reading or writing the flash: no program may start now
 volatile bool cncUserHold = false; // Pause from the web page: decelerate and wait for Resume
@@ -730,7 +750,9 @@ bool gcodePollInSemicolon = false;
 unsigned long gcodeAwaitOnMs = 0;
 uint32_t cncLineNo = 0;
 uint32_t cncOffsetsSeen = 0;
+uint32_t cncOffsetsSaved = 0;
 volatile uint32_t cncCpuCyclesPerTick = 12; // set in setup() from the CPU clock
+volatile uint32_t cncCpuCyclesPerUs = 240;
 
 int getApproxRpm() {
   unsigned long t = micros();
@@ -1575,59 +1597,174 @@ void cncLog(const char* text) {
   portEXIT_CRITICAL(&cncLogMux);
 }
 
-Axis* cncAxis(int i) {
+IRAM_ATTR Axis* cncAxis(int i) {
   return i == CNC_X ? &x : (i == CNC_Z ? &z : &a1);
 }
 
-// Step pulse, H4 style: the step pin idles HIGH and a step is a LOW pulse.
+// The step interrupt works as FluidNC's "timed" stepping engine (and Grbl): the step computed by the previous
+// interrupt is put out at the very start of this one, so its timing does not depend on how long the computation
+// takes; the next step is computed while the pulse is high and only the rest of the pulse length is waited; the
+// direction pins of the next step are set right after the pulse, so the driver sees them a whole step period
+// (and at least DIRECTION_SETUP_DELAY_US) before its step. Step pulse, H4 style: the step pin idles HIGH and a step
+// is a LOW pulse. The positions count a step when it is put out, so "not busy" always means "all steps given".
+static cnc_tick_t cncPending;                   // computed, put out by the next interrupt
+static bool cncPendingValid = false;
+static bool cncDirWait = false;                 // the direction pins changed for the pending step
+static uint32_t cncDirSetCycles = 0;
+// Self-measurement, shown on the web page (Diagnostics): no instrument is needed to see the limits.
+volatile uint32_t cncDiagIsrMaxCycles = 0;      // longest interrupt
+volatile uint32_t cncDiagLateMaxTicks = 0;      // latest start after its alarm (timer ticks)
+volatile uint32_t cncDiagLateCount = 0;         // interrupts that started more than 10 us late
+volatile uint32_t cncDiagRateMax = 0;           // highest step rate given, steps per second
+volatile uint32_t cncDiagSteps = 0;             // step pulses given (all axes together)
+
+void cncDiagReset() {
+  cncDiagIsrMaxCycles = 0;
+  cncDiagLateMaxTicks = 0;
+  cncDiagLateCount = 0;
+  cncDiagRateMax = 0;
+  cncDiagSteps = 0;
+}
+
 static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* edata, void* ctx) {
   uint32_t cycles0 = esp_cpu_get_cycle_count();
+  uint32_t late = (uint32_t)(edata->count_value - edata->alarm_value);
+  if (late > cncDiagLateMaxTicks) cncDiagLateMaxTicks = late;
+  if (late > CNC_TIMER_HZ / 100000) cncDiagLateCount = cncDiagLateCount + 1;  // over 10 us
+  bool run = cncStepsEnabled && !cncFaultStop;
+
+  // 1. Put out the pending step.
+  uint32_t stepMask = 0;
+  uint32_t pulseStart = 0;
+  if (cncPendingValid && run) {
+    if (cncDirWait) {
+      uint32_t dirCycles = DIRECTION_SETUP_DELAY_US * cncCpuCyclesPerUs;
+      while (esp_cpu_get_cycle_count() - cncDirSetCycles < dirCycles) {}
+    }
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      if (cncPending.step & (1 << i)) stepMask |= 1UL << cncAxis(i)->step;
+    }
+    REG_WRITE(GPIO_OUT_W1TC_REG, stepMask);
+    pulseStart = esp_cpu_get_cycle_count();
+    unsigned long nowUs = (unsigned long)esp_timer_get_time();
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      if (!(cncPending.step & (1 << i))) continue;
+      Axis* a = cncAxis(i);
+      int d = (cncPending.dirNeg & (1 << i)) ? -1 : 1;
+      a->motorPos += d;
+      a->posGlobal += d;
+      if (!cncPending.motorOnly) a->pos += d;
+      a->stepStartUs = nowUs;
+    }
+    cncDiagSteps = cncDiagSteps + 1;
+  }
+  cncPendingValid = false;
+  cncDirWait = false;
+
+  // 2. Compute the next step while the pulse is high.
   cnc_tick_t t;
   bool active = false;
   portENTER_CRITICAL_ISR(&cncMux);
-  if (cncStepsEnabled && !cncFaultStop) active = cnc_isr(&t);
+  if (run) active = cnc_isr(&t);
   portEXIT_CRITICAL_ISR(&cncMux);
-  if (!cncStepsEnabled) t.period = CNC_TIMER_HZ / 1000;
+  if (!run) t.period = CNC_TIMER_HZ / 1000;
   if (active && t.step) {
-    bool dirChanged = false;
-    uint32_t stepMask = 0;
+    cncPending = t;
+    cncPendingValid = true;
+    uint32_t rate = CNC_TIMER_HZ / (t.period > 0 ? t.period : 1);
+    if (rate > cncDiagRateMax) cncDiagRateMax = rate;
+  }
+
+  // 3. End the pulse after CNC_STEP_PULSE_US.
+  if (stepMask) {
+    uint32_t pulseCycles = CNC_STEP_PULSE_US * cncCpuCyclesPerUs;
+    while (esp_cpu_get_cycle_count() - pulseStart < pulseCycles) {}
+    REG_WRITE(GPIO_OUT_W1TS_REG, stepMask);
+  }
+
+  // 4. Direction pins of the next step.
+  if (cncPendingValid) {
     for (int i = 0; i < CNC_N_AXIS; i++) {
-      if (!(t.step & (1 << i))) continue;
+      if (!(cncPending.step & (1 << i))) continue;
       Axis* a = cncAxis(i);
-      bool positive = !(t.dirNeg & (1 << i));
+      bool positive = !(cncPending.dirNeg & (1 << i));
       // a->direction is the cache that setDir() uses: keep it true so manual moves set the pin correctly later.
       if (!a->directionInitialized || a->direction != positive) {
         a->direction = positive;
         a->directionInitialized = true;
         if (positive ^ a->invertStepper) REG_WRITE(GPIO_OUT_W1TS_REG, 1UL << a->dir);
         else REG_WRITE(GPIO_OUT_W1TC_REG, 1UL << a->dir);
-        dirChanged = true;
+        cncDirWait = true;
       }
-      stepMask |= 1UL << a->step;
     }
-    if (dirChanged) esp_rom_delay_us(DIRECTION_SETUP_DELAY_US);
-    REG_WRITE(GPIO_OUT_W1TC_REG, stepMask);
-    esp_rom_delay_us(CNC_STEP_PULSE_US);
-    REG_WRITE(GPIO_OUT_W1TS_REG, stepMask);
-    unsigned long nowUs = (unsigned long)esp_timer_get_time();
-    for (int i = 0; i < CNC_N_AXIS; i++) {
-      if (!(t.step & (1 << i))) continue;
-      Axis* a = cncAxis(i);
-      int d = (t.dirNeg & (1 << i)) ? -1 : 1;
-      a->motorPos += d;
-      a->posGlobal += d;
-      if (!t.motorOnly) a->pos += d;
-      a->stepStartUs = nowUs;
-    }
+    if (cncDirWait) cncDirSetCycles = esp_cpu_get_cycle_count();
   }
+
+  uint32_t used = esp_cpu_get_cycle_count() - cycles0;
+  if (used > cncDiagIsrMaxCycles) cncDiagIsrMaxCycles = used;
   // Next tick, never in the past even if this one took long.
-  uint64_t elapsed = (uint32_t)(esp_cpu_get_cycle_count() - cycles0) / cncCpuCyclesPerTick;
+  uint64_t elapsed = used / cncCpuCyclesPerTick;
   uint64_t next = edata->alarm_value + t.period;
   uint64_t earliest = edata->count_value + elapsed + 100;
   gptimer_alarm_config_t alarm = {};
   alarm.alarm_count = next > earliest ? next : earliest;
   gptimer_set_alarm_action(timer, &alarm);
   return false;
+}
+
+// Highest step rate of one axis in the GCODE mode: a step pulse and an equal pause (FluidNC's limit for its
+// "timed" engine). The step interrupt must also fit in that time: the web page shows how long it really takes.
+// Self-test of a stored program (web page: Test): read and planned as when it runs, nothing moves (cnc_bench.h).
+volatile bool cncBenchRequest = false;
+const char* volatile cncBenchData = NULL;
+volatile size_t cncBenchSize = 0;
+char cncBenchName[64] = "";
+char cncBenchText[300] = "";
+volatile uint32_t cncBenchCount = 0;  // changes when a new result is there
+
+uint64_t cncBenchNowUs() {
+  return (uint64_t)esp_timer_get_time();
+}
+
+void cncBenchYield() {
+  vTaskDelay(1);
+}
+
+void cncRunBench() {
+  cnc_offsets_t offs;
+  cnc_gc_get_offsets(&offs);
+  cnc_modes_t modes;
+  cnc_gc_get_modes(&modes);
+  uint32_t changes = cnc_gc_offsets_changes();
+  bool saved = cncOffsetsSaved == changes, seen = cncOffsetsSeen == changes;
+  cncSyncFromAxes(false);
+  cnc_bench_t r;
+  cnc_bench_run(cncBenchData, cncBenchSize, &r, cncBenchNowUs, cncBenchYield);
+  // back to where it was: position from the axes, the offsets and modes as before (nothing is stored)
+  cncSyncFromAxes(false);
+  cnc_gc_set_offsets(&offs);
+  cnc_gc_set_modes(&modes);
+  if (saved) cncOffsetsSaved = cnc_gc_offsets_changes();
+  if (seen) cncOffsetsSeen = cnc_gc_offsets_changes();
+  double planned = r.busyUs > 0 ? r.blocks / (r.busyUs / 1e6) : 0;
+  int n = snprintf(cncBenchText, sizeof(cncBenchText), "Test %s: %lu lines, %lu moves, %.1f min at the programmed speeds. "
+      "The H4 plans %.0f moves/s, the program needs at most %.0f/s (line %lu): ", cncBenchName, (unsigned long)r.lines,
+      (unsigned long)r.blocks, r.programMinutes, planned, r.neededPerSecond, (unsigned long)r.neededAtLine);
+  if (r.stopLine && strncmp(r.stopReason, "threading", 9) != 0) {
+    snprintf(cncBenchText + n, sizeof(cncBenchText) - n, "STOPPED at line %lu: %s", (unsigned long)r.stopLine, r.stopReason);
+  } else if (planned >= 2 * r.neededPerSecond) {
+    snprintf(cncBenchText + n, sizeof(cncBenchText) - n, "OK, %.0f times faster than needed%s", r.neededPerSecond > 0 ? planned / r.neededPerSecond : 999.0,
+        r.stopLine ? " (stopped at a threading line, not part of the test)" : "");
+  } else {
+    snprintf(cncBenchText + n, sizeof(cncBenchText) - n, "TOO CLOSE: the machine may slow down around line %lu "
+        "(fewer, longer moves in the CAM / converter help)", (unsigned long)r.neededAtLine);
+  }
+  cncLog(cncBenchText);
+  cncBenchCount = cncBenchCount + 1;
+}
+
+uint32_t cncStepRateLimit() {
+  return 1000000UL / (2UL * max(1, CNC_STEP_PULSE_US));
 }
 
 void cncConfigure() {
@@ -1639,6 +1776,14 @@ void cncConfigure() {
     float stepsPerUnit = a->motorSteps / (a->screwPitch / 10000.0); // steps per mm, or per degree for a rotary axis
     s.stepsPerUnit[i] = stepsPerUnit;
     s.maxRate[i] = a->speedManualMove / stepsPerUnit * 60;
+    if (a->active && (uint32_t)a->speedManualMove > cncStepRateLimit()) {
+      // never ask the step interrupt for more than it can give: the axis is slowed, and the page says so
+      s.maxRate[i] = cncStepRateLimit() / stepsPerUnit * 60;
+      char text[100];
+      snprintf(text, sizeof(text), "%c: maximum speed lowered to %lu steps/s (step pulse %d us)", a->name,
+          (unsigned long)cncStepRateLimit(), CNC_STEP_PULSE_US);
+      cncLog(text);
+    }
     s.acceleration[i] = a->acceleration / stepsPerUnit * 3600;
     m.name[i] = a->name;
     m.active[i] = a->active;
@@ -1667,11 +1812,15 @@ void cncConfigure() {
 
 void cncStartTimer() {
   cncCpuCyclesPerTick = max(1UL, (unsigned long)(getCpuFrequencyMhz() * 1000000UL / CNC_TIMER_HZ));
+  cncCpuCyclesPerUs = getCpuFrequencyMhz();
   gptimer_config_t config;
   memset(&config, 0, sizeof(config));
   config.clk_src = GPTIMER_CLK_SRC_DEFAULT;
   config.direction = GPTIMER_COUNT_UP;
   config.resolution_hz = CNC_TIMER_HZ;
+  // Highest interrupt level a C handler may have (as FluidNC's step timer): WiFi and the other interrupts (level 1)
+  // cannot delay the steps.
+  config.intr_priority = 3;
   if (gptimer_new_timer(&config, &cncTimer) != ESP_OK) {
     Serial.println("error: CNC step timer not available");
     return;
@@ -1727,7 +1876,6 @@ void cncG54ToAxes() {
 // G55 ... G59.3, G28 and G30 positions are kept in Preferences (machine coordinates; they mean something
 // after Home All). Written only when nothing moves (a flash write stops the step interrupt).
 #define WCS_NAMESPACE "h4wcs"
-uint32_t cncOffsetsSaved = 0;
 
 void cncLoadOffsets() {
   cnc_offsets_t o;
@@ -1898,6 +2046,9 @@ bool cncThread() {
 
 // Called often from taskGcode: stop requests, the spindle check and the step segments.
 void cncService() {
+  if (cncFeedOverrideWanted != cnc_feed_override() || cncRapidOverrideWanted != cnc_rapid_override()) {
+    cnc_set_overrides(cncFeedOverrideWanted, cncRapidOverrideWanted);  // re-plans what is queued at once
+  }
   if (cncFaultStop) {
     // A limit switch or a driver alarm: the step interrupt has stopped at once. Drop everything planned;
     // the positions are exact (every step given is counted).
@@ -2147,6 +2298,7 @@ void taskGcode(void *param) {
     if (cncStartRequest && !cncBusy()) {
       // A program starts (ON pressed or '~' received): positions and modes from the H4.
       cncStartRequest = false;
+      cncDiagReset(); // the diagnostics of the web page describe this program
       cncSyncFromAxes(cncStartKeepModes);
       cncStartKeepModes = false;
     }
@@ -2155,6 +2307,11 @@ void taskGcode(void *param) {
       while (Serial.available() > 0 && grblRoomFor(0)) grblInput(0, Serial.read());
     }
     if (grblServiceLine()) continue; // one line of a Grbl sender, if there is one (grbl.ino)
+    if (cncBenchRequest) {
+      cncBenchRequest = false;
+      if (!isOn && !cncBusy() && !homingActive) cncRunBench();
+      continue;
+    }
     if (webJogService()) continue;   // a jog piece from the web page's gamepad (grbl.ino)
     bool gotChar = false;
     if (mode != MODE_GCODE) {
@@ -2324,7 +2481,8 @@ void taskGcode(void *param) {
       setIsOnFromTask(false); // a stored program ends when its motion has ended
     }
     cncService();
-    if (!homingActive && !stepperIsRunning(&x) && !stepperIsRunning(&z) && !stepperIsRunning(&a1)) cncSaveOffsetsIfChanged();
+    // (writing to flash stops the step interrupt for milliseconds: only when nothing moves or is queued)
+    if (!homingActive && !cncBusy() && !stepperIsRunning(&x) && !stepperIsRunning(&z) && !stepperIsRunning(&a1)) cncSaveOffsetsIfChanged();
     // Wait a tick when there was nothing to read, so the lower-priority tasks on this core run.
     if (gotChar) taskYIELD();
     else vTaskDelay(1);

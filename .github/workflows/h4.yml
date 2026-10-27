@@ -1,0 +1,53 @@
+# Checks the H4 CNC firmware on every change: the PC tests (interpreter, motion, self-test), LinuxCNC's own
+# interpreter as a second opinion, and a real Arduino build (the same ESP32 core and settings as the IDE).
+# https://github.com/Marioskiv/nanoels-cnc - Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: GPL-3.0-or-later
+name: H4 firmware
+
+on:
+  push:
+    branches: [main]
+    paths: ['h4/**', '.github/workflows/h4.yml']
+  pull_request:
+    paths: ['h4/**', '.github/workflows/h4.yml']
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: PC tests (parser, motion simulation, overrides, step order, self-test)
+        run: sh h4/test/run_tests.sh
+
+  linuxcnc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LinuxCNC (for its rs274 interpreter)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linuxcnc-uspace || sudo apt-get install -y linuxcnc
+          command -v rs274 || ls /usr/bin | grep -i rs274
+      - name: Same positions and refused lines as LinuxCNC (1000 random programs)
+        run: RS274="$(command -v rs274)" sh h4/test/run_tests.sh
+
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        machine: [plain, my_machine]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: ESP32 core and libraries
+        run: |
+          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli lib install "Adafruit TCA8418" "LiquidCrystal"
+      - name: With an own my_machine.h (the example)
+        if: matrix.machine == 'my_machine'
+        run: cp h4/my_machine.h.example h4/my_machine.h
+      - name: Build as the Arduino IDE does
+        run: >
+          arduino-cli compile --warnings default
+          --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=enabled,PartitionScheme=app3M_fat9M_16MB h4

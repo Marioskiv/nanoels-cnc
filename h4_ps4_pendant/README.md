@@ -25,6 +25,8 @@ The same layout as the LinuxCNC `gamepad.hal` of the XZC machine.
 | L1 + D-pad down | touch off Z: the tool's current point becomes Z0 of the active work offset |
 | Options | **STOP**: stops all motion of the H4, a running program too |
 | PS | clear an alarm |
+| D-pad up / down (without L1) | feed override +10 / -10 % (10-200 %) |
+| D-pad left | feed override back to 100 % |
 
 Cross, Circle, Triangle and Square are not used (the H4 does not switch the machine or the spindle).
 The H4 still limits every axis to its own maximum speed and its soft limits; with *Home required* on, jogging

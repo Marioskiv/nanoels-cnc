@@ -91,7 +91,9 @@ bool cnc_plan_buffer_backlash(int axis, int32_t steps, bool negative, uint32_t l
 uint8_t cnc_plan_blocks_free();
 uint8_t cnc_plan_blocks_used();
 const int32_t* cnc_plan_position();
-float cnc_plan_last_block_minutes();  // time of the last block at its programmed speed (for reports)
+float cnc_plan_last_block_minutes();
+// Self-test: takes out every planned block as if executed at once; minutes[] = time of each at its programmed speed
+int cnc_plan_take_all(float* minutes, int max);  // time of the last block at its programmed speed (for reports)
 
 // ---- step segment generator (call often from a task)
 void cnc_st_reset();
@@ -101,6 +103,12 @@ float cnc_st_realtime_rate();     // units/min of the segment being prepared
 uint32_t cnc_st_current_line();
 uint32_t cnc_st_underruns();      // times the step buffer ran empty while motion was queued (should stay 0)
 
+// ---- overrides (Grbl 1.1): feed 10-200 %, rapids 100 / 50 / 25 %. Call from the planner's task.
+#define CNC_FEED_OVERRIDE_MIN 10
+#define CNC_FEED_OVERRIDE_MAX 200
+void cnc_set_overrides(uint8_t feed, uint8_t rapid);
+uint8_t cnc_feed_override();
+uint8_t cnc_rapid_override();
 // ---- feed hold
 void cnc_hold_start();            // decelerate to a stop inside the planned path
 bool cnc_hold_complete();         // the hold has stopped all motion

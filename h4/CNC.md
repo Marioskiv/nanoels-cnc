@@ -79,7 +79,10 @@ every line (look-ahead: `ok` as soon as a line is planned), the real-time comman
 cancel, the status report `<Idle|WPos:X,0,Z,C|Bf:..|FS:..>` (Y is always 0), `$$` `$#` `$G` `$I` `$N`, `$X`
 (run without Home All), `$H` (Home All), `$J=` jogs and `ALARM:1` for a limit or a driver alarm. The G-code goes
 to the same interpreter as files. Machine settings are changed on the web page, not with `$x=` (a sender gets
-`error:3` and a message). Feed / spindle overrides and check mode `$C` are not supported.
+`error:3` and a message). **Feed and rapid overrides** work as in Grbl 1.1 (real-time bytes `0x90`-`0x94` feed
+100 % / +10 / -10 / +1 / -1, range 10-200 %; `0x95`-`0x97` rapids 100 / 50 / 25 %; `Ov:` in the status report):
+what is already planned is re-planned at once, as Grbl does. Spindle overrides and check mode `$C` are not
+supported (the H4 does not drive the spindle).
 
 **PS4 / PS5 gamepad.** A plain ESP32 board with the sketch `h4_ps4_pendant` (folder next to `h4`) turns the
 gamepad into a jog pendant through this port (L1 deadman, sticks X/Z, triggers C, Home All, touch off Z,
