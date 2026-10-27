@@ -36,7 +36,8 @@ static void setup(bool cActive, int32_t backlashX) {
 
 static int run(const char* line, char* msg) {
   float dwell = 0;
-  return cnc_gc_line(line, 1, msg, 128, &dwell);
+  static uint32_t lineNo = 0;  // every call a new line (a cycle continues only on the same line)
+  return cnc_gc_line(line, ++lineNo, msg, 128, &dwell);
 }
 
 static void expect(const char* line, int want, const char* msgPart = NULL) {
@@ -86,10 +87,15 @@ int main() {
   expect("G92", CNC_ERROR, "needs an axis");
   expect("G53 G2 X1 Z1 R1", CNC_ERROR, "G53 only with G0 or G1");
   expect("G80 X1", CNC_ERROR, "G80");
-  expect("G96 S100", CNC_ERROR, "G97");
-  expect("G76 P1 Z-10 I-1 J0.5 K1", CNC_ERROR, "J word");
-  expect("G71 X1", CNC_ERROR, "cycles expanded");
-  expect("G81 X1 Z-1 R1", CNC_ERROR, "cycles expanded");
+  expect("G76 P1 Z-10 I-1 J0.5 K0.4", CNC_ERROR, "K must be greater than J");
+  expect("G1 X1 J1 F100", CNC_ERROR, "J word");
+  expect("G71 X1", CNC_ERROR, "without cycles");
+  expect("G84 X1 Z-1 R1", CNC_ERROR, "spindle the H4 controls");
+  expect("G81 X1 Z-1 R1 F100", CNC_ERROR, "drill along Y");
+  expect("G17 G81 X1 R1 F100", CNC_ERROR, "Z value missing");
+  expect("G17 G83 X1 Z-1 R1 F100", CNC_ERROR, "Q missing");
+  expect("G17 G81 X1 Z-1 R1 P1 F100", CNC_ERROR, "P word without");
+  expect("G17 G81 X1 Z3 R1 F100", CNC_ERROR, "R is below");
   expect("G38.2 Z-1", CNC_ERROR, "probing");
   expect("G41 D1", CNC_ERROR, "in computer");
   expect("O100 sub", CNC_ERROR, "O-word");
@@ -179,7 +185,6 @@ int main() {
   expect("G32 C10 Z-10 F1", CNC_ERROR, "X and Z only");
   expect("G32 F1", CNC_ERROR, "needs X or Z");
   expect("G32 G1 Z-10 F1", CNC_ERROR, "same modal group");
-  expect("G33 Z-10 K30", CNC_ERROR, "at most");
   // the next plain move still uses F150, not the lead
   cnc_plan_reset();
   {
@@ -192,6 +197,19 @@ int main() {
   if (cnc_plan_last_block_minutes() < 2.0f / 150 * 0.99f || cnc_plan_last_block_minutes() > 2.0f / 150 * 1.01f) {
     printf("FAIL feed after G32: %g min\n", cnc_plan_last_block_minutes()); failures++;
   }
+
+  // U / W: incremental X / Z (Fanuc and the CAM lathe posts); in G7 U is a diameter
+  setup(true, 0);
+  expect("G0 X10 Z5", CNC_OK);
+  expect("G1 U-2 W-5 F100", CNC_OK);
+  expectPos(8 * 1200, 0, 0, "U-2 W-5");
+  expect("G7 G1 U-4", CNC_OK);
+  expectPos(6 * 1200, 0, 0, "G7 U-4 = radius -2");
+  expect("G8", CNC_OK);
+  expect("G1 X1 U1", CNC_ERROR, "X and U");
+  expect("G28 U0", CNC_OK);
+  expectPos(0, 0, 0, "G28 U0: X home (machine 0), Z stays");
+  expect("G96 S200 M3", CNC_OK, "by hand");
 
   printf("parse: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;

@@ -56,7 +56,20 @@ int main(int argc, char** argv) {
     char msg[128];
     float dwell = 0;
     int r;
-    while ((r = cnc_gc_line(l.c_str(), lineNo, msg, sizeof(msg), &dwell)) == CNC_WAIT) {
+    while (true) {
+      r = cnc_gc_line(l.c_str(), lineNo, msg, sizeof(msg), &dwell);
+      if (r == CNC_THREAD || r == CNC_THREAD_MORE) {
+        // the firmware would run the spindle-synchronised move: the axes end at the target
+        int32_t t[CNC_N_AXIS];
+        float lead;
+        cnc_gc_thread(t, &lead);
+        trace(t, lineNo);
+        int32_t mo[CNC_N_AXIS] = {0, 0, 0};
+        bool ng[CNC_N_AXIS] = {false, false, false};
+        cnc_gc_sync(t, mo, ng);
+      }
+      if (r == CNC_DWELL_MORE || r == CNC_THREAD_MORE) continue;
+      if (r != CNC_WAIT) break;
       int32_t keep[CNC_N_AXIS];  // the planner is emptied as if the machine had moved
       memcpy(keep, cnc_plan_position(), sizeof(keep));
       cnc_plan_reset();
