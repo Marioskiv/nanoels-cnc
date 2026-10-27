@@ -1,0 +1,19 @@
+// NanoEls H4 CNC - Android app (WebView of the H4 page + native gamepad)
+// https://github.com/Marioskiv/nanoels-cnc
+// Copyright (c) 2026 Marioskiv
+// SPDX-License-Identifier: MIT
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'H4CNC'
+include ':app'

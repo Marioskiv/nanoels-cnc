@@ -85,6 +85,10 @@ to the same interpreter as files. Machine settings are changed on the web page, 
 gamepad into a jog pendant through this port (L1 deadman, sticks X/Z, triggers C, Home All, touch off Z,
 STOP): see [`../h4_ps4_pendant/README.md`](../h4_ps4_pendant/README.md).
 
+**Android app.** The simplest way on a phone: the *H4 CNC* app (folder `android/`, APK on the repository's
+Releases page) shows this page full screen and reads the gamepad itself, with no browser setting. See
+[`../android/README.md`](../android/README.md).
+
 **Gamepad on the phone (no extra board).** The H4 web page also reads a PS4 / PS5 gamepad connected to the
 phone or computer (Android: Settings > Bluetooth, pair it with Share + PS). Same layout; the page sends the wanted
 speeds to the H4 every 100 ms and the H4 turns them into the same short jogs (0.05 s pieces, at most 0.2 s queued,
