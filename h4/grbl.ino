@@ -108,6 +108,7 @@ void grblStatus(int ch) {
   if (a1.active) n += snprintf(buf + n, sizeof(buf) - n, ",%.3f", (a1.pos + a1.originPos) / cncStepsPerUnit(CNC_C));
   n += snprintf(buf + n, sizeof(buf) - n, "|Bf:%d,%d|FS:%.0f,%d", cnc_plan_blocks_free(),
       (int)(grblQueue ? uxQueueSpacesAvailable(grblQueue) : 0) * 16, cnc_st_realtime_rate() * grblUnit(&x), getApproxRpm());
+  n += snprintf(buf + n, sizeof(buf) - n, "|Ov:%d,%d,100", cnc_feed_override(), cnc_rapid_override());
   bool pins = (HOME_X_USE && inHomeX) || (HOME_Z_USE && inHomeZ);
   if (pins) n += snprintf(buf + n, sizeof(buf) - n, "|Pn:%s%s", HOME_X_USE && inHomeX ? "X" : "", HOME_Z_USE && inHomeZ ? "Z" : "");
   snprintf(buf + n, sizeof(buf) - n, ">\r\n");
@@ -153,7 +154,11 @@ void grblInput(int ch, char c) {
     if (grblJogging) setIsOnFromTask(false);
     return;
   }
-  if (u >= 0x80) return;  // overrides and other real-time bytes: not supported, ignored as Grbl ignores unknown ones
+  if (u >= 0x90 && u <= 0x97) {  // feed and rapid overrides
+    cncOverrideCommand(u);
+    return;
+  }
+  if (u >= 0x80) return;  // spindle / coolant overrides and other real-time bytes: ignored as Grbl ignores unknown ones
   if (c == '\r' || c == '\n') {
     grblInComment[ch] = false;
     if (grblLineOverflow[ch]) {

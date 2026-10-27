@@ -18,6 +18,7 @@
 //   L1 + D-pad down    touch off Z: the tool's current point becomes Z0 of the active work offset
 //   Options            STOP: stops all motion of the H4, a running program too (Grbl Ctrl-X)
 //   PS                 clear an alarm ($X)
+//   D-pad up / down    feed override +10 / -10 % (without L1); D-pad left: 100 %
 //   Cross, Circle, Triangle, Square: not used (the H4 has no machine power and no spindle control).
 // Light bar: white = no WiFi, green = ready, blue = jogging, red = the H4 does not answer, an alarm, or a
 // refused command (the H4's reason is printed on USB and shown on the H4 web page).
@@ -280,6 +281,8 @@ void loop() {
   bool pressedOptions = (misc & MISC_BUTTON_START) && !(lastMisc & MISC_BUTTON_START);
   bool pressedPs = (misc & MISC_BUTTON_SYSTEM) && !(lastMisc & MISC_BUTTON_SYSTEM);
   bool pressedDown = (dpad & DPAD_DOWN) && !(lastDpad & DPAD_DOWN);
+  bool pressedUp = (dpad & DPAD_UP) && !(lastDpad & DPAD_UP);
+  bool pressedLeft = (dpad & DPAD_LEFT) && !(lastDpad & DPAD_LEFT);
   lastButtons = buttons;
   lastMisc = misc;
   lastDpad = dpad;
@@ -315,6 +318,9 @@ void loop() {
   if (waitIdle && now - waitIdleMs > 3000) waitIdle = false;
 
   if (h4.connected() && h4Ready) {
+    if (!l1 && pressedUp) sendByte(0x91);    // feed override +10 %
+    if (!l1 && pressedDown) sendByte(0x92);  // -10 %
+    if (!l1 && pressedLeft) sendByte(0x90);  // 100 %
     if (pendingLine != nullptr) {
       sendLine(pendingLine);
       pendingLine = nullptr;

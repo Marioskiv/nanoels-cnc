@@ -12,6 +12,7 @@
 //   L1 + D-pad down    touch off Z (G10 L20 P0 Z0)
 //   Options            STOP
 //   PS                 unlock ($X)
+//   D-pad up / down    feed override +10 / -10 % (without L1); D-pad left: 100 %
 //
 // The wanted speeds go to http://<H4>/jog every 100 ms while moving; the H4 turns them into short jogs and stops
 // by itself 0.3 s after the last request. Releasing sends speed 0 three times. All requests go out one after the
@@ -58,7 +59,7 @@ class GamepadJog {
     private String deviceName = "";
     private final Set<Integer> down = new HashSet<>();
     private float lx, ry, l2, r2;
-    private boolean hatDown, legacyTriggers;
+    private boolean hatDown, hatUp, hatLeft, legacyTriggers;
 
     // sending (main thread)
     private boolean running, moving;
@@ -129,9 +130,14 @@ class GamepadJog {
             l2 = Math.max(e.getAxisValue(MotionEvent.AXIS_LTRIGGER), e.getAxisValue(MotionEvent.AXIS_BRAKE));
             r2 = Math.max(e.getAxisValue(MotionEvent.AXIS_RTRIGGER), e.getAxisValue(MotionEvent.AXIS_GAS));
         }
-        boolean hd = e.getAxisValue(MotionEvent.AXIS_HAT_Y) > 0.5f;
+        float hy = e.getAxisValue(MotionEvent.AXIS_HAT_Y), hx = e.getAxisValue(MotionEvent.AXIS_HAT_X);
+        boolean hd = hy > 0.5f, hu = hy < -0.5f, hl = hx < -0.5f;
         if (hd && !hatDown) pressed(KeyEvent.KEYCODE_DPAD_DOWN);
+        if (hu && !hatUp) pressed(KeyEvent.KEYCODE_DPAD_UP);
+        if (hl && !hatLeft) pressed(KeyEvent.KEYCODE_DPAD_LEFT);
         hatDown = hd;
+        hatUp = hu;
+        hatLeft = hl;
         return true;
     }
 
@@ -149,6 +155,12 @@ class GamepadJog {
             post("/cmd?do=home", false);
         } else if (k == KeyEvent.KEYCODE_DPAD_DOWN && l1()) {
             post("/mdi?line=" + enc("G10 L20 P0 Z0"), false);
+        } else if (k == KeyEvent.KEYCODE_DPAD_UP && !l1()) {
+            post("/cmd?do=ovr&code=145", false);  // feed +10 %
+        } else if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
+            post("/cmd?do=ovr&code=146", false);  // feed -10 %
+        } else if (k == KeyEvent.KEYCODE_DPAD_LEFT && !l1()) {
+            post("/cmd?do=ovr&code=144", false);  // feed 100 %
         }
     }
 
@@ -174,7 +186,7 @@ class GamepadJog {
             deviceId = -1;
             down.clear();
             lx = ry = l2 = r2 = 0;
-            hatDown = false;
+            hatDown = hatUp = hatLeft = false;
         }
         double sp = down.contains(KeyEvent.KEYCODE_BUTTON_R1) ? fast : speed;
         double vz = (revZ ? -1 : 1) * dz(lx, DEAD_Z) * sp;

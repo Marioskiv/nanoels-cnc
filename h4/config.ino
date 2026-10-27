@@ -156,6 +156,14 @@ String configCrossCheck(const double* values) {
     double speed = values[configIndex((String(axes[a]) + "Speed").c_str())];
     if (start > speed) return String("Start speed above the maximum speed (") + axes[a] + ")";
   }
+  double pulse = values[configIndex("cncPulse")];
+  double rateLimit = 1000000.0 / (2 * (pulse < 1 ? 1 : pulse));
+  for (int a = 0; a < 3; a++) {
+    if (values[configIndex((String(axes[a]) + "Speed").c_str())] > rateLimit) {
+      return String("Maximum speed of ") + axes[a] + " above " + String((long)rateLimit) +
+          " steps/s, the most the step pulse length allows";
+    }
+  }
   if (values[configIndex("aAct")] != 0 && values[configIndex("p1Use")] != 0) {
     return "The A1 axis and handwheel 1 use the same terminal (A1): choose one";
   }

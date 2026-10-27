@@ -22,8 +22,27 @@ for i in $(seq 1 60); do
   m=marios; [ $((i % 5)) = 0 ] && m=h4default
   run "$OUT/r.ngc" --machine $m --backlash $bl $hold
 done
+# feed / rapid overrides changed while moving (Grbl 1.1 real-time commands), also during a hold
+run polar_sample.ngc --ovr 0.5:50:50 --ovr 2:150:25 --ovr 4:10:100 --ovr 6:200:100
+for i in $(seq 61 80); do
+  python3 gen_random.py "$i" > "$OUT/r.ngc"
+  hold=""; [ $((i % 2)) = 0 ] && hold="--hold-at 2.3"
+  run "$OUT/r.ngc" --ovr 0.7:30:25 --ovr 2.1:180:50 --ovr 3.3:100:100 --ovr 5:70:100 $hold
+done
+# the H4 step interrupt order (step put out by the next interrupt), with holds and overrides
+run polar_sample.ngc --delayed --backlash 120,240,5 --hold-at 3 --ovr 5:60:50
+run lathecode_sample.ngc --machine h4default --delayed --hold-at 1.5
+for i in $(seq 81 110); do
+  python3 gen_random.py "$i" > "$OUT/r.ngc"
+  bl="0,0,0"; [ $((i % 3)) = 0 ] && bl="40,80,3"
+  hold=""; [ $((i % 2)) = 0 ] && hold="--hold-at $((i % 5 + 1)).7"
+  run "$OUT/r.ngc" --delayed --backlash $bl $hold --ovr 1.1:40:25 --ovr 4.2:160:100
+done
 for f in "$@"; do run "$f"; done
 echo "simulation: $fail failure(s)"
+# the controller's self-test (cnc_bench.cpp) on the sample programs
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
+"$OUT/cnc_bench_pc" polar_sample.ngc lathecode_sample.ngc || fail=$((fail + 1))
 # Second opinion: LinuxCNC's own interpreter, when its rs274 is given (RS274=/path/to/rs274)
 if [ -n "$RS274" ]; then
   g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp

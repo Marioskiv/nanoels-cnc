@@ -216,6 +216,12 @@ void handleStatus() {
   json += ",\"program\":\"" + jsonEscape(webProgramName) + "\"";
   json += ",\"programLoaded\":" + String(webProgram != NULL && gcodeProgramData == webProgram ? 1 : 0);
   json += ",\"underruns\":" + String(cnc_st_underruns());
+  json += ",\"diag\":{\"isrUs\":" + String(cncDiagIsrMaxCycles / (float)cncCpuCyclesPerUs, 1) +
+      ",\"lateUs\":" + String(cncDiagLateMaxTicks / (float)(CNC_TIMER_HZ / 1000000), 1) +
+      ",\"late\":" + String(cncDiagLateCount) + ",\"rate\":" + String(cncDiagRateMax) +
+      ",\"limit\":" + String(cncStepRateLimit()) + ",\"steps\":" + String(cncDiagSteps) + "}";
+  json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
+  json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
   json += ",\"estop\":" + String(emergencyStop);
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
   json += ",\"fsTotal\":" + String((unsigned long)fsTotalBytes);
@@ -423,6 +429,38 @@ void handleCommand() {
     setIsOnFromTask(false); // decelerates along the path, then drops the rest (GCODE mode)
     cncUserHold = false;
     server.send(200, "text/plain", "Stopping");
+  } else if (what == "bench") {
+    if (refuseWhileRunning()) return;
+    if (isOn || cncBusy() || homingActive) {
+      server.send(409, "text/plain", "Turn the machine off first.");
+      return;
+    }
+    String name = server.arg("name");
+    String error = "";
+    wifiFsBusy = true;
+    bool loaded = validFileName(name) && loadProgram(name, &error);
+    wifiFsBusy = false;
+    if (!loaded) {
+      server.send(400, "text/plain", error.length() ? error : "Bad name");
+      return;
+    }
+    snprintf(cncBenchName, sizeof(cncBenchName), "%s", name.c_str());
+    cncBenchData = webProgram;
+    cncBenchSize = webProgramSize > 0 ? webProgramSize - 1 : 0;  // without the closing 0
+    cncBenchRequest = true;
+    server.send(200, "text/plain", "Testing " + name + " (nothing moves) ...");
+  } else if (what == "diagReset") {
+    cncDiagReset();
+    server.send(200, "text/plain", "Diagnostics cleared");
+  } else if (what == "ovr") {
+    // Grbl override code: 144 feed 100 %, 145 +10, 146 -10, 147 +1, 148 -1, 149 rapids 100 %, 150 50 %, 151 25 %
+    int code = server.arg("code").toInt();
+    if (code < 0x90 || code > 0x97) {
+      server.send(400, "text/plain", "Bad override");
+      return;
+    }
+    cncOverrideCommand(code);
+    server.send(200, "text/plain", "Feed " + String(cncFeedOverrideWanted) + " %, rapids " + String(cncRapidOverrideWanted) + " %");
   } else if (what == "home") {
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");

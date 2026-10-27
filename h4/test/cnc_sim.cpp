@@ -18,6 +18,9 @@
     --hold-at S       start a feed hold after S seconds, resume 0.5 s after it has stopped
     --backlash X,Z,C  backlash in steps
     --machine marios|h4default
+    --ovr S:F:R       at S seconds set the feed override to F % and the rapid override to R % (repeatable)
+    --delayed         step output as the H4 interrupt does it: a step computed by one interrupt is put out at the
+                      start of the next one; checks that "not busy" never comes while a step is still pending
 */
 #include "../cnc_core.h"
 #include "../cnc_gcode.h"
@@ -61,11 +64,16 @@ int main(int argc, char** argv) {
   double taskGapMs = 50, holdAt = -1;
   int32_t backlash[CNC_N_AXIS] = {0, 0, 0};
   const char* machineName = "marios";
+  struct Ovr { double at; int feed, rapid; bool done; };
+  std::vector<Ovr> ovrs;
+  bool delayed = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--task-gap-ms")) taskGapMs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--hold-at")) holdAt = atof(argv[++i]);
     else if (!strcmp(argv[i], "--backlash")) sscanf(argv[++i], "%d,%d,%d", &backlash[0], &backlash[1], &backlash[2]);
     else if (!strcmp(argv[i], "--machine")) machineName = argv[++i];
+    else if (!strcmp(argv[i], "--delayed")) delayed = true;
+    else if (!strcmp(argv[i], "--ovr")) { Ovr o; o.done = false; sscanf(argv[++i], "%lf:%d:%d", &o.at, &o.feed, &o.rapid); ovrs.push_back(o); }
     else file = argv[i];
   }
   if (!file) { fprintf(stderr, "usage: cnc_sim [options] program.ngc\n"); return 2; }
@@ -133,13 +141,19 @@ int main(int argc, char** argv) {
   uint32_t rnd = 12345;
   double idealMin = 0;  // sum of the programmed block times (G93: 1/F)
   bool idleSinceStart = true;
+  cnc_tick_t pend; bool pendValid = false; int pendingWhileIdle = 0;
 
   auto done = [&]() { return lineIdx >= lines.size() && !waitingIdle && !cnc_st_busy(); };
 
   while (!done()) {
     // ---- the feeding task
     if (now >= nextTask) {
+      // what the firmware reads as "motion finished" must mean every step was given
+      if (pendValid && (!cnc_st_busy() || cnc_hold_complete())) pendingWhileIdle++;
       if (holdAt >= 0 && !holdRequested && now >= (uint64_t)(holdAt * TIMER_HZ)) { cnc_hold_start(); holdRequested = true; }
+      for (Ovr& o : ovrs) {
+        if (!o.done && now >= (uint64_t)(o.at * TIMER_HZ)) { cnc_set_overrides((uint8_t)o.feed, (uint8_t)o.rapid); o.done = true; }
+      }
       if (holdRequested && !holdDone && cnc_hold_complete()) {
         if (holdStopAt == 0) holdStopAt = now;
         if (now >= holdStopAt + TIMER_HZ / 2) { cnc_hold_resume(); holdDone = true; }
@@ -212,7 +226,18 @@ int main(int argc, char** argv) {
         nextSample += (uint64_t)(SAMPLE_S * TIMER_HZ);
       }
       cnc_tick_t tick;
-      bool active = cnc_isr(&tick);
+      bool active;
+      if (delayed) {
+        cnc_tick_t comp;
+        memset(&tick, 0, sizeof(tick));
+        if (pendValid) tick = pend;
+        pendValid = false;
+        active = cnc_isr(&comp);
+        if (active && comp.step) { pend = comp; pendValid = true; }
+        tick.period = comp.period;
+      } else {
+        active = cnc_isr(&tick);
+      }
       if (!active && cnc_st_busy() && cnc_plan_blocks_used() > 0 && !cnc_hold_active() && !idleSinceStart) {
         underruns++;
       }
@@ -266,7 +291,9 @@ int main(int argc, char** argv) {
     printf("  %c: %llu steps, max rate %.1f of %.1f /min, max accel %.0f of %.0f /min2\n", "XZC"[i],
            (unsigned long long)steps[i], maxRateSeen[i], s.maxRate[i], maxAccSeen[i], s.acceleration[i]);
   }
-  int fails = errors + underruns;
+  int fails = errors + underruns + pendingWhileIdle;
+  if (pendingWhileIdle) printf("  a step was still pending while the motion counted as finished (%d times)\n", pendingWhileIdle);
+  if (pendValid) { printf("  a step was never put out\n"); fails++; }
   if (!reachedAll || !endOk) { printf("  NOT at the end point: tool %d %d %d, expected %d %d %d\n", tool[0], tool[1], tool[2], fin[0], fin[1], fin[2]); fails++; }
   for (int i = 0; i < CNC_N_AXIS; i++) {
     if (maxRateSeen[i] > s.maxRate[i] * 1.02) { printf("  %c faster than its maximum\n", "XZC"[i]); fails++; }

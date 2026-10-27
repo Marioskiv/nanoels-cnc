@@ -11,8 +11,9 @@ Contents: [1 What you need](#1-what-you-need) · [2 Power](#2-power) · [3 Wirin
 [4 Flashing](#4-flashing-the-firmware) · [5 Your machine's values](#5-your-machines-values) ·
 [6 WiFi and the web page](#6-wifi-and-the-web-page) · [7 First start checklist](#7-first-start-checklist) ·
 [8 G-code and CAM](#8-g-code-and-cam) · [9 Running a program](#9-running-a-program) ·
-[10 Jogging and the gamepad](#10-jogging-and-the-gamepad) · [11 Safety](#11-safety) ·
-[12 Troubleshooting](#12-troubleshooting) · [13 Limits of this controller](#13-limits-of-this-controller)
+[10 Jogging and the gamepad](#10-jogging-and-the-gamepad) ·
+[11 Self-test and diagnostics](#11-self-test-and-diagnostics) · [12 Safety](#12-safety) ·
+[13 Troubleshooting](#13-troubleshooting) · [14 Limits of this controller](#14-limits-of-this-controller)
 
 ## 1 What you need
 
@@ -179,7 +180,9 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
    C speed / acceleration (high C speeds mean tens of thousands of steps per second).
 6. **Work offset**: touch the tool on the work and set zero: `G10 L20 P1 Z0` (or L1 + D-pad down on the gamepad);
    for a polar machine X 0 is the chuck centre and stays so.
-7. **Air cut**: run the program with Z raised (e.g. `G10 L20 P1 Z-20` so the work zero is 20 mm lower), then cut.
+7. **Self-test**: *Test* the program on the page (section 11).
+8. **Air cut**: run the program with Z raised (e.g. `G10 L20 P1 Z-20` so the work zero is 20 mm lower), check
+   *Diagnostics* (section 11), then cut.
 
 ## 8 G-code and CAM
 
@@ -202,7 +205,9 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 
 1. Home All, set the work offset (section 7).
 2. Upload the file on the page, press *Draw* to check the path, then *Start*.
-3. *Pause* stops along the path and *Resume* continues; **STOP** brakes along the path and drops the rest of the
+3. **Feed override** (10-200 %, page buttons, gamepad D-pad up / down / left, Grbl senders): changes the feed of
+   everything already planned at once; rapids 100 / 50 / 25 %.
+   *Pause* stops along the path and *Resume* continues; **STOP** brakes along the path and drops the rest of the
    program (the position stays known). The H4 keys work as well (ON / OFF).
 4. Messages and refused lines appear under *Messages*. A home switch hit outside homing or a driver alarm stops
    all motion at once; after a driver alarm the machine counts as not homed (Home All again).
@@ -212,7 +217,8 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 - H4 keys or the page's keys: the arrows move X and Z, held keys stop when released or when the page loses its
   connection.
 - PS4 / PS5 gamepad, with the layout of a LinuxCNC `gamepad.hal`: **hold L1** to move; left stick Z, right stick
-  X, L2 / R2 C, R1 fast, L1 + Share Home All, L1 + D-pad down touch off Z, Options STOP, PS unlock (`$X`).
+  X, L2 / R2 C, R1 fast, L1 + Share Home All, L1 + D-pad down touch off Z, Options STOP, PS unlock (`$X`),
+  D-pad up / down / left (without L1) feed override +10 / -10 / 100 %.
   - **Android app** (recommended): pair the gamepad with the phone, open the app. See
     [android/README.md](../android/README.md).
   - Chrome on a phone or computer: the page reads the gamepad after a one-time browser setting (see the
@@ -220,7 +226,31 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
   - Without a phone: a plain ESP32 as a Bluetooth pendant, see [h4_ps4_pendant](../h4_ps4_pendant/README.md).
 - Jogging respects the soft limits once homed. Speeds are set in the page's *Gamepad* box.
 
-## 11 Safety
+## 11 Self-test and diagnostics
+
+No instrument is needed to see whether the controller keeps up with a machine and a program: it measures itself.
+
+- **Test a program** (page, *Files*, *Test*): the file is read and planned exactly as when it runs, but nothing
+  moves. The message gives how many moves per second this H4 plans and how many the program asks for at most
+  (any 32 moves in a row, at their programmed speeds), with the line. `OK, N times faster than needed`, or
+  `TOO CLOSE`: then the machine would slow down there (the position stays exact); fewer, longer moves in the CAM
+  or the converter help. The position, offsets and modes are the same afterwards.
+- **Diagnostics** (page): measured while programs run, since the start of the last program (or *Clear*):
+  - the longest step interrupt, next to the time between two steps at the highest step rate given - it must stay
+    well below it;
+  - how often an interrupt started more than 10 µs late (WiFi, flash, other interrupts) - should be 0;
+  - the highest step rate given and the limit (from the step pulse length: 1 / (2 x pulse));
+  - how often the step buffer ran empty while moves were waiting (the controller could not keep up) - should be 0.
+  The page shows **OK** or **CHECK**.
+- How to use them: *Test* the file, then run it **in the air** at full speed with the page open (WiFi in use) and
+  look at *Diagnostics*. For fast rotary axes also do the mark test (section 7, step 5).
+
+How the step interrupt works (learned from FluidNC's "timed" engine): it runs at the highest interrupt level a
+handler may have (WiFi cannot delay it), puts out the step computed before at its very start, computes the next
+one while the pulse is high and sets the direction pins right after the pulse, a whole step period before the
+next step. A speed above what the pulse length allows is refused in the settings and lowered at start-up.
+
+## 12 Safety
 
 - The H4, the page, the app and the gamepad are conveniences, **not safety devices**. Wire a real emergency stop
   that cuts the drivers' power and the spindle.
@@ -229,7 +259,7 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 - After an emergency stop, an alarm or a power cut: Home All before the next program.
 - A program that is wrong in the CAM is run exactly as written: check it with *Draw* and an air cut.
 
-## 12 Troubleshooting
+## 13 Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
@@ -243,8 +273,9 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 | Page does not open | the address on the H4 display; the phone on the same WiFi; restart the H4 |
 | "WiFi lost" on the display | the H4 lost the network; it reconnects by itself, programs on the H4 keep running |
 | Gamepad does nothing | hold L1; in Chrome see the *Gamepad* box; in the app check that it is paired |
+| Motion slows down or stutters | *Test* the file; *Diagnostics*: step buffer ran empty, interrupt late or too long |
 
-## 13 Limits of this controller
+## 14 Limits of this controller
 
 - 3 axes: X, Z and C (A1). No Y axis.
 - No spindle control, probe, coolant or emergency-stop input (section 3.5).

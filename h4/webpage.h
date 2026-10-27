@@ -51,6 +51,8 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 <div class="row"><button class="start" id="bStart" onclick="startSel()">Start</button>
 <button class="pause" onclick="cmd('pause')">Pause</button><button onclick="cmd('resume')">Resume</button></div>
 <div class="row"><button class="stop" onclick="cmd('stop')">STOP</button></div>
+<div class="row"><span>Feed <b id="fo">100</b> %</span><button onclick="ovr(146)">&minus;10</button><button onclick="ovr(144)">100 %</button><button onclick="ovr(145)">+10</button>
+<span>Rapids <b id="ro">100</b> %</span><button onclick="ovr(151)">25</button><button onclick="ovr(150)">50</button><button onclick="ovr(149)">100</button></div>
 <form class="row" id="mdiform"><input type="text" id="mdi" placeholder="one G-code line, e.g. G0 C90" autocomplete="off" style="flex:1"><input type="submit" id="bMdi" value="Run line"></form>
 <div class="small">Keep a real emergency stop within reach. The page is a convenience, not a safety device.</div>
 <div id="msg"></div></section>
@@ -70,7 +72,7 @@ the connection the key is released within half a second.</div></section>
 <section><h2>Gamepad</h2><div id="gpstate">No gamepad.</div>
 <div class="small">PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). Hold <b>L1</b> to move:
 left stick Z, right stick X, L2 / R2 C+ / C-, R1 fast. L1 + Share = Home All, L1 + D-pad down = touch off Z,
-Options = STOP, PS = unlock ($X). Keep this page open in front; it stops when the page is hidden or the WiFi drops.
+Options = STOP, PS = unlock ($X). D-pad (without L1): up / down feed +10 / &minus;10 %, left 100 %. Keep this page open in front; it stops when the page is hidden or the WiFi drops.
 <span id="gpflag">Best with the H4 CNC Android app. In Chrome on Android instead, once: <code>chrome://flags</code> &rarr;
 <i>Insecure origins treated as secure</i> &rarr; add <code id="gporigin"></code> &rarr; Enabled &rarr; Relaunch.</span></div>
 <div class="row" id="gpapp" style="display:none"><button onclick="H4App.changeAddress()">H4 address</button></div>
@@ -79,6 +81,12 @@ Options = STOP, PS = unlock ($X). Keep this page open in front; it stops when th
 <label for="gpC">C speed = speed x</label><input type="number" id="gpC" step="any">
 <label for="gpIX">Reverse X</label><input type="checkbox" id="gpIX"><label for="gpIZ">Reverse Z</label><input type="checkbox" id="gpIZ">
 <label for="gpIC">Reverse C</label><input type="checkbox" id="gpIC"></div></section>
+
+<section><h2>Diagnostics</h2><div id="diag" class="small">-</div>
+<div class="row"><button onclick="cmd('diagReset')">Clear</button></div>
+<div class="small">Measured by the controller itself since the program started (or Clear): the step interrupt must
+stay well below the time between two steps at the highest step rate, it should never start late, and the step buffer
+should never run empty. Run a program in the air at full speed with WiFi in use to see the real limits.</div></section>
 
 <section><h2>Messages</h2><div id="log">No messages.</div></section>
 
@@ -102,7 +110,14 @@ function startSel(){if(!selected){msg('Select a file first.');return}
  if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
 async function poll(){try{const r=await fetch('/status');st=await r.json();show()}catch(e){$('state').textContent='no connection'}
  setTimeout(poll,350)}
-function show(){const u=st.inch?' in':' mm';$('state').textContent=st.state+(st.gcodeMode?'':' (not GCODE mode)');
+function ovr(c){cmd('ovr','&code='+c)}
+let benchSeen=-1;function bench(n){cmd('bench','&name='+encodeURIComponent(n))}
+function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
+ const ok=d.late==0&&(!d.rate||d.isrUs<0.7*per)&&!st.underruns;
+ $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+' · step interrupt longest '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
+  ' · highest step rate '+d.rate+' /s (limit '+d.limit+' /s) · started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs · step buffer ran empty: '+st.underruns+' · steps given: '+d.steps}
+function show(){const u=st.inch?' in':' mm';diagShow(st.diag);
+ if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo;$('ro').textContent=st.ro}$('state').textContent=st.state+(st.gcodeMode?'':' (not GCODE mode)');
  $('state').style.background={Run:'#2e9e5b',Hold:'#d9a21b',Paused:'#d9a21b',Stopping:'#d64040'}[st.state]||'#333';
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'');
@@ -119,7 +134,7 @@ function show(){const u=st.inch?' in':' mm';$('state').textContent=st.state+(st.
  if(st.log!==logSeen){logSeen=st.log;loadLog()}
  drawPath()}
 async function listFiles(){try{const r=await fetch('/files');if(!r.ok){msg(await r.text());return}files=await r.json();
- $('files').innerHTML=files.map(f=>`<tr><td><label><input type="radio" name="sel" value="${f.name}" ${f.name==selected?'checked':''} onchange="selected=this.value"> ${f.name}</label></td><td>${(f.size/1024).toFixed(1)} kB</td><td><button onclick="draw('${f.name}')">Draw</button> <button onclick="del('${f.name}')">Delete</button></td></tr>`).join('')||'<tr><td>No files yet.</td></tr>'}catch(e){msg(e.message)}}
+ $('files').innerHTML=files.map(f=>`<tr><td><label><input type="radio" name="sel" value="${f.name}" ${f.name==selected?'checked':''} onchange="selected=this.value"> ${f.name}</label></td><td>${(f.size/1024).toFixed(1)} kB</td><td><button onclick="draw('${f.name}')">Draw</button> <button onclick="bench('${f.name}')" title="Reads and plans the file as when it runs, nothing moves: is the controller fast enough for it?">Test</button> <button onclick="del('${f.name}')">Delete</button></td></tr>`).join('')||'<tr><td>No files yet.</td></tr>'}catch(e){msg(e.message)}}
 async function del(n){if(!confirm('Delete '+n+'?'))return;try{msg(await post('/delete?name='+encodeURIComponent(n)));if(selected==n)selected='';listFiles()}catch(e){msg(e.message)}}
 $('up').onsubmit=e=>{e.preventDefault();const f=$('file').files[0];if(!f)return;const fd=new FormData();fd.append('file',f,f.name);
  const x=new XMLHttpRequest();x.open('POST','/upload');x.upload.onprogress=ev=>{$('ubar').style.width=(ev.loaded/ev.total*100)+'%'};
@@ -226,6 +241,7 @@ function gpLoop(){let pads=[];
  if(edge(16))gpMdi('$X');
  if(l1&&edge(8))cmd('home');
  if(l1&&edge(13))gpMdi('G10 L20 P0 Z0');
+ if(!l1&&edge(12))ovr(145);if(!l1&&edge(13))ovr(146);if(!l1&&edge(14))ovr(144); // feed override +10 / -10 / 100 %
  gpPrev=g.buttons.map(x=>x.pressed);
  const want=l1&&(vx!=0||vz!=0||vc!=0);
  if(want){if(now-gpLast>=100&&!gpBusy){gpMoving=true;gpStops=3;gpSend(vx,vz,vc)}}
