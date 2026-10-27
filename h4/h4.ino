@@ -100,6 +100,7 @@ float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl 
 int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
 bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
 float CNC_ARC_TOLERANCE = 0.002; // mm, largest distance between an arc (G2/G3) and the straight pieces it is cut in
+bool GRBL_ON_USB = false; // true: USB speaks the Grbl 1.1 protocol (UGS, gSender, CNCjs, bCNC); WiFi port 23 always does
 
 // Home switches, soft limits and driver alarm, as in LinuxCNC (see homing.ino and CNC.md). All off by default,
 // then the H4 behaves as the original. Inputs on terminal A2 (not with handwheel 2): A21 = home switch X,
@@ -679,6 +680,11 @@ bool cncOwesDisable = false; // steppers to release once a stopped program has c
 volatile uint8_t inRaw = 0; // bit 0 A21, bit 1 A22, bit 2 A23: level as read (1 = high)
 volatile bool inHomeX = false, inHomeZ = false, inAlarm = false; // active, after the NO/NC setting
 volatile bool cncFaultStop = false; // limit or alarm: no more steps until taskGcode has reset the planner
+volatile uint32_t cncFaultCount = 0; // counts limit / alarm stops (the Grbl protocol reports each as ALARM)
+volatile bool cncHomeOverride = false; // Grbl $X: programs may run without Home All
+bool cncGrblLine = false; // the line comes from the Grbl protocol: errors are answered there, not printed here
+bool cncStartKeepModes = false; // a Grbl session starts: keep G90 / G21 / F ... as they are
+char cncLastError[100] = "";
 const char* volatile cncFaultText = "";
 volatile bool homingRequest = false, homingAbort = false, homingActive = false;
 Axis* volatile homingWatchAxis = NULL; // loop() stops this axis when its switch reaches homingWantActive
@@ -1951,6 +1957,10 @@ void cncPrintStatus() {
 
 // While taskGcode waits for the planner: answer '!', '~' and '?' at once, keep everything else for later.
 void cncPollSerial() {
+  if (GRBL_ON_USB) {
+    while (Serial.available() > 0 && grblRoomFor(0)) grblInput(0, Serial.read());
+    return;
+  }
   while (Serial.available() > 0) {
     char c = Serial.read();
     if (gcodePollInBrace) {
@@ -2006,7 +2016,8 @@ bool cncDwell(float seconds) {
 bool cncProcessLine(const String& line, bool isSerial) {
   if (cncStartRequest && !cncBusy()) {
     cncStartRequest = false;
-    cncSyncFromAxes();
+    cncSyncFromAxes(cncStartKeepModes);
+    cncStartKeepModes = false;
   }
   cncLineNo++;
   strncpy(gcodeDisplayLine, line.c_str(), sizeof(gcodeDisplayLine) - 1);
@@ -2034,18 +2045,26 @@ bool cncProcessLine(const String& line, bool isSerial) {
     vTaskDelay(1);
   }
   if (r == CNC_ERROR) {
-    Serial.print("error: ");
-    Serial.print(msg);
-    Serial.print(" in: ");
-    Serial.println(line);
+    strncpy(cncLastError, msg, sizeof(cncLastError) - 1);
+    cncLastError[sizeof(cncLastError) - 1] = '\0';
+    if (!cncGrblLine) {
+      Serial.print("error: ");
+      Serial.print(msg);
+      Serial.print(" in: ");
+      Serial.println(line);
+    }
     String text = "error line " + String(cncLineNo) + ": " + msg + " in: " + line;
     cncLog(text.c_str());
     return false;
   }
   if (msg[0]) {
-    Serial.print("[MSG:");
-    Serial.print(msg);
-    Serial.println("]");
+    if (cncGrblLine) {
+      grblMessage(msg);
+    } else {
+      Serial.print("[MSG:");
+      Serial.print(msg);
+      Serial.println("]");
+    }
     String text = "line " + String(cncLineNo) + ": " + msg;
     cncLog(text.c_str());
   }
@@ -2099,8 +2118,14 @@ void taskGcode(void *param) {
     if (cncStartRequest && !cncBusy()) {
       // A program starts (ON pressed or '~' received): positions and modes from the H4.
       cncStartRequest = false;
-      cncSyncFromAxes();
+      cncSyncFromAxes(cncStartKeepModes);
+      cncStartKeepModes = false;
     }
+    if (GRBL_ON_USB) {
+      // USB speaks Grbl (grbl.ino): every byte goes there, in every mode
+      while (Serial.available() > 0 && grblRoomFor(0)) grblInput(0, Serial.read());
+    }
+    if (grblServiceLine()) continue; // one line of a Grbl sender, if there is one (grbl.ino)
     bool gotChar = false;
     if (mode != MODE_GCODE) {
       gcodeInitialized = false;
@@ -2120,7 +2145,7 @@ void taskGcode(void *param) {
     bool isSerial = false;
     // GCODE mode: all USB input goes through cncPollSerial(), which acts on '!', '~' and '?' at once
     // (also while a line waits for the planner) and keeps the rest, in order, in gcodeSerialBacklog.
-    if (mode == MODE_GCODE) cncPollSerial();
+    if (mode == MODE_GCODE && !GRBL_ON_USB) cncPollSerial();
     if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex < gcodeProgramSize) {
       receivedChar = gcodeProgramData[gcodeProgramCharIndex];
       gcodeProgramCharIndex++;
@@ -2132,7 +2157,7 @@ void taskGcode(void *param) {
         receivedChar = gcodeSerialBacklog.charAt(0);
         gcodeSerialBacklog.remove(0, 1);
       }
-    } else if (Serial.available() > 0) {
+    } else if (!GRBL_ON_USB && Serial.available() > 0) {
       isSerial = true;
       receivedChar = Serial.read();
     }
@@ -2541,6 +2566,7 @@ void setup() {
   // Priority 1: it prepares the step segments of the GCODE mode and must not wait behind the display.
   xTaskCreatePinnedToCore(taskGcode, "taskGcode", 10000 /* stack size */, NULL, 1 /* priority */, NULL, 0 /* core */);
   if (homingConfigured()) xTaskCreatePinnedToCore(taskHoming, "taskHoming", 6000 /* stack size */, NULL, 1 /* priority */, NULL, 0 /* core */);
+  if (GRBL_ON_USB) grblBanner(0); // a Grbl sender on USB waits for this line
   if (WIFI_ENABLED) xTaskCreatePinnedToCore(taskWifi, "taskWifi", 12000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
 }
 

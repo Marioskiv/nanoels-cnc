@@ -168,6 +168,33 @@ void cnc_gc_get_offsets(cnc_offsets_t* o) { *o = offs; }
 void cnc_gc_set_offsets(const cnc_offsets_t* o) { offs = *o; }
 uint32_t cnc_gc_offsets_changes() { return offsChanges; }
 double cnc_gc_work_position(int axis) { return absPos[axis] - origin(axis); }
+double cnc_gc_origin(int axis) { return origin(axis); }
+void cnc_gc_get_modes(cnc_modes_t* m) {
+  m->motion = motionMode;
+  m->plane = plane;
+  m->feedMode = feedMode;
+  m->coord = offs.active;
+  m->incremental = incremental;
+  m->arcIncremental = arcIncremental;
+  m->inches = inches;
+  m->diameter = diameterMode;
+  m->retractToR = retractToR;
+  m->feed = feedWord;
+  m->tloZ = tloZ;
+}
+void cnc_gc_set_modes(const cnc_modes_t* m) {
+  motionMode = m->motion;
+  plane = m->plane;
+  feedMode = m->feedMode;
+  offs.active = m->coord;
+  incremental = m->incremental;
+  arcIncremental = m->arcIncremental;
+  inches = m->inches;
+  diameterMode = m->diameter;
+  retractToR = m->retractToR;
+  feedWord = m->feed;
+  tloZ = m->tloZ;
+}
 
 static int32_t toSteps(int i, double v) { return (int32_t)llround(v * spu(i)); }
 
