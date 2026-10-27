@@ -21,13 +21,14 @@ jobs:
 
   linuxcnc:
     runs-on: ubuntu-24.04
+    container: debian:trixie   # Debian packages LinuxCNC (linuxcnc-uspace), Ubuntu does not
     steps:
-      - uses: actions/checkout@v4
-      - name: Install LinuxCNC (for its rs274 interpreter)
+      - name: Install LinuxCNC (for its rs274 interpreter) and the compilers
         run: |
-          sudo apt-get update
-          sudo apt-get install -y linuxcnc-uspace || sudo apt-get install -y linuxcnc
-          command -v rs274 || ls /usr/bin | grep -i rs274
+          apt-get update
+          apt-get install -y --no-install-recommends linuxcnc-uspace g++ python3 ca-certificates
+          command -v rs274
+      - uses: actions/checkout@v4
       - name: Same positions and refused lines as LinuxCNC (1000 random programs)
         run: RS274="$(command -v rs274)" sh h4/test/run_tests.sh
 
