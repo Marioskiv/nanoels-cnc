@@ -16,6 +16,18 @@ gamepad** through Android itself, so no browser setting is needed. Android 5.0 a
 
 Updating: see *Signing* below (without the signing secret, uninstall the old app first).
 
+## Demo (no H4 needed)
+
+In the first dialog (or *H4 address* later) press **Demo (no H4)**: the app shows the H4 page with a simulated
+machine. Everything can be tried - files, Draw, Start / Pause / STOP, feed override, Test, Diagnostics, settings,
+the gamepad - and nothing moves. *H4 address* → *Open* goes back to the real machine. The same demo opens in any
+browser with `?demo` after the page address.
+
+## Updates
+
+At most every 6 hours the app looks at this repository's Releases (public, no account or key needed). When a
+newer *H4 CNC* is there, it says so and offers **Download**; Android then installs it.
+
 ## Gamepad
 
 Pair it once: Android Settings > Bluetooth > pair new device, hold **Share + PS** on the gamepad until the

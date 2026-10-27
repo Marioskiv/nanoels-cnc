@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
     private String address;
     private ValueCallback<Uri[]> fileCallback;
     private AlertDialog addressDialog;
+    private boolean demo;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -55,6 +56,7 @@ public class MainActivity extends Activity {
             @SuppressWarnings("deprecation")
             @Override
             public void onReceivedError(WebView view, int code, String description, String failingUrl) {
+                if (demo) return;
                 askAddress("Could not open " + failingUrl + " (" + description + ").");
             }
         });
@@ -79,6 +81,7 @@ public class MainActivity extends Activity {
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
         if (address == null) askAddress(null);
         else open();
+        UpdateCheck.maybeCheck(this);
     }
 
     String address() {
@@ -86,6 +89,8 @@ public class MainActivity extends Activity {
     }
 
     private void open() {
+        demo = false;
+        pad.setDemo(false);
         pad.setAddress(address);
         web.loadUrl("http://" + address + "/");
     }
@@ -117,7 +122,20 @@ public class MainActivity extends Activity {
                     open();
                 });
         if (address != null) b.setNeutralButton("Retry", (d, w) -> open());
+        b.setNegativeButton("Demo (no H4)", (d, w) -> startDemo());
         addressDialog = b.show();
+    }
+
+    // The page with a simulated machine: everything can be seen and tried without an H4 (nothing moves).
+    private void startDemo() {
+        demo = true;
+        pad.setDemo(true);
+        web.loadUrl("file:///android_asset/h4/index.html?demo=1");
+    }
+
+    // The gamepad's requests go to the simulated machine of the page in the demo.
+    void demoRequest(String path) {
+        web.evaluateJavascript("window.h4DemoRequest&&h4DemoRequest(" + JSONObject.quote(path) + ")", null);
     }
 
     // Gamepad state for the page's Gamepad box (the page shows it when it runs in this app).
@@ -186,7 +204,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String version() {
-            return "1.1";
+            return BuildInfo.version(MainActivity.this);
         }
     }
 }

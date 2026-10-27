@@ -102,6 +102,71 @@ the saved positions, stops and other H4 values are cleared.</div></section>
 <div class="small" id="fwmsg"></div></section>
 </main>
 <script>
+// Demo (the page opened with ?demo, e.g. in the Android app without an H4): a simulated machine answers instead
+// of the controller, so the page can be seen and tried. Nothing here runs when the page comes from an H4.
+const DEMO=/[?&]demo\b/.test(location.search);
+if(DEMO)(function(){
+ const S={x:20,z:5,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
+  log:['Demo: a simulated machine, no H4 is connected.'],t:Date.now(),benchN:0,bench:'',program:'',steps:0,
+  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}]};
+ const lines=['(demo program)','G21 G90 G94 G8','G0 Z5','G0 X40 C0','G1 Z-0.5 F200','G93'];
+ for(let i=0;i<=720;i+=6)lines.push('G1 X'+(40-i/24).toFixed(3)+' C'+i+' F'+(60).toFixed(1));
+ lines.push('G94','G0 Z5','M2');const text={'demo_spiral.ngc':lines.join('\n'),
+  'demo_F_test.ngc':'G21 G90 G94\nG0 Z5\nG0 X10 C0\nG1 Z-0.3 F100\nG1 X30 F300\nG1 C20\nG1 X20 C20\nG1 X20 C35\nG0 Z5\nM2'};
+ for(const f of S.files)f.size=text[f.name].length;
+ const pts=lines.map(l=>/X([-\d.]+) C([-\d.]+)/.exec(l)).filter(Boolean).map(m=>[+m[1],+m[2]]);
+ const add=t=>S.log.push(t);
+ function tick(){const now=Date.now(),dt=Math.min(0.5,(now-S.t)/1000);S.t=now;
+  if(now-S.jog.t<300&&!S.running){S.x+=S.jog.x/60*dt;S.z+=S.jog.z/60*dt;S.c+=S.jog.c/60*dt;S.steps+=Math.round((Math.abs(S.jog.x)+Math.abs(S.jog.z))*20*dt)}
+  if(S.running&&!S.paused){S.progress=Math.min(1,S.progress+dt/40*S.fo/100);const p=pts[Math.min(pts.length-1,Math.floor(S.progress*pts.length))];
+   S.x=p[0];S.c=p[1];S.z=-0.5;S.steps+=Math.round(400*dt*S.fo/100);
+   if(S.progress>=1){S.running=false;S.state='Idle';S.z=5;add('Demo: program end')}}}
+ function status(){tick();const st=S.running?(S.paused?'Hold':'Run'):'Idle';
+  return {state:st,gcodeMode:1,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
+   line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
+   programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
+   wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
+   homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
+   diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro}}
+ const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
+  {k:'xSpeed',t:'l',v:14400,g:'X axis',l:'Maximum speed (manual moves, G0)',u:'v:x'},{k:'zSteps',t:'l',v:800,g:'Z axis',l:'Motor steps per screw turn',u:'steps'},
+  {k:'zScrew',t:'l',v:20000,g:'Z axis',l:'Travel per screw turn',u:'du'},{k:'zSpeed',t:'l',v:10000,g:'Z axis',l:'Maximum speed (manual moves, G0)',u:'v:z'},
+  {k:'aAct',t:'b',v:1,g:'A1 axis (C)',l:'Connected (terminal A1)',u:''},{k:'aRot',t:'b',v:1,g:'A1 axis (C)',l:'Rotary (degrees)',u:''},
+  {k:'aSteps',t:'l',v:1376,g:'A1 axis (C)',l:'Motor steps per screw turn',u:'steps'},{k:'aScrew',t:'l',v:150000,g:'A1 axis (C)',l:'Travel per screw turn',u:'du'},
+  {k:'aSpeed',t:'l',v:33024,g:'A1 axis (C)',l:'Maximum speed (manual moves, G0)',u:'v:a'}];
+ function handle(url,opt){const u=new URL(url,'http://demo/'),q=u.searchParams,p=u.pathname,b=opt&&opt.body;
+  const arg=k=>q.get(k)!==null?q.get(k):(b instanceof URLSearchParams?b.get(k):null);
+  const ok=t=>[200,typeof t=='string'?t:JSON.stringify(t)],no=t=>[409,t];
+  if(p=='/status')return ok(status());
+  if(p=='/log')return ok(S.log.slice(-40));
+  if(p=='/files')return ok(S.files);
+  if(p=='/file')return text[arg('name')]!==undefined?ok(text[arg('name')]):[404,'File not found'];
+  if(p=='/config')return opt&&opt.method=='POST'?ok('Demo: settings are not saved.'):ok({items:cfgItems});
+  if(p=='/wifi')return opt&&opt.method=='POST'?ok('Demo: not saved.'):ok({ssid:'demo',passwordSet:0,setupAp:0,ip:'demo',apName:'NanoEls-H4-Setup'});
+  if(p=='/jog'){S.jog={x:+arg('x')||0,z:+arg('z')||0,c:+arg('c')||0,t:Date.now()};return ok('ok')}
+  if(p=='/key')return ok('ok');
+  if(p=='/delete'){S.files=S.files.filter(f=>f.name!=arg('name'));return ok('Deleted')}
+  if(p=='/mdi'){const l=(arg('line')||'').trim();if(S.running)return no('The machine is running a program. Stop it first.');
+   if(/^\$H$/i.test(l)){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
+   const m=/G91 G1 ([XZC])([-\d.]+)/i.exec(l);if(m){S[m[1].toLowerCase()]+= +m[2]}
+   add('Demo: '+l);return ok('Running: '+l)}
+  if(p=='/cmd'){const d=arg('do');
+   if(d=='start'){if(S.running)return no('The machine is running a program. Stop it first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);return ok('Started '+S.program)}
+   if(d=='stop'){S.running=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
+   if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
+   if(d=='resume'){S.paused=false;return ok('Resuming')}
+   if(d=='home'){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
+   if(d=='ovr'){const c=+arg('code');if(c==144)S.fo=100;if(c==145)S.fo+=10;if(c==146)S.fo-=10;if(c==147)S.fo++;if(c==148)S.fo--;
+    if(c==149)S.ro=100;if(c==150)S.ro=50;if(c==151)S.ro=25;S.fo=Math.max(10,Math.min(200,S.fo));return ok('Feed '+S.fo+' %, rapids '+S.ro+' %')}
+   if(d=='diagReset'){S.steps=0;return ok('Diagnostics cleared')}
+   if(d=='bench'){const n=arg('name'),L=(text[n]||'').split('\n').length;S.benchN++;
+    S.bench='Test '+n+' (demo): '+L+' lines. The H4 plans 6000 moves/s, the program needs at most 25/s: OK, 240 times faster than needed';add(S.bench);return ok('Testing '+n+' (nothing moves) ...')}
+   return [400,'Unknown command']}
+  return ok('Demo: '+p)}
+ window.fetch=async(url,opt)=>{const [code,body]=handle(url,opt||{});return new Response(body,{status:code})};
+ window.h4DemoRequest=url=>{handle(url,{method:'POST'})};
+ window.XMLHttpRequest=function(){const x=this;x.upload={};x.open=()=>{};x.send=()=>setTimeout(()=>{x.responseText='Demo: files are not stored.';x.onload&&x.onload()},100)};
+})();
 const $=id=>document.getElementById(id);let st={},selected='',drawn=null,files=[];
 function msg(t){$('msg').textContent=t||''}
 async function post(url,body){const r=await fetch(url,{method:'POST',body});const t=await r.text();if(!r.ok)throw new Error(t);return t}
