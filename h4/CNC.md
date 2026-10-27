@@ -98,6 +98,16 @@ page a gamepad on a secure origin, and the H4 page is plain `http://`: on Androi
 and reversed axes are set in the *Gamepad* box of the page (kept in that browser). The MDI line also accepts `$X`
 (allow moves before Home All).
 
+## Your machine's values (my_machine.h)
+
+Copy `my_machine.h.example` to `my_machine.h` in the `h4` folder and set there what your machine needs (steps,
+screws, speeds, directions, home switches, limits ...; any setting at the top of `h4.ino`). They are applied at
+start-up, before the values saved on the web page, and *Defaults from the firmware* on the page goes back to
+them. `my_machine.h` is not in the repository (`.gitignore`), so a newer firmware copied over the folder keeps it.
+From a LinuxCNC `.ini`: steps per mm = |STEP_SCALE|, speed = MAX_VELOCITY x steps per mm, acceleration =
+MAX_ACCELERATION x steps per mm; HOME_* and *_LIMIT are the same numbers. Check every direction with a short move
+first: the sign of STEP_SCALE does not translate reliably (the DIR signal differs between cards and boards).
+
 ## WiFi: files, status and controls on a phone or tablet
 
 `WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if

@@ -1,0 +1,28 @@
+// my_machine.h - your own machine's values for the NanoEls H4 CNC fork.
+// https://github.com/Marioskiv/nanoels-cnc
+// Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: GPL-3.0-or-later (this fork)
+//
+// Copy this file to my_machine.h (same folder as h4.ino) and change what your machine needs. Any setting at the
+// top of h4.ino can be set here; what you leave out keeps the value written in h4.ino. The values are applied at
+// start-up, before the settings saved on the web page (Machine settings); the page's "Defaults from the firmware"
+// goes back to these. my_machine.h is not in the repository: a newer firmware copied over the folder keeps it.
+//
+// Units as in h4.ino: travel per screw turn in deci-microns (2 mm = 20000; degrees x 10000 for a rotary A1),
+// speeds in motor steps per second, accelerations in steps per second squared.
+// From a LinuxCNC .ini: steps per mm = |STEP_SCALE|; speed = MAX_VELOCITY x steps per mm;
+// acceleration = MAX_ACCELERATION x steps per mm; the HOME_* and *_LIMIT values are the same numbers.
+
+void myMachine() {
+  // Example: 2 mm screw, 1600 steps per motor turn, belt 20 -> 30 teeth (1200 steps per mm)
+  // MOTOR_STEPS_X = 1600 * 30 / 20;
+  // SCREW_X_DU = 20000;
+  // SPEED_MANUAL_MOVE_X = 12 * 1200;   // 12 mm/s
+  // ACCELERATION_X = 100 * 1200;       // 100 mm/s^2
+  // SPEED_START_X = 1 * 1200;          // 1 mm/s
+
+  // Example: home switch on A21 as in LinuxCNC [JOINT_0]
+  // HOME_X_USE = true;
+  // HOME_X_SEARCH_VEL = -3;
+  // HOME_X_LATCH_VEL = 0.5;
+  // HOME_X_OFFSET = -20;
+}
