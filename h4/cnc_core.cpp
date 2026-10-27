@@ -251,7 +251,10 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
   return true;
 }
 
+void (*cnc_plan_trace)(const int32_t target[CNC_N_AXIS], uint32_t line) = 0;
+
 bool cnc_plan_buffer_line(const int32_t target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t line) {
+  if (cnc_plan_trace) cnc_plan_trace(target, line);
   int32_t delta[CNC_N_AXIS];
   for (int i = 0; i < CNC_N_AXIS; i++) delta[i] = target[i] - pl.position[i];
   if (!plan_buffer_steps(delta, feed, condition & ~CNC_COND_BACKLASH, line)) return false;

@@ -64,7 +64,8 @@ int main() {
   for (const char* l : {"G21", "G90", "G94", "G17", "G18", "G19", "G40", "G49", "G54", "G61", "G64", "G64 P0.025", "G80",
                         "G8", "G54 G40 G49 G80", "M3 S10000", "M5", "M8", "M9", "T2", "N10", "g21 g90", "S18000 M3"})
     expect(l, CNC_OK);
-  expect("G43 H2", CNC_OK, "G43 ignored");
+  expect("G43 H2", CNC_OK, "G43 H");
+  expect("G18 G1 G49", CNC_OK);  // back to the start modes (the list above set G17 and G80)
   expect("M6 T2", CNC_PAUSE);
   expect("M0", CNC_PAUSE);
   expect("M1", CNC_PAUSE);
@@ -72,29 +73,45 @@ int main() {
   expect("M30", CNC_END);
   expect("G4 P1.5", CNC_DWELL);
   // refused
-  expect("G2 X1 Z1 I1", CNC_ERROR, "arcs");
-  expect("G3 X1 Z1 R1", CNC_ERROR, "arcs");
-  expect("G1 X1 I1", CNC_ERROR, "arcs");
-  expect("G7", CNC_ERROR, "diameter");
-  expect("G28", CNC_ERROR, "not supported");
-  expect("G53 G0 Z0", CNC_ERROR, "not supported");
-  expect("G92 X0", CNC_ERROR, "not supported");
-  expect("G81 X1 Z-1 R1", CNC_ERROR, "not supported");
-  expect("G41", CNC_ERROR, "not supported");
+  expect("G2 X1 Z1 I5 F100", CNC_ERROR, "radius to end of arc differs");
+  expect("G17 G2 X1 Z1 I1", CNC_ERROR, "X-Z plane");
+  expect("G2 X1 Z1 J1", CNC_ERROR, "J word");
+  expect("G2 X1 Z1", CNC_ERROR, "without I/K or R");
+  expect("G2 X1 Z1 R1 I1", CNC_ERROR, "both R and I/K");
+  expect("G1 X1 I1", CNC_ERROR, "without an arc");
+  expect("G0 G1 X1", CNC_ERROR, "same modal group");
+  expect("G90 G91", CNC_ERROR, "same modal group");
+  expect("M3 M5", CNC_ERROR, "same modal group");
+  expect("G10 L1 P1 Z2", CNC_ERROR, "only L2 and L20");
+  expect("G92", CNC_ERROR, "needs an axis");
+  expect("G53 G2 X1 Z1 R1", CNC_ERROR, "G53 only with G0 or G1");
+  expect("G80 X1", CNC_ERROR, "G80");
+  expect("G96 S100", CNC_ERROR, "G97");
+  expect("G76 P1 Z-10 I-1 J0.5 K1", CNC_ERROR, "J word");
+  expect("G71 X1", CNC_ERROR, "cycles expanded");
+  expect("G81 X1 Z-1 R1", CNC_ERROR, "cycles expanded");
+  expect("G38.2 Z-1", CNC_ERROR, "probing");
+  expect("G41 D1", CNC_ERROR, "in computer");
+  expect("O100 sub", CNC_ERROR, "O-word");
+  expect("G4 P1 X1", CNC_ERROR, "move on one line");
+  expect("M6 T1 X1", CNC_ERROR, "move on one line");
   expect("G1 Y5 F100", CNC_ERROR, "no Y axis");
   expect("G1 A5 F100", CNC_ERROR, "no A axis");
   expect("M98 P100", CNC_ERROR, "not supported");
-  expect("G4 X1", CNC_ERROR, "G4 with an axis");
+  expect("G4 X1", CNC_ERROR, "needs P");
   expect("G4", CNC_ERROR, "needs P");
-  expect("G1 X5 P2", CNC_ERROR, "P without G4");
-  expect("G1 X#1", CNC_ERROR, "without a number");
-  expect("G1 X1 #1", CNC_ERROR, "unexpected character");
+  expect("G1 X5 P2", CNC_ERROR, "P word without");
+  expect("G1 X#1", CNC_ERROR, "parameters");
+  expect("G1 X1 @1", CNC_ERROR, "unexpected character");
   expect("G1 X1.2.3", CNC_ERROR, "bad number");
   expect("G1 X", CNC_ERROR, "without a number");
-  expect("G1 X5 F-3", CNC_ERROR, "F must be positive");
+  expect("G1 X5 F-3", CNC_ERROR, "F must not be negative");
+  expect("G1 X5 F0", CNC_ERROR, "F must be positive");
   expectPos(0, 0, 0, "nothing planned by refused lines");
 
   // moves: the program starts in G1 (old H4 / lathecode lines without G), feed default 120
+  expect("X1", CNC_ERROR, "no feed rate");
+  expect("F100", CNC_OK);
   expect("X1", CNC_OK);
   expectPos(1200, 0, 0, "X1 without G");
   expect("G0 X2 Z-1 C90", CNC_OK);
@@ -158,10 +175,10 @@ int main() {
   expect("G21", CNC_OK);
   expect("G32 Z-10", CNC_ERROR, "needs F");
   expect("G33 Z-10 F1", CNC_ERROR, "needs K");
-  expect("G32 Z-10 K1", CNC_ERROR, "arcs");
+  expect("G32 Z-10 K1", CNC_ERROR, "K without");
   expect("G32 C10 Z-10 F1", CNC_ERROR, "X and Z only");
   expect("G32 F1", CNC_ERROR, "needs X or Z");
-  expect("G32 G1 Z-10 F1", CNC_ERROR, "alone");
+  expect("G32 G1 Z-10 F1", CNC_ERROR, "same modal group");
   expect("G33 Z-10 K30", CNC_ERROR, "at most");
   // the next plain move still uses F150, not the lead
   cnc_plan_reset();

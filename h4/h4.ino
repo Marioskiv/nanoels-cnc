@@ -99,6 +99,7 @@ int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl $11). Smaller = slower corners
 int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
 bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
+float CNC_ARC_TOLERANCE = 0.002; // mm, largest distance between an arc (G2/G3) and the straight pieces it is cut in
 
 // Home switches, soft limits and driver alarm, as in LinuxCNC (see homing.ino and CNC.md). All off by default,
 // then the H4 behaves as the original. Inputs on terminal A2 (not with handwheel 2): A21 = home switch X,
@@ -702,6 +703,7 @@ bool gcodePollInBrace = false;
 bool gcodePollInSemicolon = false;
 unsigned long gcodeAwaitOnMs = 0;
 uint32_t cncLineNo = 0;
+uint32_t cncOffsetsSeen = 0;
 volatile uint32_t cncCpuCyclesPerTick = 12; // set in setup() from the CPU clock
 
 int getApproxRpm() {
@@ -1619,9 +1621,11 @@ void cncConfigure() {
       Serial.println("error: GCODE mode needs step/dir pins below 32");
     }
   }
-  m.defaultFeed = GCODE_FEED_DEFAULT_DU_SEC * 60 / 10000.0;
+  m.arcTolerance = CNC_ARC_TOLERANCE;
+  m.spindleRpm = cncSpindleRpm;
   cnc_core_settings(&s);
   cnc_gc_init(&m);
+  cncLoadOffsets();
   cnc_plan_reset();
   cnc_st_reset();
 }
@@ -1654,15 +1658,78 @@ bool cncBusy() {
 
 // Takes the tool position, the work zero, the backlash state and the stops from the H4 axes.
 // Only when nothing is queued.
+// G95: the spindle speed measured by the encoder.
+float cncSpindleRpm() {
+  return getApproxRpm();
+}
+
+float cncStepsPerUnit(int i) {
+  Axis* a = cncAxis(i);
+  return a->motorSteps / (a->screwPitch / 10000.0);
+}
+
+// G54 is the H4's own zero (X0 / Z0 keys, originPos): work coordinate = pos + originPos.
+// In machine coordinates its origin is at pos = -originPos, i.e. machine (-originPos + machineOffset).
+void cncG54FromAxes() {
+  cnc_offsets_t o;
+  cnc_gc_get_offsets(&o);
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    o.coord[0][i] = (-a->originPos + a->machineOffset) / cncStepsPerUnit(i);
+  }
+  cnc_gc_set_offsets(&o);
+}
+
+void cncG54ToAxes() {
+  cnc_offsets_t o;
+  cnc_gc_get_offsets(&o);
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    a->originPos = -(lround(o.coord[0][i] * cncStepsPerUnit(i)) - a->machineOffset);
+  }
+}
+
+// G55 ... G59.3, G28 and G30 positions are kept in Preferences (machine coordinates; they mean something
+// after Home All). Written only when nothing moves (a flash write stops the step interrupt).
+#define WCS_NAMESPACE "h4wcs"
+uint32_t cncOffsetsSaved = 0;
+
+void cncLoadOffsets() {
+  cnc_offsets_t o;
+  memset(&o, 0, sizeof(o));
+  Preferences p;
+  if (p.begin(WCS_NAMESPACE, true)) {
+    if (p.getBytesLength("o") == sizeof(o)) p.getBytes("o", &o, sizeof(o));
+    p.end();
+  }
+  o.active = 0;
+  o.g92Applied = false;
+  memset(o.g92, 0, sizeof(o.g92));
+  cnc_gc_set_offsets(&o);
+  cncOffsetsSaved = cnc_gc_offsets_changes();
+}
+
+void cncSaveOffsetsIfChanged() {
+  if (cnc_gc_offsets_changes() == cncOffsetsSaved || cncBusy() || isOn || wifiFsBusy) return;
+  cnc_offsets_t o;
+  cnc_gc_get_offsets(&o);
+  Preferences p;
+  if (p.begin(WCS_NAMESPACE, false)) {
+    p.putBytes("o", &o, sizeof(o));
+    p.end();
+  }
+  cncOffsetsSaved = cnc_gc_offsets_changes();
+}
+
 void cncSyncFromAxes(bool keepModes) {
-  int32_t pos[CNC_N_AXIS], zero[CNC_N_AXIS];
+  int32_t pos[CNC_N_AXIS], mOffset[CNC_N_AXIS];
   bool neg[CNC_N_AXIS];
   cnc_machine_t m;
   memset(&m, 0, sizeof(m));
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
     pos[i] = a->pos;
-    zero[i] = -a->originPos;
+    mOffset[i] = a->machineOffset;
     // After a move down, moveAxis() leaves the motor backlashSteps below the tool.
     neg[i] = a->backlashSteps > 0 && a->motorPos != a->pos;
     m.name[i] = a->name;
@@ -1678,14 +1745,16 @@ void cncSyncFromAxes(bool keepModes) {
     }
   }
   m.checkLimits = CNC_RESPECT_STOPS || softLimitsActive();
-  m.defaultFeed = GCODE_FEED_DEFAULT_DU_SEC * 60 / 10000.0;
+  m.arcTolerance = CNC_ARC_TOLERANCE;
+  m.spindleRpm = cncSpindleRpm;
   portENTER_CRITICAL(&cncMux);
   cnc_st_reset();
   cnc_plan_reset();
   portEXIT_CRITICAL(&cncMux);
   if (keepModes) cnc_gc_set_machine(&m);
   else cnc_gc_init(&m);
-  cnc_gc_sync(pos, zero, neg);
+  cnc_gc_sync(pos, mOffset, neg);
+  cncG54FromAxes();
 }
 
 void cncSyncFromAxes() {
@@ -1964,6 +2033,11 @@ bool cncProcessLine(const String& line, bool isSerial) {
   if (upper.indexOf("G20") >= 0) setMeasure(MEASURE_INCH);
   else if (upper.indexOf("G21") >= 0) setMeasure(MEASURE_METRIC);
   if (cnc_st_busy()) cncState = CNC_RUN;
+  if (cnc_gc_offsets_changes() != cncOffsetsSeen) {
+    // G10 / G92 / G28.1 ...: a changed G54 is the H4's own zero, so the display follows it at once
+    cncOffsetsSeen = cnc_gc_offsets_changes();
+    cncG54ToAxes();
+  }
   cncService();
 
   // A G94 program streamed over USB gets "ok" only after its move (the old protocol: senders such as
@@ -2178,6 +2252,7 @@ void taskGcode(void *param) {
       setIsOnFromTask(false); // a stored program ends when its motion has ended
     }
     cncService();
+    if (!homingActive && !stepperIsRunning(&x) && !stepperIsRunning(&z) && !stepperIsRunning(&a1)) cncSaveOffsetsIfChanged();
     // Wait a tick when there was nothing to read, so the lower-priority tasks on this core run.
     if (gotChar) taskYIELD();
     else vTaskDelay(1);
