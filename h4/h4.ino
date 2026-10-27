@@ -80,7 +80,7 @@ const int32_t STARTS_MAX = 124; // No more than 124-start thread
 const long PASSES_MAX = 999; // No more turn or face passes than this
 const long SAFE_DISTANCE_DU = 5000; // Step back 0.5mm from the material when moving between cuts in automated modes
 const long SAVE_DELAY_US = 5000000; // Wait 5s after last save and last change of saveable data before saving again
-const long DIRECTION_SETUP_DELAY_US = 5; // Stepper driver needs some time to adjust to direction change
+long DIRECTION_SETUP_DELAY_US = 5; // Stepper driver needs some time to adjust to direction change (LinuxCNC DIRSETUP)
 const long STEPPED_ENABLE_DELAY_MS = 100; // Delay after stepper is enabled and before issuing steps
 
 // Version of the pref storage format, should be changed when non-backward-compatible
@@ -135,6 +135,15 @@ bool ALARM_WHEN_LOW = true; // true: an alarm connects A23 to GND (output closes
 #define IN_HOME_Z 13 // A22
 #define IN_ALARM 14 // A23
 const bool WIFI_ENABLED = true; // web page on the controller: G-code files, status, control (see wifi.ino)
+
+// Your own machine: copy my_machine.h.example to my_machine.h in this folder and write your values there (any of
+// the settings above). They are applied at start-up, before the settings saved on the web page, and the page's
+// "Defaults from the firmware" goes back to them. my_machine.h is not part of the repository, so a newer firmware
+// can be copied over this folder without losing it.
+#if __has_include("my_machine.h")
+#include "my_machine.h"
+#define HAS_MY_MACHINE
+#endif
 
 // To be incremented whenever a measurable improvement is made.
 #define SOFTWARE_VERSION 12
@@ -2430,6 +2439,9 @@ void setEmergencyStop(int kind) {
 }
 
 void setup() {
+#ifdef HAS_MY_MACHINE
+  myMachine(); // your machine's values (my_machine.h)
+#endif
   loadMachineConfig(); // machine settings saved from the web page (config.ino), before anything uses them
   pinMode(ENC_A, INPUT_PULLUP);
   pinMode(ENC_B, INPUT_PULLUP);
