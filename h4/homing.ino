@@ -85,7 +85,7 @@ const char* cncStartRefusal() {
   if (HOME_X_USE && HOME_X_IS_LIMIT && inHomeX) return "X on its switch";
   if (HOME_Z_USE && HOME_Z_IS_LIMIT && inHomeZ) return "Z on its switch";
   if (homingActive) return "Homing";
-  if (HOME_REQUIRED && ((HOME_X_USE && !x.homed) || (HOME_Z_USE && !z.homed))) return "Home All first";
+  if (HOME_REQUIRED && !cncHomeOverride && ((HOME_X_USE && !x.homed) || (HOME_Z_USE && !z.homed))) return "Home All first";
   return NULL;
 }
 
@@ -98,6 +98,7 @@ void stopAxisNow(Axis* a) {
 void cncFault(const char* text, bool unhome) {
   cncFaultText = text;
   cncFaultStop = true; // the step interrupt stops now
+  cncFaultCount = cncFaultCount + 1;
   stopAxisNow(&x);
   stopAxisNow(&z);
   stopAxisNow(&a1);

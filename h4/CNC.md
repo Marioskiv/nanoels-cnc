@@ -70,6 +70,17 @@ Turning straight on the H4: a LinuxCNC lathe post (G7, G18, U/W retracts are rea
 - Programs saved with the H4 keys (the original stored programs, about 4000 characters each) also run with
   look-ahead. Long programs go over WiFi (below).
 
+## Grbl senders (UGS, gSender, CNCjs, bCNC ...)
+
+The H4 also speaks the **Grbl 1.1 protocol**: on WiFi, TCP port **23** (in the sender choose a network /
+telnet / WiFi connection to the H4's address, port 23), and on USB when *USB speaks the Grbl protocol* is on
+(Machine settings; then the old H4 USB protocol is off). A sender sees the start message, `ok` / `error:N` for
+every line (look-ahead: `ok` as soon as a line is planned), the real-time commands `?` `!` `~` Ctrl-X and jog
+cancel, the status report `<Idle|WPos:X,0,Z,C|Bf:..|FS:..>` (Y is always 0), `$$` `$#` `$G` `$I` `$N`, `$X`
+(run without Home All), `$H` (Home All), `$J=` jogs and `ALARM:1` for a limit or a driver alarm. The G-code goes
+to the same interpreter as files. Machine settings are changed on the web page, not with `$x=` (a sender gets
+`error:3` and a message). Feed / spindle overrides and check mode `$C` are not supported.
+
 ## WiFi: files, status and controls on a phone or tablet
 
 `WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if

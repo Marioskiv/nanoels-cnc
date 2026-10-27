@@ -746,6 +746,7 @@ void taskWifi(void* param) {
   server.begin();
   while (emergencyStop == ESTOP_NONE) {
     server.handleClient();
+    grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
     if (wifiRestartPending && (long)(millis() - wifiRestartAt) >= 0 && !cncRunActive()) ESP.restart();
     if (!wifiSetupAp && WiFi.status() != WL_CONNECTED) {

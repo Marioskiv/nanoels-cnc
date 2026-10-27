@@ -66,3 +66,13 @@ void cnc_gc_set_offsets(const cnc_offsets_t* o);
 uint32_t cnc_gc_offsets_changes();
 // Current position in program (work) coordinates, mm or degrees, as the program sees it.
 double cnc_gc_work_position(int axis);
+// The modal state (for the Grbl $G report, and to keep it unchanged around a Grbl $J jog).
+typedef struct {
+  int motion, plane, feedMode, coord;
+  bool incremental, arcIncremental, inches, diameter, retractToR;
+  double feed, tloZ;
+} cnc_modes_t;
+void cnc_gc_get_modes(cnc_modes_t* m);
+void cnc_gc_set_modes(const cnc_modes_t* m);
+// Origin of the program coordinates of an axis in the planner's coordinates (steps / stepsPerUnit), mm.
+double cnc_gc_origin(int axis);
