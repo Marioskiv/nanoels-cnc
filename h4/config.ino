@@ -77,6 +77,33 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"cncJd", 'f', (void*)&CNC_JUNCTION_DEVIATION, 0.001, 1, "GCODE mode", "Corner tolerance, junction deviation", "mm"},
   {"cncPulse", 'i', (void*)&CNC_STEP_PULSE_US, 1, 50, "GCODE mode", "Step pulse length", "µs"},
   {"cncStops", 'b', (void*)&CNC_RESPECT_STOPS, 0, 1, "GCODE mode", "Refuse moves outside the H4 stops", ""},
+
+  {"hxUse", 'b', (void*)&HOME_X_USE, 0, 1, "Home switch and limits X (A21)", "Home switch connected", ""},
+  {"hxNc", 'b', (void*)&HOME_X_NC, 0, 1, "Home switch and limits X (A21)", "Switch is normally closed (off: normally open)", ""},
+  {"hxSearch", 'f', (void*)&HOME_X_SEARCH_VEL, -1000, 1000, "Home switch and limits X (A21)", "HOME_SEARCH_VEL, sign = towards the switch", "mm/s"},
+  {"hxLatch", 'f', (void*)&HOME_X_LATCH_VEL, -1000, 1000, "Home switch and limits X (A21)", "HOME_LATCH_VEL (opposite sign: leave the switch)", "mm/s"},
+  {"hxFinal", 'f', (void*)&HOME_X_FINAL_VEL, 0, 1000, "Home switch and limits X (A21)", "HOME_FINAL_VEL (0: maximum speed)", "mm/s"},
+  {"hxOff", 'f', (void*)&HOME_X_OFFSET, -100000, 100000, "Home switch and limits X (A21)", "HOME_OFFSET: machine coordinate of the switch", "mm"},
+  {"hxHome", 'f', (void*)&HOME_X_HOME, -100000, 100000, "Home switch and limits X (A21)", "HOME: go there after homing", "mm"},
+  {"hxLim", 'b', (void*)&HOME_X_IS_LIMIT, 0, 1, "Home switch and limits X (A21)", "The switch also stops everything (limit)", ""},
+  {"lxUse", 'b', (void*)&LIMIT_X_USE, 0, 1, "Home switch and limits X (A21)", "Soft limits once homed", ""},
+  {"lxMin", 'f', (void*)&LIMIT_X_MIN, -100000, 100000, "Home switch and limits X (A21)", "MIN_LIMIT (machine coordinate)", "mm"},
+  {"lxMax", 'f', (void*)&LIMIT_X_MAX, -100000, 100000, "Home switch and limits X (A21)", "MAX_LIMIT (machine coordinate)", "mm"},
+  {"hzUse", 'b', (void*)&HOME_Z_USE, 0, 1, "Home switch and limits Z (A22)", "Home switch connected", ""},
+  {"hzNc", 'b', (void*)&HOME_Z_NC, 0, 1, "Home switch and limits Z (A22)", "Switch is normally closed (off: normally open)", ""},
+  {"hzSearch", 'f', (void*)&HOME_Z_SEARCH_VEL, -1000, 1000, "Home switch and limits Z (A22)", "HOME_SEARCH_VEL, sign = towards the switch", "mm/s"},
+  {"hzLatch", 'f', (void*)&HOME_Z_LATCH_VEL, -1000, 1000, "Home switch and limits Z (A22)", "HOME_LATCH_VEL (opposite sign: leave the switch)", "mm/s"},
+  {"hzFinal", 'f', (void*)&HOME_Z_FINAL_VEL, 0, 1000, "Home switch and limits Z (A22)", "HOME_FINAL_VEL (0: maximum speed)", "mm/s"},
+  {"hzOff", 'f', (void*)&HOME_Z_OFFSET, -100000, 100000, "Home switch and limits Z (A22)", "HOME_OFFSET: machine coordinate of the switch", "mm"},
+  {"hzHome", 'f', (void*)&HOME_Z_HOME, -100000, 100000, "Home switch and limits Z (A22)", "HOME: go there after homing", "mm"},
+  {"hzLim", 'b', (void*)&HOME_Z_IS_LIMIT, 0, 1, "Home switch and limits Z (A22)", "The switch also stops everything (limit)", ""},
+  {"lzUse", 'b', (void*)&LIMIT_Z_USE, 0, 1, "Home switch and limits Z (A22)", "Soft limits once homed", ""},
+  {"lzMin", 'f', (void*)&LIMIT_Z_MIN, -100000, 100000, "Home switch and limits Z (A22)", "MIN_LIMIT (machine coordinate)", "mm"},
+  {"lzMax", 'f', (void*)&LIMIT_Z_MAX, -100000, 100000, "Home switch and limits Z (A22)", "MAX_LIMIT (machine coordinate)", "mm"},
+  {"hZFirst", 'b', (void*)&HOME_Z_FIRST, 0, 1, "Home All and driver alarm", "Home All: Z first, then X", ""},
+  {"hReq", 'b', (void*)&HOME_REQUIRED, 0, 1, "Home All and driver alarm", "Programs start only after Home All", ""},
+  {"alUse", 'b', (void*)&ALARM_USE, 0, 1, "Home All and driver alarm", "Driver alarm connected (A23)", ""},
+  {"alLow", 'b', (void*)&ALARM_WHEN_LOW, 0, 1, "Home All and driver alarm", "Alarm connects A23 to GND (off: opens it)", ""},
 };
 const int MACHINE_CONFIG_COUNT = sizeof(MACHINE_CONFIG) / sizeof(MACHINE_CONFIG[0]);
 double machineConfigDefaults[MACHINE_CONFIG_COUNT];
@@ -129,6 +156,22 @@ String configCrossCheck(const double* values) {
   }
   if (values[configIndex("aAct")] != 0 && values[configIndex("p1Use")] != 0) {
     return "The A1 axis and handwheel 1 use the same terminal (A1): choose one";
+  }
+  bool a2Inputs = values[configIndex("hxUse")] != 0 || values[configIndex("hzUse")] != 0 || values[configIndex("alUse")] != 0;
+  if (a2Inputs && values[configIndex("p2Use")] != 0) {
+    return "Handwheel 2 and the home switches / alarm use the same terminal (A2): choose one";
+  }
+  const char* ax[2] = {"x", "z"};
+  for (int i = 0; i < 2; i++) {
+    String a = ax[i];
+    if (values[configIndex(("h" + a + "Use").c_str())] != 0) {
+      if (values[configIndex(("h" + a + "Search").c_str())] == 0 || values[configIndex(("h" + a + "Latch").c_str())] == 0) {
+        return "Home " + a + ": search and latch speeds must not be 0";
+      }
+    }
+    if (values[configIndex(("l" + a + "Use").c_str())] != 0 && values[configIndex(("l" + a + "Min").c_str())] >= values[configIndex(("l" + a + "Max").c_str())]) {
+      return "Soft limits " + a + ": MIN_LIMIT must be below MAX_LIMIT";
+    }
   }
   return "";
 }

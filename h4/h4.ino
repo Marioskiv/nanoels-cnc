@@ -99,6 +99,39 @@ int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl $11). Smaller = slower corners
 int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
 bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
+
+// Home switches, soft limits and driver alarm, as in LinuxCNC (see homing.ino and CNC.md). All off by default,
+// then the H4 behaves as the original. Inputs on terminal A2 (not with handwheel 2): A21 = home switch X,
+// A22 = home switch Z, A23 = driver alarm. The values have the meaning of the LinuxCNC .ini keys.
+bool HOME_X_USE = false; // home switch on A21
+bool HOME_X_NC = false; // false: switch normally open, closes to GND when pressed; true: normally closed
+float HOME_X_SEARCH_VEL = -3; // mm/s, the sign is the direction towards the switch (HOME_SEARCH_VEL)
+float HOME_X_LATCH_VEL = 0.5; // mm/s, opposite sign: leave the switch slowly; same sign: back off, approach slowly
+float HOME_X_FINAL_VEL = 5; // mm/s to HOME after the switch (HOME_FINAL_VEL)
+float HOME_X_OFFSET = 0; // machine coordinate of the switch point, mm (HOME_OFFSET)
+float HOME_X_HOME = 0; // machine coordinate to go to after homing, mm (HOME)
+bool HOME_X_IS_LIMIT = true; // the switch also stops everything when it is hit outside homing (limit switch)
+bool LIMIT_X_USE = false; // soft limits once homed (MIN_LIMIT, MAX_LIMIT, machine coordinates)
+float LIMIT_X_MIN = 0;
+float LIMIT_X_MAX = 100;
+bool HOME_Z_USE = false; // home switch on A22
+bool HOME_Z_NC = false;
+float HOME_Z_SEARCH_VEL = 3;
+float HOME_Z_LATCH_VEL = -0.5;
+float HOME_Z_FINAL_VEL = 5;
+float HOME_Z_OFFSET = 0;
+float HOME_Z_HOME = 0;
+bool HOME_Z_IS_LIMIT = true;
+bool LIMIT_Z_USE = false;
+float LIMIT_Z_MIN = -300;
+float LIMIT_Z_MAX = 0;
+bool HOME_Z_FIRST = true; // Home All: Z first, then X (HOME_SEQUENCE); A1 (C) takes its zero where it stands
+bool HOME_REQUIRED = true; // a G-code program starts only after Home All (when a home switch is used)
+bool ALARM_USE = false; // driver alarm outputs on A23 (all drivers together, see CNC.md)
+bool ALARM_WHEN_LOW = true; // true: an alarm connects A23 to GND (output closes on alarm)
+#define IN_HOME_X 12 // A21
+#define IN_HOME_Z 13 // A22
+#define IN_ALARM 14 // A23
 const bool WIFI_ENABLED = true; // web page on the controller: G-code files, status, control (see wifi.ino)
 
 // To be incremented whenever a measurable improvement is made.
@@ -393,6 +426,8 @@ struct Axis {
   long estopSteps; // amount of steps to exceed machine limits
   long backlashSteps; // amount of steps in reverse direction to re-engage the carriage
   long gcodeRelativePos; // absolute position in steps that relative GCode refers to
+  long machineOffset; // machine coordinate = pos + machineOffset, set by homing (kept by markOrigin like originPos)
+  bool homed; // homed since the start (Home All)
 
   int ena; // Enable pin of this motor
   int dir; // Direction pin of this motor
@@ -410,6 +445,8 @@ void initAxis(Axis* a, char name, bool active, bool rotational, float motorSteps
   a->screwPitch = screwPitch;
 
   a->pos = 0;
+  a->machineOffset = 0;
+  a->homed = false;
   a->savedPos = 0;
   a->fractionalPos = 0.0;
   a->originPos = 0;
@@ -637,6 +674,15 @@ volatile bool cncStartRequest = false;
 volatile bool wifiFsBusy = false; // the web page is reading or writing the flash: no program may start now
 volatile bool cncUserHold = false; // Pause from the web page: decelerate and wait for Resume
 bool cncOwesDisable = false; // steppers to release once a stopped program has come to rest
+// Inputs on A2 (homing.ino). Read and debounced in loop().
+volatile uint8_t inRaw = 0; // bit 0 A21, bit 1 A22, bit 2 A23: level as read (1 = high)
+volatile bool inHomeX = false, inHomeZ = false, inAlarm = false; // active, after the NO/NC setting
+volatile bool cncFaultStop = false; // limit or alarm: no more steps until taskGcode has reset the planner
+const char* volatile cncFaultText = "";
+volatile bool homingRequest = false, homingAbort = false, homingActive = false;
+Axis* volatile homingWatchAxis = NULL; // loop() stops this axis when its switch reaches homingWantActive
+volatile bool homingWantActive = false, homingHit = false;
+volatile long homingHitPos = 0;
 // G32 / G33 threading move, run by loop() like the other spindle-synchronised modes.
 #define CNC_THREAD_NONE 0
 #define CNC_THREAD_PHASE 1 // waiting until the spindle reaches the thread start
@@ -1340,6 +1386,7 @@ void taskMoveZ(void *param) {
         } else if (posCopy + delta < z.rightStop) {
           delta = z.rightStop - posCopy;
         }
+        delta = cncClampJog(&z, posCopy, delta); // soft limits, not further into a pressed home switch
         z.speedMax = getStepMaxSpeed(&z);
         stepToContinuous(&z, posCopy + delta);
         waitForStep(&z);
@@ -1406,6 +1453,7 @@ void taskMoveX(void *param) {
       } else if (posCopy + delta < x.rightStop) {
         delta = x.rightStop - posCopy;
       }
+      delta = cncClampJog(&x, posCopy, delta); // soft limits, not further into a pressed home switch
       stepToContinuous(&x, posCopy + delta);
       waitForStep(&x);
       pulseDelta = getAndResetPulses(&x);
@@ -1500,7 +1548,7 @@ static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_eve
   cnc_tick_t t;
   bool active = false;
   portENTER_CRITICAL_ISR(&cncMux);
-  if (cncStepsEnabled) active = cnc_isr(&t);
+  if (cncStepsEnabled && !cncFaultStop) active = cnc_isr(&t);
   portEXIT_CRITICAL_ISR(&cncMux);
   if (!cncStepsEnabled) t.period = CNC_TIMER_HZ / 1000;
   if (active && t.step) {
@@ -1601,7 +1649,7 @@ void cncStartTimer() {
 }
 
 bool cncBusy() {
-  return cncState != CNC_IDLE || cnc_st_busy() || cncThreadState != CNC_THREAD_NONE;
+  return cncState != CNC_IDLE || cnc_st_busy() || cncThreadState != CNC_THREAD_NONE || cncFaultStop;
 }
 
 // Takes the tool position, the work zero, the backlash state and the stops from the H4 axes.
@@ -1621,10 +1669,15 @@ void cncSyncFromAxes(bool keepModes) {
     m.active[i] = a->active;
     m.rotary[i] = a->rotational;
     m.backlashSteps[i] = a->backlashSteps;
-    m.minSteps[i] = a->rightStop == LONG_MIN ? INT32_MIN : a->rightStop;
-    m.maxSteps[i] = a->leftStop == LONG_MAX ? INT32_MAX : a->leftStop;
+    m.minSteps[i] = (!CNC_RESPECT_STOPS || a->rightStop == LONG_MIN) ? INT32_MIN : a->rightStop;
+    m.maxSteps[i] = (!CNC_RESPECT_STOPS || a->leftStop == LONG_MAX) ? INT32_MAX : a->leftStop;
+    long lo, hi;
+    if (softLimitSteps(a, &lo, &hi)) { // homing.ino
+      if (lo > m.minSteps[i]) m.minSteps[i] = lo;
+      if (hi < m.maxSteps[i]) m.maxSteps[i] = hi;
+    }
   }
-  m.checkLimits = CNC_RESPECT_STOPS;
+  m.checkLimits = CNC_RESPECT_STOPS || softLimitsActive();
   m.defaultFeed = GCODE_FEED_DEFAULT_DU_SEC * 60 / 10000.0;
   portENTER_CRITICAL(&cncMux);
   cnc_st_reset();
@@ -1741,6 +1794,26 @@ bool cncThread() {
 
 // Called often from taskGcode: stop requests, the spindle check and the step segments.
 void cncService() {
+  if (cncFaultStop) {
+    // A limit switch or a driver alarm: the step interrupt has stopped at once. Drop everything planned;
+    // the positions are exact (every step given is counted).
+    cncThreadState = CNC_THREAD_NONE;
+    cncState = CNC_IDLE;
+    cncPaused = false;
+    cncSpindleHold = false;
+    cncUserHold = false;
+    cncStopRequest = false;
+    cncSyncFromAxes();
+    cncFaultStop = false;
+    cncStatusText = cncFaultText;
+    if (cncOwesDisable) {
+      cncOwesDisable = false;
+      stepperEnable(&z, false);
+      stepperEnable(&x, false);
+      stepperEnable(&a1, false);
+    }
+    return;
+  }
   if (cncStopRequest) {
     cnc_hold_start();
     cnc_st_prep_buffer();
@@ -2211,6 +2284,7 @@ void taskAttachInterrupts(void *param) {
 void setEmergencyStop(int kind) {
   emergencyStop = kind;
   cncStepsEnabled = false; // GCODE mode: no more steps at all
+  z.homed = x.homed = a1.homed = false;
   setAsyncTimerEnable(false);
   xSemaphoreTake(z.mutex, 10);
   xSemaphoreTake(x.mutex, 10);
@@ -2253,6 +2327,13 @@ void setup() {
     pinMode(A22, INPUT);
     pinMode(A23, INPUT);
     DLOW(A21);
+  }
+  else {
+    // Terminal A2 as inputs: home switches and driver alarm (homing.ino). Read even when not used, so the
+    // web page can show them while wiring.
+    pinMode(IN_HOME_X, INPUT_PULLUP);
+    pinMode(IN_HOME_Z, INPUT_PULLUP);
+    pinMode(IN_ALARM, INPUT_PULLUP);
   }
 
   Preferences pref;
@@ -2367,6 +2448,7 @@ void setup() {
   xTaskCreatePinnedToCore(taskAttachInterrupts, "taskAttachInterrupts", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
   // Priority 1: it prepares the step segments of the GCODE mode and must not wait behind the display.
   xTaskCreatePinnedToCore(taskGcode, "taskGcode", 10000 /* stack size */, NULL, 1 /* priority */, NULL, 0 /* core */);
+  if (homingConfigured()) xTaskCreatePinnedToCore(taskHoming, "taskHoming", 6000 /* stack size */, NULL, 1 /* priority */, NULL, 0 /* core */);
   if (WIFI_ENABLED) xTaskCreatePinnedToCore(taskWifi, "taskWifi", 12000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
 }
 
@@ -2432,6 +2514,7 @@ void markAxisOrigin(Axis* a) {
   }
   a->motorPos -= a->pos;
   a->originPos += a->pos;
+  a->machineOffset += a->pos;
   a->pos = 0;
   a->fractionalPos = 0;
   a->pendingPos = 0;
@@ -2604,6 +2687,7 @@ void applyConeRatio() {
 }
 
 void reset() {
+  z.homed = x.homed = a1.homed = false; // positions start again from 0
   z.leftStop = LONG_MAX;
   z.nextLeftStopFlag = false;
   z.rightStop = LONG_MIN;
@@ -2754,6 +2838,7 @@ void setIsOnFromLoop(bool on) {
   if (!on) {
     isOn = false;
     setupIndex = 0;
+    if (homingActive) homingAbort = true; // OFF stops Home All too
     if (mode == MODE_GCODE && cncBusy()) {
       // GCODE mode still moving: decelerate along the path, then drop the rest. The steppers stay
       // enabled until it has stopped (taskGcode releases them), so no step and no position is lost.
@@ -2762,14 +2847,22 @@ void setIsOnFromLoop(bool on) {
       return;
     }
   }
-  stepperEnable(&z, on);
-  stepperEnable(&x, on);
-  stepperEnable(&a1, on);
   if (on && mode == MODE_GCODE && wifiFsBusy) {
     // A file is being written or read on the flash: starting now would make the motors stutter.
     beepFlag = true;
     return;
   }
+  if (on && mode == MODE_GCODE) {
+    const char* refusal = cncStartRefusal(); // homing.ino: not homed, limit switch pressed, driver alarm
+    if (refusal != NULL) {
+      cncStatusText = refusal;
+      beepFlag = true;
+      return;
+    }
+  }
+  stepperEnable(&z, on);
+  stepperEnable(&x, on);
+  stepperEnable(&a1, on);
   markOrigin();
   if (on) {
     // GCODE mode: taskGcode takes the new positions before it reads the first line (flag set before isOn).
@@ -3235,6 +3328,7 @@ bool stepToFinal(Axis* a, long newPos) {
 }
 
 bool stepTo(Axis* a, long newPos, bool continuous) {
+  if (motionBlocked()) return false; // homing.ino: a limit or alarm has just stopped the machine
   if (xSemaphoreTake(a->mutex, 10) == pdTRUE) {
     a->continuous = continuous;
     if (newPos == a->pos) {
@@ -3951,6 +4045,7 @@ void loop() {
   applySettings();
   processSpindleCounter();
   discountFullSpindleTurns();
+  cncInputsLoop(); // homing.ino: home switches, limits and driver alarm (nothing when not used)
   if (cncThreadState != CNC_THREAD_NONE) {
     cncThreadLoop(); // G32 / G33 in the GCODE mode
   } else if (!isOn || dupr == 0 || spindlePosSync != 0) {
