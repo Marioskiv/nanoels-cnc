@@ -1,0 +1,64 @@
+# Builds the H4 CNC Android app (folder android/) and, on main, publishes the APK as a GitHub release.
+# https://github.com/Marioskiv/nanoels-cnc - Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: MIT
+name: Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Signing key (optional repository secrets ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/h4cnc.jks"
+            echo "H4_KEYSTORE=$RUNNER_TEMP/h4cnc.jks" >> "$GITHUB_ENV"
+            echo "H4_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "No signing secret: the APK is signed with a temporary debug key."
+          fi
+      - name: Build the APK
+        run: gradle -p android assembleRelease --no-daemon
+      - name: Name the APK
+        id: apk
+        run: |
+          v=$(sed -n "s/.*versionName '\(.*\)'.*/\1/p" android/app/build.gradle)
+          cp android/app/build/outputs/apk/release/app-release.apk "H4CNC-$v.apk"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "file=H4CNC-$v.apk" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.file }}
+          path: ${{ steps.apk.outputs.file }}
+      - name: Publish the release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ steps.apk.outputs.version }}
+          name: H4 CNC Android app ${{ steps.apk.outputs.version }}
+          body: |
+            The H4 CNC Android app (Android 5.0 and newer): the H4's own web page full screen, with the PS4 / PS5
+            gamepad read by Android itself. Download the APK below on the phone and open it (allow "install unknown
+            apps" for the browser when Android asks). See android/README.md.
+          files: ${{ steps.apk.outputs.file }}

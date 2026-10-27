@@ -1,0 +1,44 @@
+// Copyright (c) 2026 Marioskiv - https://github.com/Marioskiv/nanoels-cnc - SPDX-License-Identifier: MIT
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.marioskiv.h4cnc'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.marioskiv.h4cnc'
+        minSdk 21          // Android 5.0 and newer
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // Release signing: a keystore given by the environment (the GitHub secret ANDROID_KEYSTORE_BASE64, see
+    // README.md). Without it the APK is signed with the build machine's debug key: it installs, but a later
+    // APK from another build can only be installed after uninstalling the app.
+    def keystore = System.getenv('H4_KEYSTORE')
+    signingConfigs {
+        release {
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv('H4_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('H4_KEY_ALIAS') ?: 'h4cnc'
+                keyPassword System.getenv('H4_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

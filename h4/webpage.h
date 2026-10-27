@@ -71,8 +71,9 @@ the connection the key is released within half a second.</div></section>
 <div class="small">PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). Hold <b>L1</b> to move:
 left stick Z, right stick X, L2 / R2 C+ / C-, R1 fast. L1 + Share = Home All, L1 + D-pad down = touch off Z,
 Options = STOP, PS = unlock ($X). Keep this page open in front; it stops when the page is hidden or the WiFi drops.
-Chrome on Android needs once: <code>chrome://flags</code> &rarr; <i>Insecure origins treated as secure</i> &rarr; add
-<code id="gporigin"></code> &rarr; Enabled &rarr; Relaunch.</div>
+<span id="gpflag">Best with the H4 CNC Android app. In Chrome on Android instead, once: <code>chrome://flags</code> &rarr;
+<i>Insecure origins treated as secure</i> &rarr; add <code id="gporigin"></code> &rarr; Enabled &rarr; Relaunch.</span></div>
+<div class="row" id="gpapp" style="display:none"><button onclick="H4App.changeAddress()">H4 address</button></div>
 <div class="cfg"><label for="gpN">Speed (mm/min)</label><input type="number" id="gpN" step="any">
 <label for="gpF">Speed with R1 (mm/min)</label><input type="number" id="gpF" step="any">
 <label for="gpC">C speed = speed x</label><input type="number" id="gpC" step="any">
@@ -199,7 +200,10 @@ try{Object.assign(gp,JSON.parse(localStorage.getItem('h4gamepad')||'{}'))}catch(
 const GPF={gpN:'n',gpF:'f',gpC:'c',gpIX:'ix',gpIZ:'iz',gpIC:'ic'};
 for(const id in GPF){const el=$(id),k=GPF[id];if(el.type=='checkbox')el.checked=!!gp[k];else el.value=gp[k];
  el.addEventListener('change',()=>{gp[k]=el.type=='checkbox'?el.checked:(parseFloat(el.value)||GPD[k]);
-  try{localStorage.setItem('h4gamepad',JSON.stringify(gp))}catch(e){}})}
+  try{localStorage.setItem('h4gamepad',JSON.stringify(gp))}catch(e){}gpToApp()})}
+// In the H4 CNC Android app the app reads the gamepad itself (no browser setting needed); the page only shows its state.
+const gpApp=!!window.H4App;function gpToApp(){if(gpApp)try{H4App.settings(JSON.stringify(gp))}catch(e){}}
+if(gpApp){$('gpflag').style.display='none';$('gpapp').style.display='';window.h4AppGamepad=t=>{$('gpstate').textContent=t};gpToApp()}
 $('gporigin').textContent=location.origin;
 let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
 function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
@@ -227,7 +231,7 @@ function gpLoop(){let pads=[];
  if(want){if(now-gpLast>=100&&!gpBusy){gpMoving=true;gpStops=3;gpSend(vx,vz,vc)}}
  else if(gpStops>0&&now-gpLast>=100){gpSend(0,0,0);gpStops=gpMoving?2:gpStops-1;gpMoving=false} // stop, sent 3 times
  $('gpstate').textContent=(g.mapping=='standard'?'':'(unknown button layout) ')+g.id+(want?' · moving':l1?' · L1 held':' · hold L1 to move')+(gpErr?' · '+gpErr:'')}
-setInterval(gpLoop,20);
+if(!gpApp)setInterval(gpLoop,20);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&(gpMoving||gpStops))gpSend(0,0,0)});
 fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{});
 listFiles();loadCfg();poll();
