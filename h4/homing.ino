@@ -133,6 +133,14 @@ void cncInputsLoop() {
   inHomeZ = HOME_Z_USE && (inStable[1] == HOME_Z_NC);
   inAlarm = ALARM_USE && (inStable[2] == !ALARM_WHEN_LOW);
 
+  static unsigned long startUs = now;
+  if (now - startUs < 100000) {
+    // The first 0.1 s after start: take the levels as they are (an axis resting on its switch is no fault).
+    prevAlarm = inAlarm;
+    prevHomeX = inHomeX;
+    prevHomeZ = inHomeZ;
+    return;
+  }
   Axis* watch = homingWatchAxis;
   if (watch != NULL && !homingHit && switchActive(watch) == homingWantActive) {
     stopAxisNow(watch);

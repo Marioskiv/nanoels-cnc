@@ -94,6 +94,47 @@ Board *ESP32S3 Dev Module*, **Flash Size: 16MB**, **PSRAM: QSPI PSRAM**, **Parti
 WiFi update) and 9.9 MB for programs; the settings area (`nvs`) stays where it was, so saved H4 settings
 are kept.
 
+## Home switches, limits and driver alarm (wiring)
+
+Terminal **A2** becomes three inputs (it cannot be used for handwheel 2 at the same time). The settings are
+on the web page (*Home switch and limits X / Z*, *Home All and driver alarm*) or at the top of `h4.ino`; they
+have the meaning of the LinuxCNC `.ini` keys (`HOME_SEARCH_VEL`, `HOME_LATCH_VEL`, `HOME_FINAL_VEL`,
+`HOME_OFFSET`, `HOME`, `MIN_LIMIT`, `MAX_LIMIT`). Everything is off by default.
+
+| H4 terminal | Connect | |
+|---|---|---|
+| A2 `A21` | home switch X, wire 1 | switch normally open, closes to GND when pressed (or normally closed: setting) |
+| A2 `A22` | home switch Z, wire 1 | same |
+| A2 `A23` | driver alarm outputs (all drivers together, below) | |
+| Encoder `GND` | one wire from a GND strip | the second wire of both switches and the `ALM-` / `A-` of every driver go to the strip |
+| A2 `5V` | nothing (only for the measurement below) | |
+
+The inputs are 5 V lines with pull-ups: **never connect more than 5.5 V** to them; only switches or
+open-collector outputs that connect the input to GND.
+
+**Driver alarms on one input.** A closed-loop driver's alarm output (`ALM+` / `ALM-`, an opto-isolated
+open-collector transistor, JD57: at most 30 V, 50 mA) is a switch. Which way it switches is not written in the
+JD57 manual; most drivers of this kind keep it **open** in normal running and **close** it on an alarm.
+- open when running, closes on alarm: all drivers **in parallel**: every `ALM+` to `A23`, every `ALM-` to GND.
+  Setting *Alarm connects A23 to GND* = on.
+- closed when running, opens on alarm: all drivers **in series**: `A23` -> `ALM+` 1, `ALM-` 1 -> `ALM+` 2,
+  `ALM-` 2 -> `ALM+` 3, `ALM-` 3 -> GND. Setting *Alarm connects A23 to GND* = off. The input must read below
+  0.5 V with all three closed.
+- Check before wiring them together: connect one driver at a time (`ALM+` to `A23`, `ALM-` to GND), power
+  it, and read A23 on the web page (*Inputs*): `high` = open while running, `LOW` = closed while running.
+  Drivers of one model behave the same.
+
+An alarm stops all motion at once and the machine counts as not homed (a driver that stopped has lost its
+position). A JD57 alarm is cleared only by switching the driver off and on. A home switch that is hit outside
+homing (*The switch also stops everything*) stops all motion at once as well; the axis can then be jogged away
+from the switch only.
+
+**Home All** (button on the page, or `$H` in *Run line*): Z first, then X (setting), each one searching its
+switch, leaving it slowly (latch), setting its machine coordinate to `HOME_OFFSET` there and moving to `HOME`;
+A1 (C) takes machine 0 where it stands. Soft limits (`MIN_LIMIT` / `MAX_LIMIT`, machine coordinates) then
+hold for programs and for jogging. With *Programs start only after Home All* a program does not start before.
+OFF or STOP stops homing. After an emergency stop by cutting the drivers' power, home again.
+
 ## Settings for a polar machine (X radial, Z axial, chuck on C)
 
 On the web page (*Machine settings*) or in `h4.ino`: steps, travel per turn, speeds, accelerations,
