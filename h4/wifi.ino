@@ -693,6 +693,7 @@ bool wifiJoin() {
   if (WiFi.status() != WL_CONNECTED) return false;
   wifiIp = WiFi.localIP().toString();
   wifiStatusText = "http://" + wifiIp;
+  wifiShow(("IP " + wifiIp).c_str(), NULL, NULL, 30000);
   Serial.println("Web page: http://" + wifiIp);
   return true;
 }
@@ -708,8 +709,19 @@ bool wifiSetupAccessPoint() {
   }
   wifiIp = WiFi.softAPIP().toString();
   wifiStatusText = String("Setup: ") + WIFI_SETUP_AP_SSID + " http://" + wifiIp;
+  wifiShow("WiFi NanoEls-H4-Setup", "Password nanoels-h4", ("Open " + wifiIp).c_str(), 60000);
   Serial.println(wifiStatusText);
   return true;
+}
+
+// Texts for the H4 display (h4.ino shows them in turn, 3 s each).
+void wifiShow(const char* a, const char* b, const char* c, unsigned long forMs) {
+  wifiDisplayCount = 0;
+  snprintf(wifiDisplayText[0], 21, "%s", a);
+  if (b) snprintf(wifiDisplayText[1], 21, "%s", b);
+  if (c) snprintf(wifiDisplayText[2], 21, "%s", c);
+  wifiDisplayUntil = millis() + forMs;
+  wifiDisplayCount = c ? 3 : (b ? 2 : 1);
 }
 
 void taskWifi(void* param) {
@@ -749,10 +761,13 @@ void taskWifi(void* param) {
     grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
     if (wifiRestartPending && (long)(millis() - wifiRestartAt) >= 0 && !cncRunActive()) ESP.restart();
-    if (!wifiSetupAp && WiFi.status() != WL_CONNECTED) {
+    bool lost = !wifiSetupAp && WiFi.status() != WL_CONNECTED;
+    if (lost && wifiStatusText != "WiFi lost") {
       wifiStatusText = "WiFi lost";
-    } else if (!wifiSetupAp) {
+      wifiShow("WiFi lost", NULL, NULL, 0);
+    } else if (!lost && !wifiSetupAp && wifiStatusText != "http://" + wifiIp) {
       wifiStatusText = "http://" + wifiIp;
+      wifiShow(("IP " + wifiIp).c_str(), NULL, NULL, 0);
     }
     vTaskDelay(2);
   }

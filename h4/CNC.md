@@ -85,7 +85,10 @@ to the same interpreter as files. Machine settings are changed on the web page, 
 
 `WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if
 it cannot connect, it opens its own access point **`NanoEls-H4-Setup`**, password **`nanoels-h4`**, page
-`http://192.168.4.1`. The address it got on your network is printed on USB at start-up and shown on the page.
+`http://192.168.4.1`. The address it got on your network is shown **on the H4's own display**, bottom line
+(for 30 s after start-up in every mode, and always in the GCODE mode while no program runs; the setup access
+point shows its name, password and address in turn), printed on USB and shown on the page. Type it into the
+browser of a phone, tablet (Android or iPhone) or computer on the same network, e.g. `http://192.168.1.50`.
 
 The page shows X, Z and C, the program name, a progress bar and the current line, Start / Pause / Resume and
 a large STOP, a drawing of the program (polar programs as seen from the cutter, the done part in blue, the
