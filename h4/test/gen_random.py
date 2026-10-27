@@ -34,5 +34,11 @@ for i in range(random.randint(20, 300)):
     x, z, c = nx, nz, nc
     if random.random() < 0.03:
         out.append('G4 P0.2')
+    if random.random() < 0.03:
+        # a drilling cycle along Z at the current X (G17), then back to G18 and the old position
+        cyc = random.choice(['G81', f'G82 P0.1', f'G83 Q{round(random.uniform(0.5, 3), 3)}', f'G73 Q{round(random.uniform(0.5, 3), 3)}', 'G85', 'G89 P0.1'])
+        out.append(f'G94 G17 G99 {cyc} X{x} Z{round(z - random.uniform(1, 8), 4)} R{round(z + 1, 4)} F{random.choice([60, 200])}')
+        out.append('G80 G18')
+        out.append(f'G0 X{x} Z{z} C{c}')
 out += ['G94', 'G0 X0 Z0 C0', 'M30']
 print('\n'.join(out))

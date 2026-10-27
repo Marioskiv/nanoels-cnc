@@ -54,6 +54,36 @@ static int feedMode;                 // 930, 940, 950
 static bool inches, diameterMode;
 static double feedWord;              // last F: mm (or deg) per minute, or per spindle turn in G95
 static double tloZ;                  // G43.1 tool length offset on Z, mm
+static bool retractToR;              // G99 (start, as LinuxCNC): back to R; G98: back to the level where the series began
+
+// canned cycles G73 G81 G82 G83 G85 G89, as LinuxCNC (interp_cycles.cc): the values the next cycle line reuses
+static double cycleR, cycleQ, cycleP, cycleDrillWord;
+static double cycleIL;               // the initial level of the series (G98)
+static bool cycleILFlag;
+
+// A line that runs as several actions (canned cycle, G76): continued over several calls of cnc_gc_line.
+enum { ACT_RAPID, ACT_FEED, ACT_DWELL, ACT_THREAD };
+typedef struct { int type; double t[CNC_N_AXIS]; double value; } action_t;
+static struct {
+  bool active;
+  uint32_t lineNo;
+  int kind;                          // 730 810 820 830 850 890, or 760
+  int D, P;                          // drill axis and position axis (cycles)
+  int repeats, rep, step;
+  double pos, posInc, r, bottom, clear, q, p, curD, curP, depth, rapidDelta;
+  bool raiseFirst, firstHigh;
+  float feed;
+  // G76
+  bool boring;
+  double safeX, startZ, targetZ, fullDia, cutInc, endDepth, pitch, angle, degression, endX, endZ, zoff;
+  int pass, spring, finals;
+  bool finalPasses, ended;
+  action_t act;
+  bool pending;
+  int result;
+  float dwell;
+  char msg[96];
+} job;
 
 // a thread move handed to the firmware
 static int32_t threadTarget[CNC_N_AXIS];
@@ -114,6 +144,9 @@ void cnc_gc_reset_modes() {
   tloZ = 0;
   offs.active = 0;
   arc.active = false;
+  job.active = false;
+  retractToR = true;  // G99 at the start, as LinuxCNC
+  cycleILFlag = false;
 }
 
 void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t machineOffset[CNC_N_AXIS], const bool neg[CNC_N_AXIS]) {
@@ -122,7 +155,6 @@ void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t machineOffset[CNC_
     absPos[i] = pos[i] / spu(i);
     mOff[i] = machineOffset[i] / spu(i);
   }
-  arc.active = false;
   cnc_plan_sync_position(pos);
 }
 
@@ -217,8 +249,204 @@ static int arcCentre(bool cw, bool ikIncremental, double s1, double s2, double e
   return CNC_OK;
 }
 
+// ---------------------------------------------------------------- canned cycles and G76, one action at a time
+
+static void actionAt(action_t* a, int type, double posProg, double drillProg) {
+  a->type = type;
+  for (int i = 0; i < CNC_N_AXIS; i++) a->t[i] = absPos[i];
+  a->t[job.P] = posProg + origin(job.P);
+  a->t[job.D] = drillProg + origin(job.D);
+  a->value = 0;
+}
+
+// The next action of the cycle (LinuxCNC's CYCLE_MACRO and convert_cycle_g8x). False when it is done.
+static bool cycleNext(action_t* a) {
+  while (true) {
+    switch (job.step) {
+      case 0:  // once: below the R plane, rapid straight up to it first
+        job.step = 10;
+        if (job.raiseFirst) {  // at the position where the tool is now
+          actionAt(a, ACT_RAPID, job.curP, job.r);
+          return true;
+        }
+        break;
+      case 10:  // start of a repeat
+        if (job.rep >= job.repeats) return false;
+        job.rep++;
+        job.pos += job.posInc;
+        if (job.rep == 1 && job.firstHigh) {
+          job.step = 11;
+          actionAt(a, ACT_RAPID, job.pos, job.curD);
+        } else {
+          job.step = 12;
+          actionAt(a, ACT_RAPID, job.pos, job.clear);
+        }
+        return true;
+      case 11:
+        job.step = 20;
+        actionAt(a, ACT_RAPID, job.pos, job.r);
+        return true;
+      case 12:
+        job.step = 20;
+        if (job.clear > job.r) {
+          actionAt(a, ACT_RAPID, job.pos, job.r);
+          return true;
+        }
+        break;
+      case 20:  // the cycle itself
+        if (job.kind == 830 || job.kind == 730) {
+          job.depth = job.r - job.q;
+          job.step = 30;
+          break;
+        }
+        job.step = 21;
+        actionAt(a, ACT_FEED, job.pos, job.bottom);
+        return true;
+      case 21:
+        if (job.kind == 810) {
+          job.step = 10;
+          actionAt(a, ACT_RAPID, job.pos, job.clear);
+        } else if (job.kind == 820 || job.kind == 890) {
+          job.step = 22;
+          a->type = ACT_DWELL;
+          a->value = job.p;
+        } else {  // 850: feed back out to R, then rapid to the clear level
+          job.step = 23;
+          actionAt(a, ACT_FEED, job.pos, job.r);
+        }
+        return true;
+      case 22:  // after the dwell
+        job.step = 10;
+        actionAt(a, job.kind == 890 ? ACT_FEED : ACT_RAPID, job.pos, job.clear);
+        return true;
+      case 23:
+        job.step = 10;
+        actionAt(a, ACT_RAPID, job.pos, job.clear);
+        return true;
+      case 30:  // peck: G83 back to R between pecks, G73 only a little
+        if (job.depth > job.bottom) {
+          job.step = job.kind == 830 ? 31 : 32;
+          actionAt(a, ACT_FEED, job.pos, job.depth);
+          return true;
+        }
+        job.step = 33;  // the last feed to the bottom, then out
+        actionAt(a, ACT_FEED, job.pos, job.bottom);
+        return true;
+      case 31:
+        job.step = 32;
+        actionAt(a, ACT_RAPID, job.pos, job.r);
+        return true;
+      case 32:
+        job.step = 30;
+        actionAt(a, ACT_RAPID, job.pos, job.depth + job.rapidDelta);
+        job.depth -= job.q;
+        return true;
+      case 33:
+        job.step = 10;
+        actionAt(a, ACT_RAPID, job.pos, job.clear);
+        return true;
+      default:
+        return false;
+    }
+  }
+}
+
+// G76 as LinuxCNC (convert_threading_cycle, threading_pass), without the taper entry / exit (E).
+static void g76Point(action_t* a, int type, double xProg, double zProg) {
+  a->type = type;
+  for (int i = 0; i < CNC_N_AXIS; i++) a->t[i] = absPos[i];
+  a->t[AX_X] = xProg + origin(AX_X);
+  a->t[AX_Z] = zProg + origin(AX_Z);
+  a->value = job.pitch;
+}
+
+static bool g76Next(action_t* a) {
+  double back = job.boring ? job.safeX + job.depth - job.endDepth : job.safeX - job.depth + job.endDepth;
+  double in = job.boring ? job.safeX + job.depth : job.safeX - job.depth;
+  switch (job.step) {
+    case 0:  // start of a pass at job.depth
+      job.zoff = (job.depth - job.fullDia) * tan(job.angle);
+      job.step = 1;
+      g76Point(a, ACT_RAPID, back, job.startZ - job.zoff);
+      return true;
+    case 1:
+      job.step = 2;
+      g76Point(a, ACT_RAPID, in, job.startZ - job.zoff);
+      return true;
+    case 2:
+      job.step = 3;
+      g76Point(a, ACT_THREAD, in, job.targetZ - job.zoff);
+      return true;
+    case 3:
+      job.step = 4;
+      g76Point(a, ACT_RAPID, back, job.targetZ - job.zoff);
+      return true;
+    case 4:  // next pass
+      if (!job.finalPasses) {
+        job.pass++;
+        job.depth = job.fullDia + job.cutInc * pow(job.pass, 1.0 / job.degression);
+        if (job.depth >= job.endDepth) {
+          job.finalPasses = true;
+          job.depth = job.endDepth;
+          job.finals = 0;
+        }
+      } else {
+        job.finals++;
+      }
+      if (job.finalPasses && job.finals > job.spring) {
+        job.step = 5;
+        g76Point(a, ACT_RAPID, job.endX, job.endZ);
+        return true;
+      }
+      job.step = 0;
+      return g76Next(a);
+    default:
+      return false;
+  }
+}
+
+// Runs the actions of the pending job. Returns CNC_WAIT (no room), CNC_DWELL_MORE, CNC_THREAD_MORE (call
+// again with the same line afterwards) or, when all is done, the line's own result.
+static int runJob(char* msg, int msgLen, float* dwell) {
+  while (true) {
+    if (!job.pending) {
+      bool more = job.kind == 760 ? g76Next(&job.act) : cycleNext(&job.act);
+      if (!more) {
+        job.active = false;
+        snprintf(msg, msgLen, "%s", job.msg);
+        *dwell = job.dwell;
+        return job.result;
+      }
+      job.pending = true;
+    }
+    action_t* a = &job.act;
+    if (a->type == ACT_DWELL) {
+      job.pending = false;
+      *dwell = (float)a->value;
+      return CNC_DWELL_MORE;
+    }
+    if (a->type == ACT_THREAD) {
+      job.pending = false;
+      for (int i = 0; i < CNC_N_AXIS; i++) {
+        threadTarget[i] = toSteps(i, a->t[i]);
+        absPos[i] = a->t[i];
+      }
+      threadLead = (float)a->value;
+      return CNC_THREAD_MORE;
+    }
+    if (!roomForOne()) return CNC_WAIT;
+    planLine(a->t, a->type == ACT_FEED ? job.feed : 0, a->type == ACT_FEED ? 0 : CNC_COND_RAPID, job.lineNo);
+    job.pending = false;
+  }
+}
+
 int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float* dwell) {
   msg[0] = '\0';
+  // A canned cycle or G76 of this line still running: go on with it.
+  if (job.active) {
+    if (job.lineNo != lineNo) job.active = false;  // a different line: given up (stop)
+    else return runJob(msg, msgLen, dwell);
+  }
   // An arc of this line still being planned: go on with it.
   if (arc.active) {
     if (arc.lineNo != lineNo) {
@@ -290,10 +518,25 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   }
 #define HAS(L) has[(L) - 'A']
 #define VAL(L) val[(L) - 'A']
-  for (const char* bad = "YABUVWEJ"; *bad; bad++) {
+  // U and W: incremental X and Z, as Fanuc lathes (and the lathe posts of the CAMs) use them; this machine
+  // has no U or W axis. U in diameter mode (G7) is a diameter.
+  bool forceIncr[CNC_N_AXIS] = {false, false, false};
+  if (HAS('U')) {
+    if (HAS('X')) return fail(msg, msgLen, "X and U on one line");
+    has['X' - 'A'] = true;
+    val['X' - 'A'] = VAL('U');
+    has['U' - 'A'] = false;
+    forceIncr[AX_X] = true;
+  }
+  if (HAS('W')) {
+    if (HAS('Z')) return fail(msg, msgLen, "Z and W on one line");
+    has['Z' - 'A'] = true;
+    val['Z' - 'A'] = VAL('W');
+    has['W' - 'A'] = false;
+    forceIncr[AX_Z] = true;
+  }
+  for (const char* bad = "YABV"; *bad; bad++) {
     if (!HAS(*bad)) continue;
-    if (*bad == 'J') return fail(msg, msgLen, "J word: arcs are in the X-Z plane (G18), use I and K");
-    if (*bad == 'E') return fail(msg, msgLen, "E word is not supported");
     snprintf(msg, msgLen, "this machine has no %c axis", *bad);
     return CNC_ERROR;
   }
@@ -306,7 +549,10 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   for (int n = 0; n < nG; n++) {
     int c = gCodes[n], grp;
     switch (c) {
-      case 0: case 10: case 20: case 30: case 320: case 330: case 800: grp = GR_MOTION; break;
+      case 0: case 10: case 20: case 30: case 320: case 330: case 800:
+      case 730: case 760: case 810: case 820: case 830: case 850: case 890:
+        grp = GR_MOTION;
+        break;
       case 170: case 180: case 190: grp = GR_PLANE; break;
       case 900: case 910: grp = GR_DIST; break;
       case 901: case 911: grp = GR_ARCDIST; break;
@@ -324,10 +570,12 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
         break;
       case 410: case 420: case 411: case 421:
         return fail(msg, msgLen, "cutter compensation (G41/G42) is not supported: compensate in the CAM (in computer)");
-      case 960: return fail(msg, msgLen, "G96 constant surface speed needs a spindle the H4 controls: use G97");
-      case 700: case 710: case 720: case 730: case 740: case 760:
-      case 810: case 820: case 830: case 840: case 850: case 860: case 870: case 880: case 890:
-        snprintf(msg, msgLen, "canned cycle G%g is not supported yet: post the program with the cycles expanded", c / 10.0);
+      case 960: grp = GR_SPINDLE; break;
+      case 700: case 710: case 720:
+        snprintf(msg, msgLen, "turning cycle G%g is not supported yet: post the program without cycles", c / 10.0);
+        return CNC_ERROR;
+      case 740: case 840: case 860: case 870: case 880:
+        snprintf(msg, msgLen, "cycle G%g needs a spindle the H4 controls (stop / reverse)", c / 10.0);
         return CNC_ERROR;
       case 382: case 383: case 384: case 385: return fail(msg, msgLen, "probing (G38) is not supported");
       case 331: return fail(msg, msgLen, "rigid tapping (G33.1) is not supported");
@@ -402,6 +650,16 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (moving && motion == 800) return fail(msg, msgLen, "axis words without a motion mode (G0, G1, G2, G3)");
   if (g53 && !(motion == 0 || motion == 10)) return fail(msg, msgLen, "G53 only with G0 or G1");
   if (g53 && nIncr) return fail(msg, msgLen, "G53 with G91");
+  if ((forceIncr[AX_X] || forceIncr[AX_Z]) && (nonModal == 100 || nonModal == 920 || g53)) {
+    return fail(msg, msgLen, "U / W (incremental) with G10, G53 or G92");
+  }
+  bool isCycle = moving && (motion == 730 || motion == 810 || motion == 820 || motion == 830 || motion == 850 || motion == 890);
+  bool isG76 = moving && motion == 760;
+  if (isCycle && (forceIncr[AX_X] || forceIncr[AX_Z])) return fail(msg, msgLen, "U / W in a canned cycle: use X / Z with G91");
+  if (explicitMotion == 760 && !moving) return fail(msg, msgLen, "G76 needs Z");
+  if ((HAS('J') || HAS('E')) && motion != 760) {
+    return fail(msg, msgLen, HAS('J') ? "J word: arcs are in the X-Z plane (G18), use I and K" : "E word only with G76");
+  }
   bool isArc = moving && (motion == 20 || motion == 30);
   if (isArc && nPlane != 180) return fail(msg, msgLen, "arcs only in the X-Z plane (G18): this machine has no Y axis");
   if (isArc && !HAS('R') && !HAS('I') && !HAS('K')) return fail(msg, msgLen, "arc without I/K or R");
@@ -413,10 +671,16 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (mTool == 6 && moving) return fail(msg, msgLen, "M6 and a move on one line");
   if (HAS('F') && VAL('F') < 0) return fail(msg, msgLen, "F must not be negative");
   if (HAS('F') && VAL('F') == 0 && !thread && !(nFeedMode == 930 && !moving)) return fail(msg, msgLen, "F must be positive");
-  if ((HAS('I') || HAS('R')) && !isArc) return fail(msg, msgLen, "I or R without an arc");
-  if (HAS('K') && !isArc && !(thread && motion == 330)) return fail(msg, msgLen, "K without an arc or G33");
-  if (HAS('L') && nonModal != 100) return fail(msg, msgLen, "L word without G10");
-  if (HAS('P') && !dwellCode && nonModal != 100 && !isArc && g[GR_PATH] != 640) return fail(msg, msgLen, "P word without G4, G10, G64 or an arc");
+  if (HAS('I') && !isArc && !isG76) return fail(msg, msgLen, "I without an arc or G76");
+  if (HAS('R') && !isArc && !isCycle && !isG76) return fail(msg, msgLen, "R without an arc or a cycle");
+  if (HAS('K') && !isArc && !isG76 && !(thread && motion == 330)) return fail(msg, msgLen, "K without an arc, G33 or G76");
+  if (HAS('L') && nonModal != 100 && !isCycle && !isG76) return fail(msg, msgLen, "L word without G10 or a cycle");
+  bool pCycle = isCycle && (motion == 820 || motion == 890);
+  bool qCycle = isCycle && (motion == 830 || motion == 730);
+  if (HAS('P') && !dwellCode && nonModal != 100 && !isArc && !pCycle && !isG76 && g[GR_PATH] != 640) {
+    return fail(msg, msgLen, "P word without G4, G10, G64, an arc, G76, G82 or G89");
+  }
+  if (HAS('Q') && !qCycle && !isG76 && g[GR_PATH] != 640) return fail(msg, msgLen, "Q word without G64, G73, G76 or G83");
 
   // F: per minute, inverse time or per turn
   double nFeedWord = feedWord;
@@ -446,7 +710,7 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   // -> planner coordinate, honouring G90/G91
   auto wordTarget = [&](int i) {
     double v = wordValue(i);
-    return nIncr ? absPos[i] + v : v + origin(i);
+    return (nIncr || forceIncr[i]) ? absPos[i] + v : v + origin(i);
   };
 
   // ---------------------------------------------------------------- non-modal: G10, G28/G30, G92
@@ -510,16 +774,17 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   }
 
   // ---------------------------------------------------------------- motion target and checks
+  bool plainMove = moving && !isCycle && !isG76;
   double target[CNC_N_AXIS];
   for (int i = 0; i < CNC_N_AXIS; i++) target[i] = absPos[i];
-  if (moving) {
+  if (plainMove || isG76) {
     for (int i = 0; i < CNC_N_AXIS; i++) {
       if (!HAS(AXIS_LETTERS[i])) continue;
       target[i] = g53 ? wordValue(i) - mOff[i] : wordTarget(i);
     }
   }
   for (int i = 0; i < CNC_N_AXIS; i++) {
-    if (moving && HAS(AXIS_LETTERS[i]) && !limitOk(i, toSteps(i, target[i]))) {
+    if ((plainMove || isG76) && HAS(AXIS_LETTERS[i]) && !limitOk(i, toSteps(i, target[i]))) {
       snprintf(msg, msgLen, "%c%.4f is outside the limits", AXIS_LETTERS[i], target[i] - origin(i));
       REFUSE_MSG();
     }
@@ -532,9 +797,10 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   // feed of the move
   float feed = 0;
   uint8_t condition = 0;
-  bool rapid = moving && motion == 0;
-  if (moving && !rapid && !thread) {
+  bool rapid = plainMove && motion == 0;
+  if ((plainMove || isCycle) && !rapid && !thread) {
     if (nFeedMode == 930) {
+      if (isCycle) REFUSE("canned cycles cannot run in inverse time (G93)");
       if (!HAS('F')) REFUSE("G93: every feed move needs its own F");
       feed = (float)VAL('F');
       condition = CNC_COND_INVERSE_TIME;
@@ -590,6 +856,92 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     if (condition == CNC_COND_INVERSE_TIME) feed *= segments;  // every segment its share of the time
   }
 
+  // canned cycle: the LinuxCNC rules of convert_cycle / convert_cycle_xy (G17, drill along Z) and
+  // convert_cycle_yz (G19, drill along X); in G18 the drill axis would be Y
+  double cyR = 0, cyBottom = 0, cyPos = 0, cyPosInc = 0, cyCur = 0, cyClear = 0, cyOld = 0, cyQ = 0, cyP = 0, cyDrillWord = 0;
+  int cyD = AX_Z, cyPA = AX_X, cyL = 1;
+  bool cyRaise = false, cyFirstHigh = false;
+  if (isCycle) {
+    if (nPlane == 180) REFUSE("canned cycles in G18 drill along Y: use G17 (drill along Z) or G19 (along X)");
+    if (HAS('C')) REFUSE("C may not move in a canned cycle");
+    cyD = nPlane == 170 ? AX_Z : AX_X;
+    cyPA = nPlane == 170 ? AX_X : AX_Z;
+    bool same = motionMode == motion;
+    char dl = AXIS_LETTERS[cyD];
+    if (!same && !HAS(dl)) {
+      snprintf(msg, msgLen, "%c value missing in the first canned cycle", dl);
+      REFUSE_MSG();
+    }
+    if (!HAS('R') && !same) REFUSE("R (clearance plane) missing in the canned cycle");
+    if (HAS('L') && lround(VAL('L')) <= 0) REFUSE("cannot do zero repeats of a canned cycle");
+    cyL = HAS('L') ? (int)lround(VAL('L')) : 1;
+    if ((motion == 820 || motion == 890) && !same && !HAS('P')) REFUSE("dwell time P missing with G82 / G89");
+    if ((motion == 830 || motion == 730) && !same && !HAS('Q')) REFUSE("Q missing with G83 / G73");
+    cyDrillWord = HAS(dl) ? wordValue(cyD) : cycleDrillWord;
+    double rWord = HAS('R') ? VAL('R') * lin : cycleR;
+    cyQ = HAS('Q') ? VAL('Q') * lin : cycleQ;
+    cyP = HAS('P') ? VAL('P') : cycleP;
+    if ((motion == 830 || motion == 730) && !(cyQ > 0)) REFUSE("Q must be above 0");
+    cyCur = absPos[cyD] - origin(cyD);  // program coordinates
+    cyOld = cycleILFlag ? cycleIL : cyCur;  // the level where this series of cycles began
+    double curP = absPos[cyPA] - origin(cyPA);
+    if (!nIncr) {
+      cyR = rWord;
+      cyBottom = cyDrillWord;
+      cyPos = HAS(AXIS_LETTERS[cyPA]) ? wordValue(cyPA) : curP;
+    } else {
+      cyR = rWord + cyOld;
+      cyBottom = cyR + cyDrillWord;
+      cyPos = curP;
+      cyPosInc = HAS(AXIS_LETTERS[cyPA]) ? wordValue(cyPA) : 0;
+    }
+    if (cyR < cyBottom) REFUSE("R is below the bottom of the canned cycle");
+    if (cyOld < cyR) {
+      cyRaise = true;
+      cyOld = cyR;
+      cyCur = cyR;
+    }
+    cyClear = retractToR || g[GR_RETRACT] == 990 ? cyR : cyOld;
+    if (g[GR_RETRACT] == 980) cyClear = cyOld;
+    cyFirstHigh = cyCur > cyR;
+    for (int n = 1; n <= cyL; n++) {
+      double pp = cyPos + cyPosInc * n;
+      if (!limitOk(cyPA, toSteps(cyPA, pp + origin(cyPA))) || !limitOk(cyD, toSteps(cyD, cyBottom + origin(cyD))) ||
+          !limitOk(cyD, toSteps(cyD, (cyClear > cyCur ? cyClear : cyCur) + origin(cyD)))) {
+        REFUSE("the canned cycle goes outside the limits");
+      }
+    }
+    // (cycleIL is set below, with the other modes)
+    (void)cyP;
+  }
+
+  // G76 threading cycle (LinuxCNC rules), the passes are spindle-synchronised moves of the firmware
+  double g76I = 0, g76J = 0, g76K = 0, g76Pitch = 0, g76Q = 0, g76R = 1;
+  int g76H = 0;
+  if (isG76) {
+    if (HAS('C')) REFUSE("C may not move in G76");
+    if (!HAS('P')) REFUSE("G76 needs P (thread pitch)");
+    if (!HAS('I') || !HAS('J') || !HAS('K')) REFUSE("G76 needs I, J and K");
+    if (HAS('E') && VAL('E') > 0) REFUSE("G76 E (taper entry / exit) is not supported yet");
+    g76I = VAL('I') * lin;
+    g76J = VAL('J') * lin;
+    g76K = VAL('K') * lin;
+    if (g76I == 0) REFUSE("in G76, I must not be 0");
+    if (g76J <= 0) REFUSE("in G76, J must be greater than 0");
+    if (g76K <= g76J) REFUSE("in G76, K must be greater than J");
+    if (nDiam) {
+      g76I /= 2;
+      g76J /= 2;
+      g76K /= 2;
+    }
+    g76Pitch = VAL('P') * lin;
+    if (!(g76Pitch > 0)) REFUSE("G76 pitch must be above 0");
+    g76Q = HAS('Q') ? VAL('Q') : 0;
+    g76H = HAS('H') ? (int)lround(VAL('H')) : 0;
+    g76R = HAS('R') && VAL('R') >= 1 ? VAL('R') : 1;
+    if (fabs(target[AX_Z] - absPos[AX_Z]) < 1e-9) REFUSE("G76 needs a Z away from the start");
+  }
+
   // threading move: its target is handed over to the firmware
   if (thread) {
     if (!moving) REFUSE("G32/G33 needs X or Z");
@@ -602,13 +954,13 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
       if (!HAS('F')) REFUSE("G32 needs F (lead per spindle turn)");
       lead = VAL('F') * lin;
     }
-    if (!(lead > 0) || lead > 25.4) REFUSE("thread lead must be above 0 and at most 25.4 mm");
+    if (!(lead > 0)) REFUSE("thread lead must be above 0");
     threadLead = (float)lead;
     for (int i = 0; i < CNC_N_AXIS; i++) threadTarget[i] = toSteps(i, target[i]);
   }
 
   // room in the planner (an arc continues on later calls)
-  if (moving && !thread && !isArc && !roomForOne()) WAIT();
+  if (plainMove && !thread && !isArc && !roomForOne()) WAIT();
   if (homeMove && cnc_plan_blocks_free() < 2 * (1 + CNC_N_AXIS)) WAIT();
 
   // ---------------------------------------------------------------- execute (nothing is refused from here)
@@ -619,11 +971,15 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   inches = nInches;
   diameterMode = nDiam;
   feedWord = nFeedWord;
-  if (explicitMotion >= 0 && explicitMotion != 320 && explicitMotion != 330) motionMode = explicitMotion;
+  if (g[GR_RETRACT] >= 0) retractToR = g[GR_RETRACT] == 990;
+  bool cycleMotion = motion == 730 || motion == 810 || motion == 820 || motion == 830 || motion == 850 || motion == 890;
+  if ((explicitMotion >= 0 || moving) && !cycleMotion) cycleILFlag = false;  // a motion that is no cycle
+  if (explicitMotion >= 0 && explicitMotion != 320 && explicitMotion != 330 && explicitMotion != 760) motionMode = explicitMotion;
   if (changedOffsets) offsChanges++;
 
   int result = CNC_OK;
   if (g[GR_TOOL] == 430) snprintf(msg, msgLen, "G43 H: tool lengths are not stored yet, touch off Z for every tool");
+  if (g[GR_SPINDLE] == 960) snprintf(msg, msgLen, "G96: the spindle is set by hand on this machine, its speed does not follow the diameter");
   if (mTool == 6) result = CNC_PAUSE;
   if (dwellCode) {
     *dwell = (float)VAL('P');
@@ -632,6 +988,63 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (homeMove) {
     planLine(interTarget, 0, CNC_COND_RAPID, lineNo);
     planLine(homeTarget, 0, CNC_COND_RAPID, lineNo);
+  }
+  bool startJob = false;
+  if (isCycle) {
+    if (!cycleILFlag) {
+      cycleIL = absPos[cyD] - origin(cyD);
+      cycleILFlag = true;
+    }
+    cycleR = HAS('R') ? VAL('R') * lin : cycleR;
+    cycleDrillWord = cyDrillWord;
+    cycleQ = cyQ;
+    cycleP = cyP;
+    motionMode = motion;
+    memset(&job, 0, sizeof(job));
+    job.kind = motion;
+    job.D = cyD;
+    job.P = cyPA;
+    job.repeats = cyL;
+    job.pos = cyPos;
+    job.posInc = cyPosInc;
+    job.r = cyR;
+    job.bottom = cyBottom;
+    job.clear = cyClear;
+    job.q = cyQ;
+    job.p = cyP;
+    job.curD = cyCur;
+    job.curP = absPos[cyPA] - origin(cyPA);
+    job.rapidDelta = 0.254;  // LinuxCNC G83_RAPID_DELTA, 0.010 inch
+    job.raiseFirst = cyRaise;
+    job.firstHigh = cyFirstHigh;
+    job.feed = feed;
+    startJob = true;
+  } else if (isG76) {
+    memset(&job, 0, sizeof(job));
+    job.kind = 760;
+    double startX = absPos[AX_X] - origin(AX_X), startZ = absPos[AX_Z] - origin(AX_Z);
+    double endZ = target[AX_Z] - origin(AX_Z);
+    job.boring = g76I > 0;
+    job.safeX = startX;
+    job.startZ = startZ;
+    job.fullDia = fabs(g76I);
+    job.cutInc = fabs(g76J);
+    job.endDepth = fabs(g76K) + fabs(g76I);
+    job.pitch = g76Pitch;
+    job.angle = g76Q * M_PI / 180.0;
+    if (endZ > startZ) job.angle = -job.angle;
+    job.targetZ = endZ + fabs(g76K) * tan(job.angle);
+    job.degression = g76R;
+    job.spring = g76H < 0 ? 0 : g76H;
+    job.endX = target[AX_X] - origin(AX_X);
+    job.endZ = endZ;
+    job.pass = 1;
+    job.depth = fabs(g76I) + fabs(g76J);
+    if (job.depth >= job.endDepth) {
+      job.finalPasses = true;
+      job.depth = job.endDepth;
+    }
+    startJob = true;
   }
   if (thread) {
     for (int i = 0; i < CNC_N_AXIS; i++) absPos[i] = target[i];
@@ -652,7 +1065,7 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     }
     arc.feed = feed;
     arc.condition = condition;
-  } else if (moving) {
+  } else if (plainMove) {
     planLine(target, feed, condition, lineNo);
   }
   if (mStop == 0 || mStop == 1 || mStop == 60) result = CNC_PAUSE;
@@ -662,6 +1075,14 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     arc.dwell = *dwell;
     snprintf(arc.msg, sizeof(arc.msg), "%s", msg);
     if (!arcContinue()) return CNC_WAIT;
+  }
+  if (startJob) {
+    job.active = true;
+    job.lineNo = lineNo;
+    job.result = result;
+    job.dwell = *dwell;
+    snprintf(job.msg, sizeof(job.msg), "%s", msg);
+    return runJob(msg, msgLen, dwell);
   }
   return result;
 #undef REFUSE

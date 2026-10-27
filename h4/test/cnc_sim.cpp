@@ -163,6 +163,14 @@ int main(int argc, char** argv) {
           char msg[128]; float dwell = 0;
           int r = cnc_gc_line(code.c_str(), (uint32_t)(lineIdx + 1), msg, sizeof(msg), &dwell);
           if (r == CNC_WAIT) break;
+          if (r == CNC_DWELL_MORE) {  // a cycle dwells, then the same line goes on
+            waitingIdle = true; pendingAction = CNC_DWELL; dwellLeft = dwell;
+            break;
+          }
+          if (r == CNC_THREAD || r == CNC_THREAD_MORE) {
+            printf("line %zu: threading (G33 / G76) needs the spindle: not simulated\n", lineIdx + 1);
+            errors++; lineIdx = lines.size(); break;
+          }
           if (r == CNC_ERROR) {
             printf("line %zu \"%s\": error: %s\n", lineIdx + 1, code.c_str(), msg);
             errors++; lineIdx = lines.size(); break;

@@ -42,7 +42,9 @@ enum {
   CNC_DWELL,      // wait until motion is done, then wait *dwell seconds
   CNC_PAUSE,      // wait until motion is done, then pause until the operator resumes (M0, M1, M6)
   CNC_END,        // wait until motion is done, then end the program (M2, M30)
-  CNC_THREAD      // wait until motion is done, then run the threading move of cnc_gc_thread() (G32, G33)
+  CNC_THREAD,     // wait until motion is done, then run the threading move of cnc_gc_thread() (G32, G33)
+  CNC_DWELL_MORE, // wait until motion is done, wait *dwell seconds, then call again with the SAME line (cycles)
+  CNC_THREAD_MORE // as CNC_THREAD, then call again with the SAME line (G76)
 };
 
 void cnc_gc_init(const cnc_machine_t* m);

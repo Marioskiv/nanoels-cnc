@@ -1991,6 +1991,17 @@ bool cncWaitIdle() {
   return isOn && !cncStopRequest;
 }
 
+// G4 / cycle dwell, seconds. False if the program was stopped meanwhile.
+bool cncDwell(float seconds) {
+  unsigned long until = millis() + (unsigned long)(seconds * 1000);
+  while ((long)(until - millis()) > 0) {
+    if (!isOn || cncStopRequest) return false;
+    cncPollSerial();
+    vTaskDelay(1);
+  }
+  return true;
+}
+
 // Runs one G-code line in the GCODE mode. False on an error (printed) or if the program was stopped.
 bool cncProcessLine(const String& line, bool isSerial) {
   if (cncStartRequest && !cncBusy()) {
@@ -2006,6 +2017,17 @@ bool cncProcessLine(const String& line, bool isSerial) {
   while (true) {
     if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) return false;
     r = cnc_gc_line(line.c_str(), cncLineNo, msg, sizeof(msg), &dwell);
+    if (r == CNC_DWELL_MORE || r == CNC_THREAD_MORE) {
+      // a canned cycle (dwell at the bottom) or G76 (a threading pass): run it, then the same line goes on
+      if (cnc_st_busy()) cncState = CNC_RUN;
+      if (!cncWaitIdle()) return false;
+      if (r == CNC_DWELL_MORE) {
+        if (!cncDwell(dwell)) return false;
+      } else if (!cncThread()) {
+        return false;
+      }
+      continue;
+    }
     if (r != CNC_WAIT) break;
     cncService();
     cncPollSerial();
@@ -2045,12 +2067,7 @@ bool cncProcessLine(const String& line, bool isSerial) {
   bool waitForMotion = r != CNC_OK || (isSerial && !cnc_gc_inverse_time());
   if (waitForMotion && !cncWaitIdle()) return false;
   if (r == CNC_DWELL) {
-    unsigned long until = millis() + (unsigned long)(dwell * 1000);
-    while ((long)(until - millis()) > 0) {
-      if (!isOn || cncStopRequest) return false;
-      cncPollSerial();
-      vTaskDelay(1);
-    }
+    if (!cncDwell(dwell)) return false;
   } else if (r == CNC_PAUSE) {
     cncPaused = true;
     cncResumeRequest = false;

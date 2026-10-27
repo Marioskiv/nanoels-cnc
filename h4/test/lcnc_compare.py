@@ -15,7 +15,7 @@ COUNT = int(NUMS[0]) if NUMS else 300
 SEED = int(NUMS[1]) if len(NUMS) > 1 else 1
 TOL = 2e-4
 
-HEADER = "G18 G21 G90 G94 G40 G49 G80 G54 G90.1 G91.1 G8 G17.1".replace(" G17.1", "").replace(" G90.1", "")
+HEADER = "G18 G21 G90 G94 G40 G49 G80 G54 G91.1 G8 M3 S500"
 
 
 def gen(rng):
@@ -59,8 +59,30 @@ def gen(rng):
             lines.append("G53 G%d X%s Z%s" % (rng.choice([0, 1]), num(-30, 30), num(-60, 10)))
         elif r < 0.93:
             lines.append(rng.choice(["G43.1 Z%s" % num(-5, 5), "G49"]))
+        elif r < 0.97:
+            # canned cycles (G17: drill along Z, G19: along X), repeated positions, G98 / G99
+            pl = rng.choice(["G17", "G19", "G17", "G18"])
+            cyc = rng.choice(["G81", "G82", "G83", "G73", "G85", "G89"])
+            words = [pl, rng.choice(["", "G98", "G99"]), cyc]
+            dz, pz = ("Z", "X") if pl != "G19" else ("X", "Z")
+            if rng.random() < 0.8: words.append("%s%s" % (pz, num(-20, 20)))
+            if rng.random() < 0.85: words.append("%s%s" % (dz, num(-30, 0)))
+            if rng.random() < 0.85: words.append("R%s" % num(-5, 10))
+            if rng.random() < 0.7: words.append("Q%s" % num(0.5, 5))
+            if rng.random() < 0.6: words.append("P%s" % num(0, 1))
+            if rng.random() < 0.2: words.append("L%d" % rng.randint(1, 4))
+            words.append("F%s" % num(20, 300))
+            lines.append(" ".join(w for w in words if w))
+            for _ in range(rng.randint(0, 3)):
+                lines.append("%s%s" % (pz, num(-20, 20)))
+            if rng.random() < 0.6: lines.append("G80")
+            lines.append("G18")
         else:
-            lines.append("G1 X%s F%s" % (num(-30, 30), num(10, 500)))
+            # G76 threading cycle in G18, from a start point outside the part
+            lines.append("G18 G0 X%s Z%s" % (num(5, 20), num(1, 5)))
+            lines.append("G76 P%s Z%s I%s J%s K%s" % (num(0.5, 3), num(-30, -5), rng.choice(["-", ""]) + num(0.5, 2), num(0.05, 0.4), num(0.5, 2))
+                         + (" Q%s" % num(0, 30) if rng.random() < 0.5 else "") + (" H%d" % rng.randint(0, 2) if rng.random() < 0.4 else "")
+                         + (" R%s" % num(1, 3) if rng.random() < 0.4 else "") + (" X%s" % num(5, 25) if rng.random() < 0.3 else ""))
     lines.append("M2")
     # G93 needs F on every feed move in both interpreters; keep the programs mostly G94
     return "\n".join(lines) + "\n"
@@ -106,6 +128,12 @@ def run_rs274(path):
     return moves, err
 
 
+_rs_cache = {}
+def rs_out_lines(path):
+    res = subprocess.run([RS274, "-t", os.path.join(tempfile.gettempdir(), "h4-zero.tbl"), "-g", path], capture_output=True, text=True, cwd=os.path.dirname(path))
+    return [l.strip() for l in (res.stdout + "\n" + res.stderr).splitlines()]
+
+
 def run_trace(path):
     out = subprocess.run([TRACE, path], capture_output=True, text=True).stdout
     lines, err = [], None
@@ -139,6 +167,14 @@ def main():
         h_lines, h_pts, h_err = run_trace(path)
         stats["programs"] += 1
         problems = []
+        # both refuse the same line: LinuxCNC may have moved part of it first (it checks some words late, e.g.
+        # it rises to R before it misses Q); the H4 refuses the whole line before it moves at all
+        same_line = False
+        if rs_err is not None and h_err is not None:
+            src = open(path).read().split("\n")
+            bad_line = src[h_err[0] - 1].strip() if 0 < h_err[0] <= len(src) else None
+            if bad_line and bad_line in rs_out_lines(path):
+                same_line = True
         if (rs_err is None) != (h_err is None):
             problems.append("error mismatch: rs274=%s h4=%s" % (rs_err, h_err))
         # H4 points per line in order; an arc line has several, a G28 line two (intermediate, home)
@@ -154,7 +190,8 @@ def main():
         prev = (0.0, 0.0, 0.0)
         for mv in rs_moves:
             if i >= len(flat):
-                problems.append("rs274 has more moves than H4: %s" % (mv,))
+                if not same_line:
+                    problems.append("rs274 has more moves than H4: %s" % (mv,))
                 break
             ln, ps = flat[i]
             # rs274 prints 4 decimals in the program's units (offsets too): allow that rounding

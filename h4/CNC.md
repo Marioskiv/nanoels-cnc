@@ -26,13 +26,15 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 
 The language is **RS274/NGC as LinuxCNC reads it** (Grbl reads a subset of the same language), for a lathe
 with X, Z and C. Every line is checked as a whole before any of it runs; what cannot run exactly is refused
-with the line and the reason. It is checked against LinuxCNC's own interpreter: 5000 random programs (about
-28 000 moves and 8 000 arcs, with G7, G20, G90.1, G10, G92, G28, G53, G43.1 mixed in) and the author's real
-programs give the same positions as LinuxCNC 2.9 (`RS274=/path/to/rs274 sh h4/test/run_tests.sh`).
+with the line and the reason. It is checked against LinuxCNC's own interpreter: 10 000 random programs (over 600 000
+moves, 9 000 arcs, drilling cycles and G76 threading cycles, with G7, G20, G90.1, G10, G92, G28, G53, G43.1
+mixed in) and the author's real programs give the same positions and refuse the same lines as LinuxCNC 2.9
+(`RS274=/path/to/rs274 sh h4/test/run_tests.sh`).
 
 | Group | Codes |
 |---|---|
 | motion | G0, G1, G2, G3 (arcs in the X-Z plane, I/K or R, P turns, C moves along), G33 K / G32 F (threading with the encoder), G80 |
+| cycles | G81, G82, G83, G73, G85, G89 with R, Q, P, L, G98 / G99 (G17: drill along Z, e.g. centre drilling at X0; G19: along X); G76 threading cycle (P I J K, Q compound angle, H spring passes, R degression; every pass synchronised to the spindle) |
 | plane | G18 (start); G17 / G19 accepted, but arcs there need a Y axis and are refused |
 | distance | G90, G91; arc centres G91.1 (start), G90.1 |
 | feed | G94 (start), G93 inverse time (F on every move), G95 per spindle turn (speed from the encoder) |
@@ -40,16 +42,20 @@ programs give the same positions as LinuxCNC 2.9 (`RS274=/path/to/rs274 sh h4/te
 | coordinates | G54 (= the H4's own zero, X0 / Z0 keys), G55, G56, G57, G58, G59, G59.1, G59.2, G59.3 |
 | offsets | G10 L2 P, G10 L20 P, G92, G92.1, G92.2, G92.3, G28 / G28.1, G30 / G30.1, G53 (machine coordinates) |
 | tool | G43.1 Z, G49; G43 H accepted with a note (no tool table yet: touch off Z); T, M6 pauses for the change, M61 |
-| other | G4 P (seconds), G40, G61, G61.1, G64 P Q, G97, G98, G99, M0, M1, M2, M30, M60, M3, M4, M5, M7, M8, M9, M48-M53, S, N, `/` |
+| other | G4 P (seconds), G40, G61, G61.1, G64 P Q, G97, G96 (noted: the spindle speed is set by hand), M0, M1, M2, M30, M60, M3, M4, M5, M7, M8, M9, M48-M53, S, N, `/` |
+| U, W | incremental X and Z, as Fanuc lathes and the CAM lathe posts use them (`G28 U0 W0`); U is a diameter in G7 |
 
 As in LinuxCNC: two codes of one group on a line are an error; G94 and G95 clear the feed, so the next feed
 move needs its F (a feed move before any F is refused, there is no hidden default feed); a program starts in
 G1, so lathecode-style lines `X.. Z..` without a G word work as before. The G55-G59.3, G28 and G30 positions
 are kept in the controller (machine coordinates: they mean something after Home All).
 
-Refused with the reason: G41 / G42 cutter compensation (post with compensation *in computer*), G96 (needs a
-spindle the H4 controls), canned cycles (G70-G76, G81-G89: post with the cycles expanded), G38 probing, Y A B U
-V W axes, parameters (`#`), expressions and O-word subroutines.
+Refused with the reason: G41 / G42 cutter compensation (post with compensation *in computer*), the turning
+cycles G70-G72 (post without cycles), G74 / G84 / G86-G88 (they stop or reverse the spindle), G76 with a taper
+(E), G38 probing, Y A B V axes, parameters (`#`), expressions and O-word subroutines.
+
+**Posts.** Milling for polar / wrap work: any 3-axis post (Grbl, LinuxCNC, Fanuc) through the polar converter.
+Turning straight on the H4: a LinuxCNC lathe post (G7, G18, U/W retracts are read).
 
 ### USB protocol
 
