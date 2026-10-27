@@ -2146,6 +2146,7 @@ void taskGcode(void *param) {
       while (Serial.available() > 0 && grblRoomFor(0)) grblInput(0, Serial.read());
     }
     if (grblServiceLine()) continue; // one line of a Grbl sender, if there is one (grbl.ino)
+    if (webJogService()) continue;   // a jog piece from the web page's gamepad (grbl.ino)
     bool gotChar = false;
     if (mode != MODE_GCODE) {
       gcodeInitialized = false;

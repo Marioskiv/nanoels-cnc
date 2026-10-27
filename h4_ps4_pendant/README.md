@@ -4,6 +4,9 @@ Jog X, Z and C of the H4 with a PS4 (DualShock 4) or PS5 (DualSense) gamepad. No
 firmware: a small **plain ESP32** board (about 5 €, e.g. "ESP32 DevKit V1 / ESP32-WROOM-32") receives the
 gamepad over Bluetooth and sends the H4 Grbl jog commands over WiFi (TCP port 23).
 
+Without a second board: the H4 web page can read the gamepad connected to an Android phone (see `h4/CNC.md`,
+*Gamepad on the phone*). This pendant does not need the phone or a browser setting.
+
 Why a second board: the H4's ESP32-S3 has only Bluetooth Low Energy, and the PS4/PS5 gamepads use Bluetooth
 Classic. An ESP32-**S3**, **C3** or **S2** board will not work here; it must be the original ESP32.
 
