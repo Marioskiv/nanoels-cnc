@@ -221,6 +221,11 @@ void handleStatus() {
       ",\"late\":" + String(cncDiagLateCount) + ",\"rate\":" + String(cncDiagRateMax) +
       ",\"limit\":" + String(cncStepRateLimit()) + ",\"steps\":" + String(cncDiagSteps) + "}";
   json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
+  cnc_modes_t modes;
+  cnc_gc_get_modes(&modes);
+  const char* wcsNames[] = {"G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3"};
+  json += ",\"wcs\":\"" + String(wcsNames[constrain(modes.coord, 0, 8)]) + "\"";
+  json += ",\"rssi\":" + String(wifiSetupAp ? 0 : WiFi.RSSI());
   json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
   json += ",\"estop\":" + String(emergencyStop);
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
