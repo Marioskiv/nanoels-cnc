@@ -8,6 +8,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
@@ -27,6 +28,7 @@ import org.json.JSONObject;
 public class MainActivity extends Activity {
     private static final String PREFS = "h4";
     private static final String KEY_ADDRESS = "address";
+    private static final String KEY_ORIENTATION = "orientation";
     private static final int PICK_FILE = 1;
 
     private WebView web;
@@ -40,6 +42,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        applyOrientation(getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ORIENTATION, "auto"));
         web = new WebView(this);
         setContentView(web);
         WebSettings s = web.getSettings();
@@ -87,6 +90,13 @@ public class MainActivity extends Activity {
         if (address == null) askAddress(null);
         else open();
         UpdateCheck.maybeCheck(this);
+    }
+
+    // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
+    private void applyOrientation(String o) {
+        setRequestedOrientation("landscape".equals(o) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                : "portrait".equals(o) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     String address() {
@@ -219,6 +229,19 @@ public class MainActivity extends Activity {
                 if (demo) return;
                 FirmwareUpdate.check(MainActivity.this, address, true);
             });
+        }
+
+        @JavascriptInterface
+        public String orientation() {
+            return getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ORIENTATION, "auto");
+        }
+
+        @JavascriptInterface
+        public void setOrientation(String o) {
+            if (!"landscape".equals(o) && !"portrait".equals(o)) o = "auto";
+            final String v = o;
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_ORIENTATION, v).apply();
+            runOnUiThread(() -> applyOrientation(v));
         }
 
         @JavascriptInterface

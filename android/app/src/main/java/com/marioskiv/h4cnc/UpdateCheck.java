@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Marioskiv
 // SPDX-License-Identifier: MIT
 //
-// At most every 6 hours, in the background: GitHub's public list of releases (no account, no key), the newest
+// At each start, at most every 10 minutes, in the background: GitHub's public list of releases (no account, no key), the newest
 // "android-v<version>" release with an .apk. If it is newer than this app, a dialog offers to download it; the
 // download opens Android's installer.
 package com.marioskiv.h4cnc;
@@ -25,7 +25,7 @@ import java.util.Scanner;
 final class UpdateCheck {
     private static final String RELEASES = "https://api.github.com/repos/Marioskiv/nanoels-cnc/releases?per_page=30";
     private static final String TAG_PREFIX = "android-v";
-    private static final long EVERY_MS = 6 * 3600 * 1000L;
+    private static final long EVERY_MS = 10 * 60 * 1000L;
 
     private UpdateCheck() {
     }

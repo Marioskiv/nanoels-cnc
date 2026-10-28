@@ -11,8 +11,8 @@ android {
         applicationId 'com.marioskiv.h4cnc'
         minSdk 21          // Android 5.0 and newer
         targetSdk 34
-        versionCode 7
-        versionName '1.6'
+        versionCode 8
+        versionName '1.7'
     }
 
     // Release signing: a keystore given by the environment (the GitHub secret ANDROID_KEYSTORE_BASE64, see

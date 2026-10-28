@@ -170,22 +170,27 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
    address in your router (DHCP reservation), so it does not change.
 4. Android: the [H4 CNC app](../android/README.md) shows the same page full screen and reads a PS4 / PS5 gamepad.
 
-The page is split into screens, chosen with the **tab bar at the bottom** (or by swiping left / right; the phone's
-Back key goes to the screen before). It fits a phone's width; on a tablet or computer the parts of a screen sit side
-by side. **STOP** is always at the top right, whatever screen is open. Messages also appear for a few seconds above
-the tab bar; a red dot on *Machine* means a new message, and *Program* shows the progress while a program runs.
+The page **never scrolls**: every screen fits the phone or tablet, upright or turned. Screens are chosen with the
+**tabs** (at the bottom when upright, on the left when turned; or swipe left / right; the phone's Back key goes to the
+screen before). What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
+On a tablet turned sideways the parts of a screen sit side by side. **STOP** is always at the top right. Messages
+also appear for a few seconds; a red dot on *Machine* means a new message, *Program* shows the progress while a
+program runs.
 
 - **Control**: X / Z / C in work coordinates with the machine position under them and a ZERO per axis (it asks
-  first; on a polar machine X0 must stay the chuck centre), START / HOLD, the active work offset and WiFi signal, a
-  **jog wheel** (tap an axis, pick the step per detent .001 ... 10, turn the wheel or press - / +; one move at a
-  time, at the gamepad jog speed), feed and rapid overrides, and Home, Files, Macros (your own one-line G-code
-  buttons, kept in that phone or browser) and MDI.
-- **Program**: start / pause / resume / **STOP**, overrides, one-line MDI, the files (upload, draw, test, delete)
-  and the drawing of the path.
-- **H4 keys**: the H4 display and keys, and the gamepad box.
-- **Machine**: positions, Home All, the inputs, diagnostics and messages.
-- **Settings**: *Appearance* (dark or light theme, accent colour, the colour of each axis and the size of the
-  numbers, kept in that phone or browser), machine settings, WiFi and firmware update.
+  first; on a polar machine X0 must stay the chuck centre); the step (.001 ... 10, or **Cont**) and the **jog
+  lock** 🔒; the **jog buttons** X−/X+, Z+/Z−, C+/C− (a tap is one step; with *Cont* the axis moves while the
+  button is held and stops when it is released) or a **jog wheel** (tap an axis, turn); START / HOLD, feed and
+  rapid overrides (F / R open a pop-up), Home, Macros (your own one-line G-code buttons, kept in that phone or
+  browser), MDI and Files. With the jog lock on, the jog buttons and the wheel do nothing until 🔒 is pressed, and
+  lock again 15 s after the last move.
+- **Program**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
+  delete) and *Path* (the drawing of the program).
+- **H4 keys**: the H4 display and keys, and the gamepad.
+- **Machine**: positions, Home All and the inputs; diagnostics; messages.
+- **Settings**: *Appearance* (theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
+  off; in the Android app also the screen orientation: automatic, landscape or portrait), one page per group of
+  machine settings, WiFi, firmware.
 
 ## 7 First start checklist
 
@@ -250,7 +255,9 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
   - Chrome on a phone or computer: the page reads the gamepad after a one-time browser setting (see the
     *Gamepad* box on the page).
   - Without a phone: a plain ESP32 as a Bluetooth pendant, see [h4_ps4_pendant](../h4_ps4_pendant/README.md).
-- Jogging respects the soft limits once homed. Speeds are set in the page's *Gamepad* box.
+- On the page: the jog buttons or wheel of the *Control* screen (see section 6).
+- Jogging respects the soft limits once homed. Speeds are set in the page's *Gamepad* box (also for the jog
+  buttons with *Cont*).
 
 ## 11 Self-test and diagnostics
 
