@@ -68,3 +68,11 @@ jobs:
           files: |
             ${{ steps.apk.outputs.file }}
             H4CNC.apk
+      - name: Keep only the newest app release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName -q '.[].tagName' |
+            grep '^android-v' | grep -vx "android-v${{ steps.apk.outputs.version }}" |
+            while read -r t; do gh release delete "$t" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes; done
