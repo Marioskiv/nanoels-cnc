@@ -28,6 +28,14 @@ browser with `?demo` after the page address.
 At most every 6 hours the app looks at this repository's Releases (public, no account or key needed). When a
 newer *H4 CNC* is there, it says so and offers **Download**; Android then installs it.
 
+## H4 firmware updates
+
+When the app opens the H4 page it compares the H4's firmware with the newest `firmware-v...` release here (at most
+every 6 hours; the page's *Check for a firmware update* button asks at once). A newer one is offered: **Install**
+downloads it and sends it to the H4 over WiFi. Nothing may run; the H4 restarts and keeps its machine settings, and
+it keeps its present firmware if anything goes wrong on the way. An H4 with a firmware older than this feature is
+never offered an update: install the new firmware once over USB.
+
 ## Gamepad
 
 Pair it once: Android Settings > Bluetooth > pair new device, hold **Share + PS** on the gamepad until the

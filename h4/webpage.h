@@ -148,6 +148,8 @@ the saved positions, stops and other H4 values are cleared.</div></section>
 <div class="row"><input type="text" id="ssid" placeholder="WiFi network name"><input type="password" id="pw" placeholder="password (empty = keep)">
 <button onclick="saveWifi()">Save WiFi and restart</button></div>
 <div class="row"><input type="file" id="fw" accept=".bin"><button onclick="uploadFw()">Update firmware (.bin)</button></div>
+<div class="row" id="fwApp" style="display:none"><button onclick="H4App.checkFirmware()">Check for a firmware update (from GitHub)</button></div>
+<div class="small">Firmware <b id="fwVer">-</b>. The settings of the machine stay through an update.</div>
 <div class="small" id="fwmsg"></div></section>
 </main>
 <script>
@@ -176,7 +178,7 @@ if(DEMO)(function(){
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
-   diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52}}
+   diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
   {k:'xSpeed',t:'l',v:14400,g:'X axis',l:'Maximum speed (manual moves, G0)',u:'v:x'},{k:'zSteps',t:'l',v:800,g:'Z axis',l:'Motor steps per screw turn',u:'steps'},
   {k:'zScrew',t:'l',v:20000,g:'Z axis',l:'Travel per screw turn',u:'du'},{k:'zSpeed',t:'l',v:10000,g:'Z axis',l:'Maximum speed (manual moves, G0)',u:'v:z'},
@@ -230,7 +232,7 @@ function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
  const ok=d.late==0&&(!d.rate||d.isrUs<0.7*per)&&!st.underruns;
  $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+' · step interrupt longest '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
   ' · highest step rate '+d.rate+' /s (limit '+d.limit+' /s) · started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs · step buffer ran empty: '+st.underruns+' · steps given: '+d.steps}
-function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();
+function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo;$('ro').textContent=st.ro}$('state').textContent=st.state+(st.gcodeMode?'':' (not GCODE mode)');
  $('state').style.background={Run:'#2e9e5b',Hold:'#d9a21b',Paused:'#d9a21b',Stopping:'#d64040'}[st.state]||'#333';
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
@@ -332,7 +334,7 @@ for(const id in GPF){const el=$(id),k=GPF[id];if(el.type=='checkbox')el.checked=
   try{localStorage.setItem('h4gamepad',JSON.stringify(gp))}catch(e){}gpToApp()})}
 // In the H4 CNC Android app the app reads the gamepad itself (no browser setting needed); the page only shows its state.
 const gpApp=!!window.H4App;function gpToApp(){if(gpApp)try{H4App.settings(JSON.stringify(gp))}catch(e){}}
-if(gpApp){$('gpflag').style.display='none';$('gpapp').style.display='';window.h4AppGamepad=t=>{$('gpstate').textContent=t};gpToApp()}
+if(gpApp){$('fwApp').style.display='';$('gpflag').style.display='none';$('gpapp').style.display='';window.h4AppGamepad=t=>{$('gpstate').textContent=t};gpToApp()}
 $('gporigin').textContent=location.origin;
 let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
 function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}

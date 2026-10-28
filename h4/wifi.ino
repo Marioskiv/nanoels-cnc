@@ -226,6 +226,7 @@ void handleStatus() {
   const char* wcsNames[] = {"G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3"};
   json += ",\"wcs\":\"" + String(wcsNames[constrain(modes.coord, 0, 8)]) + "\"";
   json += ",\"rssi\":" + String(wifiSetupAp ? 0 : WiFi.RSSI());
+  json += ",\"fw\":\"" FW_VERSION "\"";
   json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
   json += ",\"estop\":" + String(emergencyStop);
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
@@ -725,7 +726,8 @@ void handleConfigSave() {
     if (!reset) {
       cfg.putInt("v", MACHINE_CONFIG_VERSION);
       for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) {
-        if (values[i] != machineConfigDefaults[i]) ok = ok && cfg.putDouble(MACHINE_CONFIG[i].key, values[i]) > 0;
+        // every value, not only the changed ones: a firmware update with other defaults keeps this machine's values
+        ok = ok && cfg.putDouble(MACHINE_CONFIG[i].key, values[i]) > 0;
       }
     }
     cfg.end();

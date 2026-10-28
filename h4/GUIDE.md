@@ -123,8 +123,11 @@ G95; a polar milling machine (chuck turned by the C motor) does not need it.
 4. Download this repository, open `h4/h4.ino` (the folder must stay named `h4`, with all its files).
 5. *Tools*: Board **ESP32S3 Dev Module**, Flash Size **16MB (128Mb)**, PSRAM **QSPI PSRAM**, Partition Scheme
    **16M Flash (3MB APP/9.9MB FATFS)**, Port: the one that appears when the H4 is plugged in.
-6. Upload. Later updates can go over WiFi from the web page (*Firmware update*, the `.bin` from
-   *Sketch > Export Compiled Binary*).
+6. Upload. This first installation is over USB; **later updates go over WiFi**: the Android app compares the H4's
+   firmware with the newest `firmware-v...` release of this repository and offers it (*Install*), or the page's
+   *Firmware update* takes a `.bin` (from the Releases page, or *Sketch > Export Compiled Binary*). The H4 keeps its
+   machine settings through an update: with `my_machine.h` they are stored in the H4 at its first start, and
+   *Save and restart* in *Machine settings* stores all of them.
 
 ## 5 Your machine's values
 
