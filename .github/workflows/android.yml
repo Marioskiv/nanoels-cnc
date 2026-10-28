@@ -47,6 +47,7 @@ jobs:
         run: |
           v=$(sed -n "s/.*versionName '\(.*\)'.*/\1/p" android/app/build.gradle)
           cp android/app/build/outputs/apk/release/app-release.apk "H4CNC-$v.apk"
+          cp "H4CNC-$v.apk" H4CNC.apk   # fixed name: .../releases/latest/download/H4CNC.apk
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "file=H4CNC-$v.apk" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
@@ -63,4 +64,7 @@ jobs:
             The H4 CNC Android app (Android 5.0 and newer): the H4's own web page full screen, with the PS4 / PS5
             gamepad read by Android itself. Download the APK below on the phone and open it (allow "install unknown
             apps" for the browser when Android asks). See android/README.md.
-          files: ${{ steps.apk.outputs.file }}
+          make_latest: true
+          files: |
+            ${{ steps.apk.outputs.file }}
+            H4CNC.apk
