@@ -190,7 +190,8 @@ program runs.
 - **Machine**: positions, Home All and the inputs; diagnostics; messages.
 - **Settings**: *Appearance* (theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
   off; in the Android app also the screen orientation: automatic, landscape or portrait), one page per group of
-  machine settings, WiFi, firmware.
+  machine settings, WiFi, firmware; in the Android app also *App update* (the app's version and a button that
+  looks for a newer one at once; the app also looks by itself each time it opens).
 
 ## 7 First start checklist
 

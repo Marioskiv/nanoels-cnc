@@ -3,7 +3,8 @@
 // Copyright (c) 2026 Marioskiv
 // SPDX-License-Identifier: MIT
 //
-// At each start, at most every 10 minutes, in the background: GitHub's public list of releases (no account, no key), the newest
+// Automatically each time the app opens (never while it is in use), and with the page's "Check for an app update"
+// button (Settings, App update), in the background: GitHub's public list of releases (no account, no key), the newest
 // "android-v<version>" release with an .apk. If it is newer than this app, a dialog offers to download it; the
 // download opens Android's installer.
 package com.marioskiv.h4cnc;
@@ -25,15 +26,21 @@ import java.util.Scanner;
 final class UpdateCheck {
     private static final String RELEASES = "https://api.github.com/repos/Marioskiv/nanoels-cnc/releases?per_page=30";
     private static final String TAG_PREFIX = "android-v";
-    private static final long EVERY_MS = 10 * 60 * 1000L;
 
     private UpdateCheck() {
     }
 
+    private static volatile boolean busy;
+
     static void maybeCheck(final MainActivity activity) {
+        check(activity, false);
+    }
+
+    // manual: always, and it also says when this is already the newest version or GitHub cannot be reached
+    static void check(final MainActivity activity, final boolean manual) {
         final SharedPreferences prefs = activity.getSharedPreferences("h4", Context.MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        if (now - prefs.getLong("updateCheck", 0) < EVERY_MS) return;
+        if (busy) return;
+        busy = true;
         final String current = BuildInfo.version(activity);
         new Thread(() -> {
             try {
@@ -42,7 +49,7 @@ final class UpdateCheck {
                 c.setReadTimeout(8000);
                 c.setRequestProperty("Accept", "application/vnd.github+json");
                 c.setRequestProperty("User-Agent", "H4CNC-app");
-                if (c.getResponseCode() != 200) return;
+                if (c.getResponseCode() != 200) throw new Exception("GitHub answered " + c.getResponseCode());
                 InputStream in = c.getInputStream();
                 Scanner sc = new Scanner(in, "UTF-8").useDelimiter("\\A");
                 String body = sc.hasNext() ? sc.next() : "[]";
@@ -67,13 +74,26 @@ final class UpdateCheck {
                     bestUrl = url;
                 }
                 prefs.edit().putLong("updateCheck", System.currentTimeMillis()).apply();
-                if (best == null) return;
+                if (best == null) {
+                    if (manual) tell(activity, "H4 CNC " + current + " is the newest version.");
+                    return;
+                }
                 final String version = best, url = bestUrl;
                 activity.runOnUiThread(() -> offer(activity, current, version, url));
-            } catch (Exception ignored) {
-                // no network or GitHub unreachable: try again next time
+            } catch (Exception e) {
+                // no network or GitHub unreachable: the automatic check tries again next time
+                if (manual) tell(activity, "Could not look for an update (no internet?): " + e.getMessage());
+            } finally {
+                busy = false;
             }
         }).start();
+    }
+
+    private static void tell(MainActivity activity, String text) {
+        activity.runOnUiThread(() -> {
+            if (activity.isFinishing()) return;
+            new AlertDialog.Builder(activity).setTitle("App update").setMessage(text).setPositiveButton("OK", null).show();
+        });
     }
 
     private static void offer(MainActivity activity, String current, String version, String url) {

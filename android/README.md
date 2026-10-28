@@ -24,7 +24,7 @@ browser with `?demo` after the page address.
 
 ## Updates
 
-At each start (at most every 10 minutes) the app looks at this repository's Releases (public, no account or key needed). When a
+Each time it opens (never while it is in use), and with *Settings, App update, Check for an app update*, the app looks at this repository's Releases (public, no account or key needed). When a
 newer *H4 CNC* is there, it says so and offers **Download**; Android then installs it.
 
 ## H4 firmware updates

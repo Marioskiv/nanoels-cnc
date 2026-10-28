@@ -210,6 +210,10 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="spage" data-sp="wifi"><div class="pg">
 <input type="text" id="ssid" placeholder="WiFi network name"><input type="password" id="pw" placeholder="password (empty = keep)">
 <button onclick="saveWifi()">Save WiFi and restart</button><div class="small" id="wifi"></div></div></div>
+<div class="spage" data-sp="app"><div class="pg">
+<div>H4 CNC app <b id="appVer">-</b>. It looks for a newer version by itself each time it opens.</div>
+<button onclick="H4App.checkAppUpdate()">Check for an app update</button>
+<div class="small">A newer version is offered for download; Android installs it over this one and keeps the settings.</div></div></div>
 <div class="spage" data-sp="fw"><div class="pg">
 <div>Firmware <b id="fwVer">-</b>. The settings of the machine stay through an update.</div>
 <div class="row nope" id="fwApp"><button onclick="H4App.checkFirmware()">Check for a firmware update (GitHub)</button></div>
@@ -475,6 +479,7 @@ function scSave(){try{localStorage.setItem('h4screen',JSON.stringify(sc))}catch(
 function scApply(){const wheel=sc.jog=='wheel';$('pad').hidden=wheel;$('wheelbox').hidden=!wheel;if(wheel&&jogStep=='cont')jogStep=0.1;
  if(sc.lock!='1')unlocked=true;else if(!lockT)unlocked=false;ctlJogShow()}
 $('scJog').value=sc.jog;$('scLock').value=sc.lock;$('scJog').onchange=()=>{sc.jog=$('scJog').value;scSave()};$('scLock').onchange=()=>{sc.lock=$('scLock').value;scSave()};
+if(isApp)try{$('appVer').textContent=H4App.version()}catch(e){}
 if(isApp&&H4App.orientation){$('scOriRow').classList.remove('nope');try{$('scOri').value=H4App.orientation()}catch(e){}$('scOri').onchange=()=>{try{H4App.setOrientation($('scOri').value)}catch(e){}}}
 // Jog lock: the jog buttons and the wheel do nothing until the lock button is pressed; 15 s without jogging locks again.
 function lockTouch(){if(sc.lock!='1')return;clearTimeout(lockT);lockT=setTimeout(()=>{unlocked=false;lockT=0;ctlJogShow()},15000)}
@@ -570,7 +575,7 @@ function sub(t,p,quiet){const bar=document.querySelector(`.subtabs[data-s="${t}"
  if(!quiet&&curTab!=t)tab(t);pagers();if(p=='path')requestAnimationFrame(drawPath)}
 document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.parentElement.dataset.s,b.dataset.p));
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
-function setList(){const L=[['look','Appearance'],['screen','Screen and jog']].concat(cfgGroups.map((g,i)=>['m'+i,'Machine: '+g])).concat([['wifi','WiFi'],['fw','Firmware']]);
+function setList(){const L=[['look','Appearance'],['screen','Screen and jog']].concat(cfgGroups.map((g,i)=>['m'+i,'Machine: '+g])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app','App update']]:[]);
  $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setShow('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('');setShow(setOpen,true)}
 function setShow(k,noHist){const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}

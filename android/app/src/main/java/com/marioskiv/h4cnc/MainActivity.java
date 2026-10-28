@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
         if (address == null) askAddress(null);
         else open();
-        UpdateCheck.maybeCheck(this);
+        UpdateCheck.maybeCheck(this);  // each time the app opens; never while it is in use
     }
 
     // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
@@ -229,6 +229,11 @@ public class MainActivity extends Activity {
                 if (demo) return;
                 FirmwareUpdate.check(MainActivity.this, address, true);
             });
+        }
+
+        @JavascriptInterface
+        public void checkAppUpdate() {
+            runOnUiThread(() -> UpdateCheck.check(MainActivity.this, true));
         }
 
         @JavascriptInterface
