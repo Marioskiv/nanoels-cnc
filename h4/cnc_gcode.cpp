@@ -18,9 +18,12 @@
     cutter comp G40 (G41 G42 refused: compensate in the CAM)
     tool length G43 H (noted), G43.1 Z, G49
     coordinates G54 G55 G56 G57 G58 G59 G59.1 G59.2 G59.3
-    path        G61 G61.1 G64 [P Q]      return G98 G99      spindle G97 (G96 refused)
+    path        G61 G64 [P Q] (the path always goes through every programmed point, no blending),
+                G61.1 (exact stop: every move ends at rest)
+    return      G98 G99      spindle G97 (G96 noted)
     non-modal   G4 P  G10 L2 / L20  G28 G28.1 G30 G30.1  G53  G92 G92.1 G92.2 G92.3
-    M           M0 M1 M2 M30 M60, M3 M4 M5, M6 (pause for a manual tool change), M61, M7 M8 M9, M48-M53
+    M           M0 M1 M2 M30 M60, M3 M4 M5, M6 (pause for a manual tool change), M61, M7 M8 M9,
+                M48 / M49 / M50 [P] (feed and rapid overrides on / off, as LinuxCNC); M51 M52 M53 refused
   Words: N F S T P Q R I K L H D, axes X Z C. Comments are removed before a line arrives here.
   Refused with a reason: Y A B U V W axes, canned cycles (G7x G8x), G38 probing, parameters, expressions
   and O-word subroutines.
@@ -55,6 +58,8 @@ static bool inches, diameterMode;
 static double feedWord;              // last F: mm (or deg) per minute, or per spindle turn in G95
 static double tloZ;                  // G43.1 tool length offset on Z, mm
 static bool retractToR;              // G99 (start, as LinuxCNC): back to R; G98: back to the level where the series began
+static bool overridesEnabled = true; // M48 (start) / M49 / M50 P: the feed and rapid overrides apply to the moves
+static bool exactStop = false;       // G61.1: every move ends at rest (G61 / G64: false)
 
 // canned cycles G73 G81 G82 G83 G85 G89, as LinuxCNC (interp_cycles.cc): the values the next cycle line reuses
 static double cycleR, cycleQ, cycleP, cycleDrillWord;
@@ -147,6 +152,8 @@ void cnc_gc_reset_modes() {
   job.active = false;
   retractToR = true;  // G99 at the start, as LinuxCNC
   cycleILFlag = false;
+  overridesEnabled = true;  // M48
+  exactStop = false;        // G64
 }
 
 void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t machineOffset[CNC_N_AXIS], const bool neg[CNC_N_AXIS]) {
@@ -179,6 +186,8 @@ void cnc_gc_get_modes(cnc_modes_t* m) {
   m->inches = inches;
   m->diameter = diameterMode;
   m->retractToR = retractToR;
+  m->overridesEnabled = overridesEnabled;
+  m->exactStop = exactStop;
   m->feed = feedWord;
   m->tloZ = tloZ;
 }
@@ -192,6 +201,8 @@ void cnc_gc_set_modes(const cnc_modes_t* m) {
   inches = m->inches;
   diameterMode = m->diameter;
   retractToR = m->retractToR;
+  overridesEnabled = m->overridesEnabled;
+  exactStop = m->exactStop;
   feedWord = m->feed;
   tloZ = m->tloZ;
 }
@@ -204,8 +215,11 @@ static bool limitOk(int i, int32_t t) {
 
 static bool roomForOne() { return cnc_plan_blocks_free() >= 1 + CNC_N_AXIS; }
 
-// One straight move to an absolute target (planner coordinates). Room must have been checked.
-static void planLine(const double target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t lineNo) {
+// One straight move to an absolute target (planner coordinates). Room must have been checked. moveEnd: false
+// for the pieces of an arc before its last one (G61.1 stops where a programmed move ends, as LinuxCNC).
+static void planLine(const double target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t lineNo, bool moveEnd = true) {
+  if (!overridesEnabled) condition |= CNC_COND_NO_OVERRIDE;
+  if (exactStop && moveEnd) condition |= CNC_COND_EXACT_STOP;
   int32_t t[CNC_N_AXIS];
   const int32_t* pl = cnc_plan_position();
   for (int i = 0; i < CNC_N_AXIS; i++) {
@@ -236,7 +250,7 @@ static bool arcContinue() {
       t[AX_X] = arc.c2 + arc.r * sin(a);
       t[AX_C] = arc.start[AX_C] + (arc.end[AX_C] - arc.start[AX_C]) * f;
     }
-    planLine(t, arc.feed, arc.condition, arc.lineNo);
+    planLine(t, arc.feed, arc.condition, arc.lineNo, arc.done == arc.segments);
   }
   arc.active = false;
   return true;
@@ -493,6 +507,14 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   int gCodes[12], nG = 0, mCodes[6], nM = 0;
   const char* p = line;
   while (*p == ' ' || *p == '\t') p++;
+  {  // a line with only '%': the program start / end mark (CAM posts write it; LinuxCNC accepts it)
+    const char* q = p;
+    if (*q == '%') {
+      q++;
+      while (*q == ' ' || *q == '\t' || *q == '\r' || *q == '\n') q++;
+      if (!*q) return CNC_OK;
+    }
+  }
   if (*p == '/') p++;  // block delete is off: the line runs (as LinuxCNC by default)
   while (*p) {
     char c = (char)toupper((unsigned char)*p);
@@ -637,7 +659,10 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     *slot = c;
   }
   (void)mSpindle;
-  (void)mOverride;
+  // M48 / M49 / M50 as LinuxCNC (feed and rapid override on / off); the others cannot be honoured here
+  if (mOverride == 51) return fail(msg, msgLen, "M51 (spindle speed override on / off): the spindle speed is set by hand on this machine");
+  if (mOverride == 52) return fail(msg, msgLen, "M52 (adaptive feed) is not supported");
+  if (mOverride == 53) return fail(msg, msgLen, "M53 (feed stop switch) is not supported");
 
   // ---------------------------------------------------------------- the modes this line asks for
   int nPlane = g[GR_PLANE] >= 0 ? g[GR_PLANE] : plane;
@@ -704,8 +729,8 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (HAS('L') && nonModal != 100 && !isCycle && !isG76) return fail(msg, msgLen, "L word without G10 or a cycle");
   bool pCycle = isCycle && (motion == 820 || motion == 890);
   bool qCycle = isCycle && (motion == 830 || motion == 730);
-  if (HAS('P') && !dwellCode && nonModal != 100 && !isArc && !pCycle && !isG76 && g[GR_PATH] != 640) {
-    return fail(msg, msgLen, "P word without G4, G10, G64, an arc, G76, G82 or G89");
+  if (HAS('P') && !dwellCode && nonModal != 100 && !isArc && !pCycle && !isG76 && g[GR_PATH] != 640 && mOverride != 50) {
+    return fail(msg, msgLen, "P word without G4, G10, G64, M50, an arc, G76, G82 or G89");
   }
   if (HAS('Q') && !qCycle && !isG76 && g[GR_PATH] != 640) return fail(msg, msgLen, "Q word without G64, G73, G76 or G83");
 
@@ -999,6 +1024,10 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   diameterMode = nDiam;
   feedWord = nFeedWord;
   if (g[GR_RETRACT] >= 0) retractToR = g[GR_RETRACT] == 990;
+  if (g[GR_PATH] >= 0) exactStop = g[GR_PATH] == 611;
+  if (mOverride == 48) overridesEnabled = true;
+  if (mOverride == 49) overridesEnabled = false;
+  if (mOverride == 50) overridesEnabled = !HAS('P') || VAL('P') != 0;  // M50 or M50 P1: on, M50 P0: off
   bool cycleMotion = motion == 730 || motion == 810 || motion == 820 || motion == 830 || motion == 850 || motion == 890;
   if ((explicitMotion >= 0 || moving) && !cycleMotion) cycleILFlag = false;  // a motion that is no cycle
   if (explicitMotion >= 0 && explicitMotion != 320 && explicitMotion != 330 && explicitMotion != 760) motionMode = explicitMotion;
@@ -1096,7 +1125,10 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     planLine(target, feed, condition, lineNo);
   }
   if (mStop == 0 || mStop == 1 || mStop == 60) result = CNC_PAUSE;
-  if (mStop == 2 || mStop == 30) result = CNC_END;
+  if (mStop == 2 || mStop == 30) {
+    result = CNC_END;
+    overridesEnabled = true;  // LinuxCNC M2 / M30: overrides on again (M48)
+  }
   if (isArc) {
     arc.result = result;
     arc.dwell = *dwell;

@@ -229,6 +229,7 @@ void handleStatus() {
   json += ",\"rssi\":" + String(wifiSetupAp ? 0 : WiFi.RSSI());
   json += ",\"fw\":\"" FW_VERSION "\"";
   json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
+  if (!modes.overridesEnabled) json += ",\"ovrOff\":1";  // M49 / M50 P0 in the program: the overrides do not apply
   json += ",\"estop\":" + String(emergencyStop);
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
   json += ",\"fsTotal\":" + String((unsigned long)fsTotalBytes);

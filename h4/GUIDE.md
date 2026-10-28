@@ -238,7 +238,8 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 1. Home All, set the work offset (section 7).
 2. Upload the file on the page, press *Draw* to check the path, then *Start*.
 3. **Feed override** (10-200 %, page buttons, gamepad D-pad up / down / left, Grbl senders): changes the feed of
-   everything already planned at once; rapids 100 / 50 / 25 %.
+   everything already planned at once; rapids 100 / 50 / 25 %. A program can switch the overrides off with M49
+   or M50 P0 (as in LinuxCNC; the page then shows *off*) and on again with M48 or M50.
    *Pause* stops along the path and *Resume* continues; **STOP** brakes along the path and drops the rest of the
    program (the position stays known). The H4 keys work as well (ON / OFF).
 4. Messages and refused lines appear under *Messages*. A home switch hit outside homing or a driver alarm stops

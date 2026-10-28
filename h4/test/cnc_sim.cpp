@@ -21,6 +21,12 @@
     --ovr S:F:R       at S seconds set the feed override to F % and the rapid override to R % (repeatable)
     --delayed         step output as the H4 interrupt does it: a step computed by one interrupt is put out at the
                       start of the next one; checks that "not busy" never comes while a step is still pending
+    --stops all|none  checks the motion at the end of every programmed move (where the next point belongs to
+                      another line; the pieces of an arc are one move): "all" = it stops there (G61.1), "none" =
+                      it goes on without stopping (G64 on a path without sharp corners). The step generator
+                      reports the speed at which it finishes each block and starts the next one: a stop is 0 at
+                      both. Shown as well: the time from the last step before the point to the first step after
+                      it (several ms after a stop, a fraction of a ms when the tool goes through at speed).
 */
 #include "../cnc_core.h"
 #include "../cnc_gcode.h"
@@ -45,6 +51,14 @@ static void traceTarget(const int32_t p[CNC_N_AXIS], uint32_t line) {
 
 static const uint32_t TIMER_HZ = 20000000;
 
+// --stops: what the step generator reports when it starts and finishes each block
+struct BlockEvent { uint32_t line; uint8_t condition; bool start; float speed; };
+static std::vector<BlockEvent> blockEvents;
+static void blockEvent(uint32_t line, uint8_t condition, bool start, float speed) {
+  BlockEvent e; e.line = line; e.condition = condition; e.start = start; e.speed = speed;
+  blockEvents.push_back(e);
+}
+
 static std::string stripComments(const std::string& raw) {
   std::string out;
   bool inParen = false;
@@ -54,7 +68,7 @@ static std::string stripComments(const std::string& raw) {
     if (c == ';') break;
     out += c;
   }
-  while (!out.empty() && (out.back() == ' ' || out.back() == '\r' || out.back() == '\t')) out.pop_back();
+  while (!out.empty() && (out.back() == ' ' || out.back() == '\r' || out.back() == '\t' || out.back() == '\n')) out.pop_back();
   size_t b = out.find_first_not_of(" \t");
   return b == std::string::npos ? "" : out.substr(b);
 }
@@ -67,12 +81,14 @@ int main(int argc, char** argv) {
   struct Ovr { double at; int feed, rapid; bool done; };
   std::vector<Ovr> ovrs;
   bool delayed = false;
+  const char* stopsMode = NULL;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--task-gap-ms")) taskGapMs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--hold-at")) holdAt = atof(argv[++i]);
     else if (!strcmp(argv[i], "--backlash")) sscanf(argv[++i], "%d,%d,%d", &backlash[0], &backlash[1], &backlash[2]);
     else if (!strcmp(argv[i], "--machine")) machineName = argv[++i];
     else if (!strcmp(argv[i], "--delayed")) delayed = true;
+    else if (!strcmp(argv[i], "--stops")) stopsMode = argv[++i];
     else if (!strcmp(argv[i], "--ovr")) { Ovr o; o.done = false; sscanf(argv[++i], "%lf:%d:%d", &o.at, &o.feed, &o.rapid); ovrs.push_back(o); }
     else file = argv[i];
   }
@@ -123,6 +139,7 @@ int main(int argc, char** argv) {
   std::vector<Target> targets;
   traceTargets = &targets;
   cnc_plan_trace = traceTarget;
+  if (stopsMode) cnc_st_block_event = blockEvent;
   size_t lineIdx = 0, targetIdx = 0;
   int32_t from[CNC_N_AXIS] = {0, 0, 0};
   int errors = 0, underruns = 0, pauses = 0, warnings = 0;
@@ -142,6 +159,9 @@ int main(int argc, char** argv) {
   double idealMin = 0;  // sum of the programmed block times (G93: 1/F)
   bool idleSinceStart = true;
   cnc_tick_t pend; bool pendValid = false; int pendingWhileIdle = 0;
+  // --stops: time of the step that reached a move's end point, then the gap to the next step
+  uint64_t endStepAt = 0; bool atMoveEnd = false;
+  std::vector<double> gapsMs;  // per move end, in the order the tool reaches them
 
   auto done = [&]() { return lineIdx >= lines.size() && !waitingIdle && !cnc_st_busy(); };
 
@@ -175,6 +195,8 @@ int main(int argc, char** argv) {
           std::string code = stripComments(lines[lineIdx]);
           if (code.empty() || code == "%") { lineIdx++; continue; }
           char msg[128]; float dwell = 0;
+          int32_t before[CNC_N_AXIS];
+          memcpy(before, cnc_plan_position(), sizeof(before));
           int r = cnc_gc_line(code.c_str(), (uint32_t)(lineIdx + 1), msg, sizeof(msg), &dwell);
           if (r == CNC_WAIT) break;
           if (r == CNC_DWELL_MORE) {  // a cycle dwells, then the same line goes on
@@ -190,7 +212,9 @@ int main(int argc, char** argv) {
             errors++; lineIdx = lines.size(); break;
           }
           if (msg[0]) { warnings++; }
-          idealMin += cnc_plan_last_block_minutes();  // (an arc counts its last piece only: a rough figure)
+          // programmed time: the block this line planned (a line that did not move adds nothing; an arc counts
+          // its last piece only, so programs with arcs give a rough figure)
+          if (memcmp(before, cnc_plan_position(), sizeof(before)) != 0) idealMin += cnc_plan_last_block_minutes();
           lineIdx++;
           if (r == CNC_DWELL || r == CNC_PAUSE || r == CNC_END) { waitingIdle = true; pendingAction = r; dwellLeft = dwell; break; }
         }
@@ -251,6 +275,10 @@ int main(int argc, char** argv) {
           steps[i]++;
         }
       }
+      if (tick.step && !tick.motorOnly && atMoveEnd) {  // first step after a move's end point
+        gapsMs.push_back((double)(now - endStepAt) * 1000.0 / TIMER_HZ);
+        atMoveEnd = false;
+      }
       if (tick.step && !tick.motorOnly) {
         // path check against the programmed straight line
         while (targetIdx < targets.size()) {
@@ -271,6 +299,10 @@ int main(int argc, char** argv) {
           }
           if (memcmp(tool, b, sizeof(tool)) == 0) {
             memcpy(from, b, sizeof(from));
+            // a move ends here when the next point belongs to another line (arc pieces share their line)
+            if (stopsMode && targetIdx + 1 < targets.size() && targets[targetIdx + 1].line != targets[targetIdx].line) {
+              atMoveEnd = true; endStepAt = now;
+            }
             targetIdx++;
           }
           break;
@@ -302,6 +334,31 @@ int main(int argc, char** argv) {
   for (int i = 0; i < CNC_N_AXIS; i++) {
     int32_t expectMotor = tool[i] - ((backlash[i] > 0 && cnc_gc_last_neg(i)) ? backlash[i] : 0);
     if (motor[i] != expectMotor) { printf("  %c motor %d, expected %d\n", "XZC"[i], motor[i], expectMotor); fails++; }
+  }
+  if (stopsMode) {
+    // a move ends where the next block belongs to another line; its end speed and the next block's start speed
+    int moveEnds = 0, stopped = 0;
+    double maxStopSpeed = 0, minGoSpeed = 1e9;
+    for (size_t k = 0; k + 1 < blockEvents.size(); k++) {
+      const BlockEvent& e = blockEvents[k];
+      if (e.start || (e.condition & CNC_COND_BACKLASH)) continue;
+      const BlockEvent* next = NULL;
+      for (size_t q = k + 1; q < blockEvents.size(); q++) if (blockEvents[q].start && !(blockEvents[q].condition & CNC_COND_BACKLASH)) { next = &blockEvents[q]; break; }
+      if (!next || next->line == e.line) continue;
+      moveEnds++;
+      double v = e.speed > next->speed ? e.speed : next->speed;
+      if (v == 0) { stopped++; if (v > maxStopSpeed) maxStopSpeed = v; } else if (v < minGoSpeed) minGoSpeed = v;
+    }
+    double gMin = 1e9, gMax = 0;
+    for (double g : gapsMs) { if (g < gMin) gMin = g; if (g > gMax) gMax = g; }
+    printf("  move ends: %d, at rest (end and next start at speed 0) at %d; slowest pass-through %.3f /min; "
+           "time from the last step to the next %.3f ... %.3f ms\n",
+           moveEnds, stopped, minGoSpeed < 1e9 ? minGoSpeed : 0.0, gapsMs.empty() ? 0.0 : gMin, gMax);
+    bool want = !strcmp(stopsMode, "all");
+    if (moveEnds == 0 || (want && stopped != moveEnds) || (!want && stopped != 0)) {
+      printf("  expected %s move ends at rest\n", want ? "all" : "no");
+      fails++;
+    }
   }
   printf("  %s\n", fails ? "FAIL" : "OK");
   return fails ? 1 : 0;

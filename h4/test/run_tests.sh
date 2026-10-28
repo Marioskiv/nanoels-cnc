@@ -38,8 +38,29 @@ for i in $(seq 81 110); do
   hold=""; [ $((i % 2)) = 0 ] && hold="--hold-at $((i % 5 + 1)).7"
   run "$OUT/r.ngc" --delayed --backlash $bl $hold --ovr 1.1:40:25 --ovr 4.2:160:100
 done
+# G61.1 exact stop: every move ends at rest (step generator speed 0 at its end and at the next start);
+# the same smooth path in G64 goes through without stopping
+for m in marios h4default; do
+  run g611_sample.ngc --machine $m --stops all
+  run g611_sample.ngc --machine $m --stops all --delayed --backlash 40,80,3
+  run g64_sample.ngc --machine $m --stops none
+done
 for f in "$@"; do run "$f"; done
 echo "simulation: $fail failure(s)"
+# corners: no axis changes its speed at once by more than sqrt(8 x its acceleration x junction deviation),
+# in its own units (X, Z mm, C degrees), on polar and random programs
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_junctions" cnc_junctions.cpp ../cnc_gcode.cpp
+jfail=0
+for f in polar_sample.ngc g611_sample.ngc g64_sample.ngc modes_sample.ngc; do
+  "$OUT/cnc_junctions" "$f" --check > "$OUT/j.txt" || { cat "$OUT/j.txt"; jfail=$((jfail + 1)); }
+done
+for i in $(seq 1 30); do
+  python3 gen_random.py "$i" > "$OUT/r.ngc"
+  m=marios; [ $((i % 2)) = 0 ] && m=h4default
+  "$OUT/cnc_junctions" "$OUT/r.ngc" --machine $m --check > "$OUT/j.txt" || { cat "$OUT/j.txt"; jfail=$((jfail + 1)); }
+done
+echo "corners: $jfail failure(s)"
+fail=$((fail + jfail))
 # the controller's self-test (cnc_bench.cpp) on the sample programs
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
 "$OUT/cnc_bench_pc" polar_sample.ngc lathecode_sample.ngc || fail=$((fail + 1))
@@ -47,6 +68,8 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_
 if [ -n "$RS274" ]; then
   g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp
   python3 lcnc_compare.py "$RS274" "$OUT/gcode_trace" 1000 1 || fail=$((fail + 1))
-  python3 lcnc_compare.py "$RS274" "$OUT/gcode_trace" polar_sample.ngc || fail=$((fail + 1))
+  python3 lcnc_compare.py "$RS274" "$OUT/gcode_trace" polar_sample.ngc modes_sample.ngc g611_sample.ngc || fail=$((fail + 1))
+  # M48 / M49 / M50 and G61 / G61.1 / G64 in force for the same moves as in LinuxCNC
+  python3 modes_compare.py "$RS274" "$OUT/gcode_trace" 500 1 modes_sample.ngc g611_sample.ngc g64_sample.ngc || fail=$((fail + 1))
 fi
 [ $fail = 0 ]

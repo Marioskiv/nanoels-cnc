@@ -8,6 +8,7 @@
 #include "../cnc_gcode.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include <initializer_list>
 
 static int failures = 0, checks = 0;
@@ -66,6 +67,9 @@ int main() {
                         "G8", "G54 G40 G49 G80", "M3 S10000", "M5", "M8", "M9", "T2", "N10", "g21 g90", "S18000 M3"})
     expect(l, CNC_OK);
   expect("G43 H2", CNC_OK, "G43 H");
+  expect("%", CNC_OK);    // program start / end mark (Fusion and other posts write it; from a Grbl sender it reaches here)
+  expect(" % ", CNC_OK);
+  expect("%G0 X1", CNC_ERROR, "unexpected character");
   expect("G18 G1 G49", CNC_OK);  // back to the start modes (the list above set G17 and G80)
   expect("M6 T2", CNC_PAUSE);
   expect("M0", CNC_PAUSE);
@@ -210,6 +214,60 @@ int main() {
   expect("G28 U0", CNC_OK);
   expectPos(0, 0, 0, "G28 U0: X home (machine 0), Z stays");
   expect("G96 S200 M3", CNC_OK, "by hand");
+
+  // M48 / M49 / M50: overrides on / off for the following moves, as LinuxCNC (feed AND rapid override);
+  // M51 / M52 / M53 cannot be honoured on this machine and are refused
+  setup(true, 0);
+  auto overridesOn = []() { cnc_modes_t m; cnc_gc_get_modes(&m); return m.overridesEnabled; };
+  auto expectOvr = [&](bool want, const char* what) {
+    checks++;
+    if (overridesOn() != want) { printf("FAIL %s: overrides %s, want %s\n", what, overridesOn() ? "on" : "off", want ? "on" : "off"); failures++; }
+  };
+  expectOvr(true, "start (M48)");
+  expect("M49", CNC_OK); expectOvr(false, "M49");
+  expect("M48", CNC_OK); expectOvr(true, "M48");
+  expect("M50 P0", CNC_OK); expectOvr(false, "M50 P0");
+  expect("M50 P1", CNC_OK); expectOvr(true, "M50 P1");
+  expect("M50 P0", CNC_OK); expect("M50", CNC_OK); expectOvr(true, "M50 without P");
+  expect("M49", CNC_OK); expect("M2", CNC_END); expectOvr(true, "M2 turns the overrides on again");
+  expect("M51", CNC_ERROR, "spindle speed is set by hand");
+  expect("M51 P0", CNC_ERROR, "M51");
+  expect("M52 P1", CNC_ERROR, "adaptive feed");
+  expect("M53", CNC_ERROR, "feed stop");
+  expect("M48 M49", CNC_ERROR, "same modal group");
+  // the effect on the planned speed: with overrides at 50 % feed and 25 % rapid, a move under M49 keeps its
+  // programmed speed (time at the programmed speed is what cnc_plan_take_all() reports, override included)
+  auto blockMinutes = [&](const char* setupLine, const char* moveLine) {
+    setup(true, 0);
+    cnc_set_overrides(50, 25);
+    char msg[128];
+    run(setupLine, msg);
+    run(moveLine, msg);
+    float minutes[4];
+    int n = cnc_plan_take_all(minutes, 4);
+    cnc_set_overrides(100, 100);
+    return n > 0 ? minutes[n - 1] : -1.0f;
+  };
+  struct { const char *pre, *move; float want; const char* what; } ov[] = {
+    {"M48", "G1 X10 F100", 0.2f, "feed 50 % under M48"},              // 10 mm at 50 mm/min
+    {"M49", "G1 X10 F100", 0.1f, "feed under M49 = programmed"},       // 10 mm at 100 mm/min
+    {"M50 P0", "G1 X10 F100", 0.1f, "feed under M50 P0 = programmed"},
+    {"M49", "G0 X7.2", 0.01f, "rapid under M49 = full rapid"},          // 7.2 mm at 720 mm/min
+    {"M48", "G0 X7.2", 0.04f, "rapid 25 % under M48"},
+    {"M49", "G93 G1 X10 F20", 0.05f, "G93 under M49: 1/F"},
+    {"M48", "G93 G1 X10 F20", 0.1f, "G93 with feed override 50 %: twice 1/F"},
+  };
+  for (auto& o : ov) {
+    float m = blockMinutes(o.pre, o.move);
+    checks++;
+    if (fabsf(m - o.want) > 0.0005f) { printf("FAIL %s: %.4f min, want %.4f\n", o.what, m, o.want); failures++; }
+  }
+  // the override change on a line is applied before that line's move (LinuxCNC order): "M49 G1 ..." is not scaled
+  {
+    float m = blockMinutes("G21", "M49 G1 X10 F100");
+    checks++;
+    if (fabsf(m - 0.1f) > 0.0005f) { printf("FAIL M49 on the move's line: %.4f min, want 0.1\n", m); failures++; }
+  }
 
   printf("parse: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;

@@ -1,0 +1,16 @@
+(G61.1: every move must end at rest, also where the moves join without a corner)
+G21 G90 G18 G8
+G61.1
+G0 X10 Z2 C0
+G1 X20 F600
+G1 X20.5 Z1.95
+G1 X21 Z1.9
+G1 X30 Z1.8 C2
+G2 X40 Z1.8 I5 K0 F600
+G93
+G1 X38 C3 F30
+G1 X36 C4 F30
+G1 X34 C5 F30
+G94
+G0 X10 Z2
+M2

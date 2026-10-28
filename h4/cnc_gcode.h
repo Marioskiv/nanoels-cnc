@@ -70,6 +70,8 @@ double cnc_gc_work_position(int axis);
 typedef struct {
   int motion, plane, feedMode, coord;
   bool incremental, arcIncremental, inches, diameter, retractToR;
+  bool overridesEnabled;             // M48 / M49 / M50
+  bool exactStop;                    // G61.1 (G61 / G64: false)
   double feed, tloZ;
 } cnc_modes_t;
 void cnc_gc_get_modes(cnc_modes_t* m);

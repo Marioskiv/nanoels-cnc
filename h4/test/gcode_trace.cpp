@@ -78,6 +78,9 @@ int main(int argc, char** argv) {
     if (r == CNC_ERROR) { printf("L %u ERR %s\n", lineNo, msg); return 0; }
     const int32_t* p = cnc_plan_position();
     printf("L %u OK %.5f %.5f %.5f\n", lineNo, p[CNC_X] / SPU, p[CNC_Z] / SPU, p[CNC_C] / SPU);
+    cnc_modes_t md;  // overrides on / off and the path mode after the line (for modes_compare.py)
+    cnc_gc_get_modes(&md);
+    printf("M %u %d %d\n", lineNo, md.overridesEnabled ? 1 : 0, md.exactStop ? 1 : 0);
     if (r == CNC_END) return 0;
   }
   return 0;

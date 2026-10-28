@@ -306,7 +306,7 @@ function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
  $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+'<br>Step interrupt, longest: '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
   '<br>Highest step rate: '+d.rate+' /s (limit '+d.limit+' /s)<br>Started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs<br>Step buffer ran empty: '+st.underruns+'<br>Steps given: '+d.steps}
 function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(st.fw)$('fwVer').textContent=st.fw;
- if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo;$('ro').textContent=st.ro}
+ if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
  $('wifi').textContent=st.wifi;$('pname').textContent=st.program||'no program';$('stext').textContent=st.text;$('cpName').textContent=st.program||'no program';
@@ -541,7 +541,7 @@ function editMacros(){const t=prompt('One macro per line: name = G-code line (em
  try{localStorage.setItem('h4macros',JSON.stringify(macros))}catch(e){}macroSheet()}
 function ctlShow(){const s=st.state||'-';$('cState').textContent=s.toUpperCase();$('cState').style.borderColor={Run:'#2e9e5b',Hold:'#d9a21b',Stopping:'#d64040'}[s]||'#2f6db3';
  $('cWcs').textContent=st.wcs||'G54';$('cUnits').textContent=st.inch?'inch':'mm';$('cRssi').textContent=st.rssi?'· '+st.rssi+' dBm':'';
- $('cHold').textContent=s=='Hold'?'RESUME':'HOLD';if(st.fo!==undefined){$('foTxt').textContent=st.fo+'%';$('roTxt').textContent=st.ro+'%';if($('sFo')){$('sFo').textContent=st.fo;$('sRo').textContent=st.ro}}
+ $('cHold').textContent=s=='Hold'?'RESUME':'HOLD';if(st.fo!==undefined){$('foTxt').textContent=st.ovrOff?'off':st.fo+'%';$('roTxt').textContent=st.ovrOff?'off':st.ro+'%';if($('sFo')){$('sFo').textContent=st.fo;$('sRo').textContent=st.ro}}
  axesShow()}
 // Pages instead of scrolling: the items of a .pg box that fit are shown, ‹ › in the .pgc after it turns the page.
 function pager(box){if(!box.offsetParent)return;const items=[...box.children];items.forEach(i=>i.hidden=false);const H=box.clientHeight;if(!H||!items.length)return;

@@ -17,8 +17,9 @@
   SPDX-License-Identifier: GPL-3.0-or-later
 
   Differences from Grbl: three axes (X, Z, C) instead of X, Y, Z; a 32-bit step timer, so no
-  prescaler and no 16-bit limit; backlash take-up blocks; no spindle, laser, parking, overrides,
-  homing or probing. The planner and the segment generator run in one task; the interrupt only
+  prescaler and no 16-bit limit; backlash take-up blocks; no spindle, laser, parking, homing or
+  probing; feed / rapid overrides as Grbl 1.1, switched off per block by M49 / M50 P0 (as LinuxCNC);
+  G61.1 exact stop per block. The planner and the segment generator run in one task; the interrupt only
   reads the segment buffer, exactly as in Grbl. On the dual-core ESP32 the hand-over of a segment
   is fenced with a memory barrier.
 */
@@ -47,6 +48,7 @@ typedef struct {
   float previous_unit_vec[CNC_N_AXIS];
   float previous_nominal_speed;
   bool previous_was_backlash;
+  bool previous_exact_stop;           // G61.1: the previous block ends at rest
 } planner_t;
 static planner_t pl;
 static float last_block_minutes;  // length / nominal speed of the last planned block (no acceleration)
@@ -180,7 +182,9 @@ static uint8_t rapid_override = 100;
 
 static float plan_compute_profile_nominal_speed(const cnc_block_t* block) {
   float nominal_speed = block->programmed_rate;
-  if (block->condition & CNC_COND_RAPID) {
+  if (block->condition & CNC_COND_NO_OVERRIDE) {  // M49 / M50 P0, as LinuxCNC: neither feed nor rapid override
+    if (!(block->condition & CNC_COND_RAPID) && nominal_speed > block->rapid_rate) nominal_speed = block->rapid_rate;
+  } else if (block->condition & CNC_COND_RAPID) {
     nominal_speed *= 0.01f * rapid_override;
   } else {
     if (!(block->condition & CNC_COND_BACKLASH)) nominal_speed *= 0.01f * feed_override;
@@ -235,9 +239,10 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
     if (condition & CNC_COND_INVERSE_TIME) block->programmed_rate *= block->millimeters;
   }
 
-  if (block_buffer_head == block_buffer_tail || pl.previous_was_backlash) {
+  if (block_buffer_head == block_buffer_tail || pl.previous_was_backlash || pl.previous_exact_stop) {
     // Starts from rest. Also after a backlash take-up: the motor stops when the slack is taken up, so
-    // the carriage is not hit at speed, then the move accelerates normally.
+    // the carriage is not hit at speed, then the move accelerates normally. And after a G61.1 block (exact
+    // stop, as LinuxCNC: every move of that mode ends at rest).
     block->entry_speed_sqr = 0.0f;
     block->max_junction_speed_sqr = 0.0f;
   } else {
@@ -267,6 +272,7 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
   pl.previous_nominal_speed = nominal_speed;
   memcpy(pl.previous_unit_vec, unit_vec, sizeof(unit_vec));
   pl.previous_was_backlash = (condition & CNC_COND_BACKLASH) != 0;
+  pl.previous_exact_stop = (condition & CNC_COND_EXACT_STOP) != 0;
 
   block_buffer_head = next_buffer_head;
   next_buffer_head = plan_next_block_index(block_buffer_head);
@@ -275,6 +281,7 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
 }
 
 void (*cnc_plan_trace)(const int32_t target[CNC_N_AXIS], uint32_t line) = 0;
+void (*cnc_st_block_event)(uint32_t line, uint8_t condition, bool start, float speed) = 0;
 
 bool cnc_plan_buffer_line(const int32_t target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t line) {
   if (cnc_plan_trace) cnc_plan_trace(target, line);
@@ -444,6 +451,7 @@ void cnc_st_prep_buffer() {
         } else {
           prep.current_speed = sqrtf(pl_block->entry_speed_sqr);
         }
+        if (cnc_st_block_event) cnc_st_block_event(pl_block->line, pl_block->condition, true, prep.current_speed);
       }
 
       // Velocity profile of the block (see the drawing in Grbl stepper.c).
@@ -624,6 +632,7 @@ void cnc_st_prep_buffer() {
         step_control |= STEP_CONTROL_END_MOTION;
         return;
       }
+      if (cnc_st_block_event) cnc_st_block_event(pl_block->line, pl_block->condition, false, prep.current_speed);
       pl_block = NULL;
       plan_discard_current_block();
     }
