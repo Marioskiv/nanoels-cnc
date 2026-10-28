@@ -195,6 +195,7 @@ public class MainActivity extends Activity {
         super.onResume();
         web.onResume();
         pad.resume();
+        UpdateCheck.maybeCheck(this);  // also when the app comes back to the front (at most every 10 minutes)
     }
 
     @Override
@@ -229,6 +230,11 @@ public class MainActivity extends Activity {
                 if (demo) return;
                 FirmwareUpdate.check(MainActivity.this, address, true);
             });
+        }
+
+        @JavascriptInterface
+        public void checkAppUpdate() {
+            runOnUiThread(() -> UpdateCheck.check(MainActivity.this, true));
         }
 
         @JavascriptInterface
