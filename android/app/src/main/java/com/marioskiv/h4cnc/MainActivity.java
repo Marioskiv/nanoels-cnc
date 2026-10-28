@@ -53,6 +53,11 @@ public class MainActivity extends Activity {
                 return false;  // every link of the H4 page stays in the app
             }
 
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (!demo && url != null && url.startsWith("http")) FirmwareUpdate.check(MainActivity.this, address, false);
+            }
+
             @SuppressWarnings("deprecation")
             @Override
             public void onReceivedError(WebView view, int code, String description, String failingUrl) {
@@ -133,6 +138,12 @@ public class MainActivity extends Activity {
         web.loadUrl("file:///android_asset/h4/index.html?demo=1");
     }
 
+    void reloadLater(long ms) {
+        web.postDelayed(() -> {
+            if (!demo) open();
+        }, ms);
+    }
+
     // The gamepad's requests go to the simulated machine of the page in the demo.
     void demoRequest(String path) {
         web.evaluateJavascript("window.h4DemoRequest&&h4DemoRequest(" + JSONObject.quote(path) + ")", null);
@@ -200,6 +211,14 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void changeAddress() {
             runOnUiThread(() -> askAddress(null));
+        }
+
+        @JavascriptInterface
+        public void checkFirmware() {
+            runOnUiThread(() -> {
+                if (demo) return;
+                FirmwareUpdate.check(MainActivity.this, address, true);
+            });
         }
 
         @JavascriptInterface

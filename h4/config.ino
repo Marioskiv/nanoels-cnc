@@ -76,6 +76,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"gcRpm", 'i', (void*)&GCODE_MIN_RPM, 1, 10000, "GCODE mode", "Spindle stopped below", "rpm"},
   {"cncJd", 'f', (void*)&CNC_JUNCTION_DEVIATION, 0.001, 1, "GCODE mode", "Corner tolerance, junction deviation", "mm"},
   {"cncPulse", 'i', (void*)&CNC_STEP_PULSE_US, 1, 50, "GCODE mode", "Step pulse length", "µs"},
+  {"cncDir", 'l', (void*)&DIRECTION_SETUP_DELAY_US, 0, 100, "GCODE mode", "Direction set-up time before a step (LinuxCNC DIRSETUP)", "µs"},
   {"cncStops", 'b', (void*)&CNC_RESPECT_STOPS, 0, 1, "GCODE mode", "Refuse moves outside the H4 stops", ""},
   {"cncArc", 'f', (void*)&CNC_ARC_TOLERANCE, 0.0005, 0.1, "GCODE mode", "Arc tolerance (G2/G3 cut in straight pieces)", "mm"},
   {"grblUsb", 'b', (void*)&GRBL_ON_USB, 0, 1, "GCODE mode", "USB speaks the Grbl protocol (UGS, gSender, CNCjs); WiFi port 23 always does", ""},
@@ -192,9 +193,29 @@ void configDerived() {
   RPM_BULK = ENCODER_STEPS_INT;
 }
 
+// Stores every setting as it is now (not only the ones that differ from the firmware defaults), so that a firmware
+// with other defaults - an update over WiFi, built without your my_machine.h - keeps this machine's values.
+void storeMachineConfigAll() {
+  Preferences cfg;
+  if (!cfg.begin(MACHINE_CONFIG_NAMESPACE, false)) return;
+  cfg.clear();
+  cfg.putInt("v", MACHINE_CONFIG_VERSION);
+  for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) cfg.putDouble(MACHINE_CONFIG[i].key, configGet(i));
+  cfg.end();
+}
+
 // Called first in setup().
 void loadMachineConfig() {
   for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) machineConfigDefaults[i] = configGet(i);
+#ifdef HAS_MY_MACHINE
+  {
+    // First start with my_machine.h: its values are stored at once, so later updates keep them.
+    Preferences check;
+    bool stored = check.begin(MACHINE_CONFIG_NAMESPACE, true) && check.getInt("v", 0) == MACHINE_CONFIG_VERSION;
+    check.end();
+    if (!stored) storeMachineConfigAll();
+  }
+#endif
   Preferences cfg;
   if (cfg.begin(MACHINE_CONFIG_NAMESPACE, true)) {
     if (cfg.getInt("v", 0) == MACHINE_CONFIG_VERSION) {

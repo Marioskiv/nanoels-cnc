@@ -52,3 +52,36 @@ jobs:
         run: >
           arduino-cli compile --warnings default
           --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=enabled,PartitionScheme=app3M_fat9M_16MB h4
+
+  # On main: the firmware for updates over WiFi (the app offers it). Built without my_machine.h: an H4 keeps its
+  # own machine values (stored in it) through the update.
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [tests, linuxcnc, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: ESP32 core and libraries
+        run: |
+          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli lib install "Adafruit TCA8418" "LiquidCrystal"
+      - name: Build
+        id: fw
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=enabled,PartitionScheme=app3M_fat9M_16MB --output-dir out h4
+          v=$(sed -n 's/^#define FW_VERSION "\(.*\)".*/\1/p' h4/h4.ino)
+          cp out/h4.ino.bin "h4-firmware-$v.bin"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: firmware-v${{ steps.fw.outputs.version }}
+          name: H4 CNC firmware ${{ steps.fw.outputs.version }}
+          body: |
+            Firmware of the H4 CNC fork for updates over WiFi: the H4 CNC Android app offers it, or the H4 page
+            (WiFi and firmware, Firmware update) takes this .bin. The H4 keeps its machine settings.
+            The first installation is over USB with the Arduino IDE (h4/GUIDE.md).
+          files: h4-firmware-${{ steps.fw.outputs.version }}.bin
