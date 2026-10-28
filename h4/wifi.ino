@@ -39,6 +39,7 @@ bool uploadFailed = false;
 String uploadMessage = "";
 size_t uploadBytes = 0;
 bool fwUploadActive = false;
+bool fwUploadChecked = false;  // the first block was looked at: it must be an application image
 bool fwUploadFailed = false;
 String fwUploadMessage = "";
 
@@ -643,8 +644,23 @@ void handleFirmwareData() {
       return;
     }
     fwUploadActive = true;
+    fwUploadChecked = false;
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (fwUploadFailed || !fwUploadActive) return;
+    if (!fwUploadChecked) {
+      // an application starts with the image header (magic 0xE9) and, at byte 32, its description (magic
+      // 0xABCD5432); a full flash image for USB (it starts with the bootloader) or any other file is refused
+      fwUploadChecked = true;
+      const uint8_t* b = upload.buf;
+      if (upload.currentSize < 36 || b[0] != 0xE9 || b[32] != 0x32 || b[33] != 0x54 || b[34] != 0xCD || b[35] != 0xAB) {
+        fwUploadFailed = true;
+        fwUploadMessage = "Not a firmware update file (the ...-usb file is only for the first installation over USB).";
+        Update.abort();
+        fwUploadActive = false;
+        wifiFsBusy = false;
+        return;
+      }
+    }
     if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
       fwUploadFailed = true;
       fwUploadMessage = String("Write failed: ") + Update.errorString();

@@ -61,7 +61,7 @@ final class FirmwareUpdate {
                         JSONArray assets = r.optJSONArray("assets");
                         for (int k = 0; assets != null && k < assets.length(); k++) {
                             String u = assets.getJSONObject(k).optString("browser_download_url", "");
-                            if (u.endsWith(".bin")) {
+                            if (u.endsWith("/h4-firmware-" + version + ".bin")) {  // the update file, never the USB image
                                 best = version;
                                 bestUrl = u;
                             }
@@ -159,7 +159,9 @@ final class FirmwareUpdate {
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
             in.close();
             byte[] bin = out.toByteArray();
-            if (bin.length < 100000 || (bin[0] & 0xff) != 0xE9) throw new Exception("not an ESP32 firmware image");
+            // an application image: header magic 0xE9 and the application description (0xABCD5432) at byte 32
+            if (bin.length < 100000 || (bin[0] & 0xff) != 0xE9 || (bin[32] & 0xff) != 0x32 || (bin[33] & 0xff) != 0x54
+                    || (bin[34] & 0xff) != 0xCD || (bin[35] & 0xff) != 0xAB) throw new Exception("not an H4 firmware update file");
             return bin;
         } finally {
             c.disconnect();

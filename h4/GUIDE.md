@@ -116,6 +116,15 @@ G95; a polar milling machine (chuck turned by the C motor) does not need it.
 
 ## 4 Flashing the firmware
 
+**Without the Arduino IDE** (general default values; your machine's values are then set on the page, section 5):
+on a computer with Chrome or Edge, download `h4-firmware-<version>-usb.img` from the
+[Releases](https://github.com/Marioskiv/nanoels-cnc/releases) entry *H4 CNC firmware*, plug the H4 in by USB, open
+[esptool-js](https://espressif.github.io/esptool-js/), *Connect* (choose the H4's port), *Flash Address* `0x0`,
+choose the file, *Program*, then unplug and replug the H4. This clears the H4's stored settings (not its G-code
+files). If it does not connect, try another USB cable (some carry only power).
+
+**With the Arduino IDE** (needed for your own `my_machine.h`):
+
 1. Install the [Arduino IDE](https://docs.arduino.cc/software/ide-v2).
 2. *File > Preferences > Additional boards manager URLs*: add
    `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`.
@@ -125,7 +134,7 @@ G95; a polar milling machine (chuck turned by the C motor) does not need it.
    **16M Flash (3MB APP/9.9MB FATFS)**, Port: the one that appears when the H4 is plugged in.
 6. Upload. This first installation is over USB; **later updates go over WiFi**: the Android app compares the H4's
    firmware with the newest `firmware-v...` release of this repository and offers it (*Install*), or the page's
-   *Firmware update* takes a `.bin` (from the Releases page, or *Sketch > Export Compiled Binary*). The H4 keeps its
+   *Firmware update* takes a `.bin` (the Releases entry *H4 CNC firmware*, or *Sketch > Export Compiled Binary*). The H4 keeps its
    machine settings through an update: with `my_machine.h` they are stored in the H4 at its first start, and
    *Save and restart* in *Machine settings* stores all of them.
 
