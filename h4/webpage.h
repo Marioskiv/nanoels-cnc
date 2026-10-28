@@ -8,7 +8,8 @@ const char H4_WEB_PAGE[] PROGMEM = R"rawpage(<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NanoEls H4 CNC</title>
 <style>
-:root{--bg:#111;--fg:#eee;--dim:#999;--card:#1c1c1c;--line:#333;--acc:#3a8ee6;--ok:#2e9e5b;--warn:#d9a21b;--bad:#d64040}
+:root{--bg:#111;--fg:#eee;--dim:#999;--card:#1c1c1c;--line:#333;--acc:#3a8ee6;--ok:#2e9e5b;--warn:#d9a21b;--bad:#d64040;--or:#ff9a1f;--btn:#2a2a2a;--in:#000;--ctl1:#151a24;--ctl2:#0d1016;--ctlb:#262d3a;--tile:#12161f;--tileb:#232a37;--btn2:#141922;--w1:#202734;--w2:#0e1219;--wb:#2a3240;--track:#273041;--dro:34px}
+body.light{--bg:#eef0f3;--fg:#15181d;--dim:#5b6470;--card:#fff;--line:#cfd5dd;--btn:#e7eaef;--in:#fff;--ctl1:#ffffff;--ctl2:#eef2f7;--ctlb:#cfd5dd;--tile:#f6f8fb;--tileb:#d6dce4;--btn2:#e9edf2;--w1:#ffffff;--w2:#e3e8ef;--wb:#cfd5dd;--track:#d6dce4}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
 header{display:flex;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 h1{font-size:18px;margin:0 auto 0 0}.badge{padding:4px 10px;border-radius:12px;background:var(--line);font-weight:600}
@@ -17,7 +18,7 @@ section{background:var(--card);border:1px solid var(--line);border-radius:10px;p
 h2{font-size:15px;margin:0 0 8px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .dro{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font:600 32px ui-monospace,monospace}
 .dro span:nth-child(odd){color:var(--dim)}.small{font-size:13px;color:var(--dim)}
-button,input[type=submit]{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:#2a2a2a;color:var(--fg);cursor:pointer}
+button,input[type=submit]{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--btn);color:var(--fg);cursor:pointer}
 button:active{filter:brightness(1.4)}button:disabled{opacity:.4}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
 .start{background:var(--ok)}.pause{background:var(--warn);color:#000}.stop{background:var(--bad);font-weight:700;flex:1 1 100%;font-size:22px;padding:16px}
@@ -26,40 +27,41 @@ table{width:100%;border-collapse:collapse;font-size:14px}td{padding:6px 4px;bord
 td:last-child{text-align:right;white-space:nowrap}td button{padding:6px 9px;font-size:14px}
 canvas{width:100%;aspect-ratio:1;background:#000;border-radius:8px}
 .keys{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.keys button{padding:12px 4px;font-size:14px}
-input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px;border:1px solid var(--line);background:#000;color:var(--fg);width:100%}
+input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--in);color:var(--fg);width:100%}
 #msg{min-height:1.4em;color:var(--warn)}code{font-size:14px;word-break:break-all}
 .lcd{background:#0b1f10;color:#7cf08f;font:600 17px ui-monospace,monospace;padding:10px;border-radius:8px;white-space:pre;overflow-x:auto;line-height:1.35}
 .keys button.hold{touch-action:none;user-select:none;-webkit-user-select:none}.keys button.down{background:var(--acc)}
 #log{font:13px ui-monospace,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;color:var(--dim)}
 details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;font-weight:600;padding:4px 0}
 .cfg{display:grid;grid-template-columns:1fr 150px;gap:6px 10px;align-items:center;font-size:14px;margin:6px 0}
-.cfg input[type=number],.cfg select{font:inherit;padding:6px;border-radius:6px;border:1px solid var(--line);background:#000;color:var(--fg);width:100%}
+.cfg input[type=number],.cfg select{font:inherit;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--in);color:var(--fg);width:100%}
+.cfg input[type=color]{width:100%;height:36px;padding:2px;border-radius:6px;border:1px solid var(--line);background:var(--in)}
 .cfg .hint{grid-column:1/-1;font-size:12px;color:var(--dim);margin-top:-4px}.changed{outline:2px solid var(--warn)}
 /* control screen */
-.ctl{grid-column:1/-1;background:linear-gradient(180deg,#151a24,#0d1016);border-color:#262d3a;--or:#ff9a1f}
+.ctl{grid-column:1/-1;background:linear-gradient(180deg,var(--ctl1),var(--ctl2));border-color:var(--ctlb)}
 .ctop{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--dim);margin-bottom:10px}.ctop b{color:var(--fg)}
 .pill{padding:4px 12px;border-radius:14px;border:1px solid #2f6db3;color:#9ecbff;font-weight:700;letter-spacing:.05em}
-.grow{flex:1}.mini{padding:6px 12px;font-size:13px;font-weight:700;letter-spacing:.05em;background:#1a1f2a}
+.grow{flex:1}.mini{padding:6px 12px;font-size:13px;font-weight:700;letter-spacing:.05em;background:var(--btn2)}
 .mini.go{color:#36d399}.mini.hold{color:var(--warn)}.mini.halt{color:#ff5a5a;border-color:#5a2020}
 .cgrid{display:grid;gap:14px;grid-template-columns:1fr}@media(min-width:760px){.cgrid{grid-template-columns:1fr 1fr}}
 .axis{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;border-radius:12px;
- background:#12161f;border:1px solid #232a37;border-left:5px solid var(--c);cursor:pointer}
+ background:var(--tile);border:1px solid var(--tileb);border-left:5px solid var(--c);cursor:pointer}
 .axis.sel{border-color:var(--c);box-shadow:0 0 14px -4px var(--c)}
-.axis .l{font:800 30px system-ui;color:var(--c)}.axis .v{font:600 34px ui-monospace,monospace;text-align:right}
+.axis .l{font:800 30px system-ui;color:var(--c)}.axis .v{font:600 var(--dro) ui-monospace,monospace;text-align:right}
 .axis .v small{font-size:14px;color:var(--dim);margin-left:4px}.axis .m{grid-column:2;font:12px ui-monospace,monospace;color:var(--dim);text-align:right;margin-top:-6px}
 .axis .z{grid-row:1/3;grid-column:3;font-size:12px;padding:10px 12px;line-height:1.1}
 .chips{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:6px 0 10px}.chips button{padding:8px 0;font:600 14px ui-monospace,monospace}
 .chips button.on{background:var(--or);color:#000;border-color:var(--or)}
 .wheelrow{display:flex;align-items:center;justify-content:center;gap:14px}
-.round{width:56px;height:56px;border-radius:50%;font-size:26px;padding:0;background:#141922}
+.round{width:56px;height:56px;border-radius:50%;font-size:26px;padding:0;background:var(--btn2)}
 .wheel{position:relative;width:min(64vw,230px);aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none}
-.wheel svg{width:100%;height:100%}.wcenter{position:absolute;inset:26%;border-radius:50%;background:radial-gradient(#202734,#0e1219);
- display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid #2a3240;pointer-events:none}
+.wheel svg{width:100%;height:100%}.wcenter{position:absolute;inset:26%;border-radius:50%;background:radial-gradient(var(--w1),var(--w2));
+ display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--wb);pointer-events:none}
 .wcenter b{font:800 40px system-ui;color:var(--or)}.wcenter span{font:13px ui-monospace,monospace;color:var(--fg)}
 .ovr{display:grid;grid-template-columns:70px 40px 1fr 54px 40px;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--dim)}
-.ovr button{padding:6px 0}.obar{height:6px;background:#273041;border-radius:3px;overflow:hidden}.obar div{height:100%;background:var(--or);width:50%}
+.ovr button{padding:6px 0}.obar{height:6px;background:var(--track);border-radius:3px;overflow:hidden}.obar div{height:100%;background:var(--or);width:50%}
 .ovr b{color:var(--fg);font:600 14px ui-monospace,monospace;text-align:right}
-.cnav{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}.cnav button{padding:12px 4px;font-size:14px;background:#141922}
+.cnav{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}.cnav button{padding:12px 4px;font-size:14px;background:var(--btn2)}
 .cnav button.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or)}
 .macros{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:10px}
 </style></head><body>
@@ -69,13 +71,13 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 <span id="cRssi"></span><span class="grow"></span><button class="mini go" onclick="startSel()">START</button><button class="mini hold" id="cHold" onclick="cmd(st.state=='Hold'?'resume':'pause')">HOLD</button><button class="mini halt" onclick="cmd('stop')">STOP</button></div>
 <div class="cgrid"><div id="axes"></div>
 <div><div class="small">STEP PER DETENT <b id="stepTxt"></b></div><div class="chips" id="chips"></div>
-<div class="wheelrow"><button class="round" id="jm">&minus;</button><div class="wheel" id="wheel"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="#0f131b" stroke="#283041"/><g id="ticks"></g>
-<path d="M100 14 A86 86 0 0 1 172 55" fill="none" stroke="#ff9a1f" stroke-width="4" stroke-linecap="round"/></svg>
+<div class="wheelrow"><button class="round" id="jm">&minus;</button><div class="wheel" id="wheel"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="var(--w2)" stroke="var(--wb)"/><g id="ticks"></g>
+<path d="M100 14 A86 86 0 0 1 172 55" fill="none" stroke="var(--or)" stroke-width="4" stroke-linecap="round"/></svg>
 <div class="wcenter"><b id="wAxis">X</b><span id="wStep"></span><span class="small">turn to jog</span></div></div><button class="round" id="jp">+</button></div>
 <div class="ovr"><span>FEED</span><button onclick="ovr(146)">&minus;</button><div class="obar"><div id="foBar"></div></div><b id="foTxt">100%</b><button onclick="ovr(145)">+</button></div>
 <div class="ovr"><span>RAPIDS</span><button onclick="ovr(st.ro>50?150:151)">&minus;</button><div class="obar"><div id="roBar"></div></div><b id="roTxt">100%</b><button onclick="ovr(st.ro<50?150:149)">+</button></div></div></div>
 <nav class="cnav"><button onclick="homeAll()">Home</button><button onclick="go('fileSec')">Files</button><button id="bMac" onclick="toggleMacros()">Macros</button>
-<button onclick="go('mdi')">MDI</button><button onclick="go('cfgSec')">Settings</button></nav><div class="macros" id="macros" hidden></div></section>
+<button onclick="go('mdi')">MDI</button><button onclick="go('lookSec')">Settings</button></nav><div class="macros" id="macros" hidden></div></section>
 <section><h2>Position</h2>
 <div class="dro"><span>X</span><span id="x">-</span><span>Z</span><span id="z">-</span><span id="cl">C</span><span id="c">-</span></div>
 <div class="small" id="info"></div><div class="small" id="mach"></div>
@@ -127,6 +129,15 @@ stay well below the time between two steps at the highest step rate, it should n
 should never run empty. Run a program in the air at full speed with WiFi in use to see the real limits.</div></section>
 
 <section><h2>Messages</h2><div id="log">No messages.</div></section>
+
+<section id="lookSec"><h2>Appearance</h2><div class="cfg">
+<label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select>
+<label for="lkAcc">Accent colour</label><input type="color" id="lkAcc">
+<label for="lkX">X colour</label><input type="color" id="lkX"><label for="lkZ">Z colour</label><input type="color" id="lkZ">
+<label for="lkC">C colour</label><input type="color" id="lkC">
+<label for="lkSize">Number size</label><select id="lkSize"><option value="34">Normal</option><option value="44">Large</option><option value="56">Very large</option></select></div>
+<div class="row"><button onclick="lookReset()">Back to the original colours</button></div>
+<div class="small">Kept in this phone or browser only; the machine is not affected.</div></section>
 
 <section id="cfgSec"><h2>Machine settings</h2><div id="cfg" class="small">Loading...</div>
 <div class="row"><button onclick="saveCfg()">Save and restart</button><button onclick="resetCfg()">Defaults from the firmware</button></div>
@@ -356,7 +367,19 @@ fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{})
 // Control screen: DRO with work and machine position, ZERO per axis, a jog wheel (one step per detent), overrides, macros.
 const STEPS=[0.001,0.01,0.1,1,5,10];let jogAxis='X',jogStep=0.1,jogPending=0,jogBusy=false,jogPoll=-9,wheelAngle=0;
 try{jogStep=+localStorage.getItem('h4step')||0.1}catch(e){}
-const AXC={X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0'};
+const LOOK0={theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
+const AXC={X:look.X,Z:look.Z,C:look.C};
+// Appearance: theme, accent and axis colours, number size (stored in the browser)
+function lookApply(){document.body.classList.toggle('light',look.theme=='light');const r=document.documentElement.style;
+ r.setProperty('--or',look.acc);r.setProperty('--dro',look.size+'px');AXC.X=look.X;AXC.Z=look.Z;AXC.C=look.C;
+ const a=$('axes');if(a)a.dataset.n='';if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
+function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
+function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
+function lookForm(){$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
+lookForm();for(const [id,k] of [['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
+ $(id).addEventListener('input',()=>{look[k]=$(id).value;lookSave()});
+lookApply();
 function axesShow(){const u=st.inch?'in':'mm',list=['X','Z'].concat(st.cActive?['C']:[]);
  const val={X:st.x,Z:st.z,C:st.c},mach={X:st.mx,Z:st.mz,C:undefined};
  if($('axes').dataset.n!=list.join()){$('axes').dataset.n=list.join();$('axes').innerHTML=list.map(a=>`<div class="axis" id="ax${a}" style="--c:${AXC[a]}" onclick="selAxis('${a}')"><span class="l">${a}</span>
@@ -378,7 +401,7 @@ async function jogSend(){if(jogBusy||!jogPending||st.running||polls<jogPoll+2)re
  jogPoll=polls;jogBusy=false}
 setInterval(jogSend,150);
 (function(){let t='';for(let i=0;i<40;i++){const a=i*9*Math.PI/180,r1=i%5?78:72,x1=100+r1*Math.sin(a),y1=100-r1*Math.cos(a),x2=100+86*Math.sin(a),y2=100-86*Math.cos(a);
- t+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${i%5?'#3a4456':'#6b7a93'}" stroke-width="2"/>`}
+ t+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${i%5?'var(--dim)':'var(--fg)'}" opacity="${i%5?0.45:0.7}" stroke-width="2"/>`}
  $('ticks').innerHTML=t;const w=$('wheel');let last=null,acc=0;
  const ang=e=>{const r=w.getBoundingClientRect();return Math.atan2(e.clientX-r.left-r.width/2,-(e.clientY-r.top-r.height/2))*180/Math.PI};
  w.addEventListener('pointerdown',e=>{w.setPointerCapture(e.pointerId);last=ang(e)});

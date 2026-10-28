@@ -163,6 +163,8 @@ them and a ZERO per axis (it asks first; on a polar machine X0 must stay the chu
 active work offset and WiFi signal, a **jog wheel** (tap an axis, pick the step per detent .001 ... 10, turn the wheel
 or press - / +; one move at a time, at the gamepad jog speed), feed and rapid overrides, and Home, Files, Macros
 (your own one-line G-code buttons, kept in that phone or browser), MDI and Settings.
+*Appearance* (above *Machine settings*): dark or light theme, accent colour, the colour of each axis and the
+size of the numbers, kept in that phone or browser.
 Below it the rest of the page: positions, Home All, program start / pause / resume / **STOP**, files (upload, draw, delete), one-line
 MDI, the H4 display and keys, the gamepad box, messages, machine settings, WiFi and firmware update.
 
