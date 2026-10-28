@@ -3,8 +3,8 @@
 // Copyright (c) 2026 Marioskiv
 // SPDX-License-Identifier: MIT
 //
-// Automatically when the app opens or comes back to the front (at most every 10 minutes), and at once with the
-// page's "Check for an app update" button (Settings, App), in the background: GitHub's public list of releases (no account, no key), the newest
+// Automatically each time the app opens (never while it is in use), and with the page's "Check for an app update"
+// button (Settings, App update), in the background: GitHub's public list of releases (no account, no key), the newest
 // "android-v<version>" release with an .apk. If it is newer than this app, a dialog offers to download it; the
 // download opens Android's installer.
 package com.marioskiv.h4cnc;
@@ -26,7 +26,6 @@ import java.util.Scanner;
 final class UpdateCheck {
     private static final String RELEASES = "https://api.github.com/repos/Marioskiv/nanoels-cnc/releases?per_page=30";
     private static final String TAG_PREFIX = "android-v";
-    private static final long EVERY_MS = 10 * 60 * 1000L;
 
     private UpdateCheck() {
     }
@@ -40,8 +39,7 @@ final class UpdateCheck {
     // manual: always, and it also says when this is already the newest version or GitHub cannot be reached
     static void check(final MainActivity activity, final boolean manual) {
         final SharedPreferences prefs = activity.getSharedPreferences("h4", Context.MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        if (busy || (!manual && now - prefs.getLong("updateCheck", 0) < EVERY_MS)) return;
+        if (busy) return;
         busy = true;
         final String current = BuildInfo.version(activity);
         new Thread(() -> {

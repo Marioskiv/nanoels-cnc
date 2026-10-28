@@ -211,7 +211,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <input type="text" id="ssid" placeholder="WiFi network name"><input type="password" id="pw" placeholder="password (empty = keep)">
 <button onclick="saveWifi()">Save WiFi and restart</button><div class="small" id="wifi"></div></div></div>
 <div class="spage" data-sp="app"><div class="pg">
-<div>H4 CNC app <b id="appVer">-</b>. It looks for a newer version by itself each time it opens (at most every 10 minutes).</div>
+<div>H4 CNC app <b id="appVer">-</b>. It looks for a newer version by itself each time it opens.</div>
 <button onclick="H4App.checkAppUpdate()">Check for an app update</button>
 <div class="small">A newer version is offered for download; Android installs it over this one and keeps the settings.</div></div></div>
 <div class="spage" data-sp="fw"><div class="pg">
