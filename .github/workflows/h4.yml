@@ -85,3 +85,4 @@ jobs:
             (WiFi and firmware, Firmware update) takes this .bin. The H4 keeps its machine settings.
             The first installation is over USB with the Arduino IDE (h4/GUIDE.md).
           files: h4-firmware-${{ steps.fw.outputs.version }}.bin
+          make_latest: false   # "latest" stays the app, so its fixed download link keeps working

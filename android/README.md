@@ -6,9 +6,8 @@ gamepad** through Android itself, so no browser setting is needed. Android 5.0 a
 
 ## Install
 
-1. On the phone open the repository's **Releases** page
-   (https://github.com/Marioskiv/nanoels-cnc/releases), take the newest *H4 CNC Android app* and download
-   `H4CNC-<version>.apk`.
+1. On the phone open **https://github.com/Marioskiv/nanoels-cnc/releases/latest/download/H4CNC.apk** (always the
+   newest app; in the browser, not the GitHub app). If the browser warns about an APK file, choose *Download anyway*.
 2. Open the downloaded file. Android asks to allow *install unknown apps* for the browser or the file manager:
    allow it (only for this install if you like). Play Protect may warn that the app is unknown: *Install anyway*.
 3. Open **H4 CNC** and type the address shown on the H4 display (e.g. `192.168.1.50`). The phone must be on the
