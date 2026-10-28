@@ -5,15 +5,26 @@
 #include <pgmspace.h>
 
 const char H4_WEB_PAGE[] PROGMEM = R"rawpage(<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>NanoEls H4 CNC</title>
 <style>
 :root{--bg:#111;--fg:#eee;--dim:#999;--card:#1c1c1c;--line:#333;--acc:#3a8ee6;--ok:#2e9e5b;--warn:#d9a21b;--bad:#d64040;--or:#ff9a1f;--btn:#2a2a2a;--in:#000;--ctl1:#151a24;--ctl2:#0d1016;--ctlb:#262d3a;--tile:#12161f;--tileb:#232a37;--btn2:#141922;--w1:#202734;--w2:#0e1219;--wb:#2a3240;--track:#273041;--dro:34px}
 body.light{--bg:#eef0f3;--fg:#15181d;--dim:#5b6470;--card:#fff;--line:#cfd5dd;--btn:#e7eaef;--in:#fff;--ctl1:#ffffff;--ctl2:#eef2f7;--ctlb:#cfd5dd;--tile:#f6f8fb;--tileb:#d6dce4;--btn2:#e9edf2;--w1:#ffffff;--w2:#e3e8ef;--wb:#cfd5dd;--track:#d6dce4}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
-header{display:flex;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-h1{font-size:18px;margin:0 auto 0 0}.badge{padding:4px 10px;border-radius:12px;background:var(--line);font-weight:600}
-main{display:grid;gap:12px;padding:12px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+html,body{overflow-x:hidden}
+header{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:10px;align-items:center;padding:8px 12px;padding-top:max(8px,env(safe-area-inset-top));border-bottom:1px solid var(--line)}
+.hstop{padding:6px 14px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
+h1{font-size:17px;margin:0 auto 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.badge{padding:4px 10px;border-radius:12px;background:var(--line);font-weight:600}
+main{display:grid;gap:12px;padding:12px;padding-bottom:calc(84px + env(safe-area-inset-bottom));grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));align-items:start}
+main>section{min-width:0}main>section[hidden]{display:none}
+/* tab bar (as in phone apps): one screen per tab, no long scrolling */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{position:relative;border:0;border-radius:0;background:none;padding:7px 2px 6px;font-size:11px;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tabs button.on{color:var(--or)}.tabs button.on::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--or)}
+.tabs .dot{position:absolute;top:4px;left:calc(50% + 8px);min-width:9px;height:9px;border-radius:5px;background:var(--bad)}.tabs .pct{position:absolute;top:3px;left:calc(50% + 10px);font:700 10px ui-monospace,monospace;color:var(--ok)}
+.toast{position:fixed;left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:6;background:#222;color:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;box-shadow:0 6px 20px #0008;transition:opacity .3s;max-width:560px;margin:auto}
+.toast.off{opacity:0;pointer-events:none}
 section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
 h2{font-size:15px;margin:0 0 8px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .dro{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font:600 32px ui-monospace,monospace}
@@ -24,7 +35,7 @@ button:active{filter:brightness(1.4)}button:disabled{opacity:.4}
 .start{background:var(--ok)}.pause{background:var(--warn);color:#000}.stop{background:var(--bad);font-weight:700;flex:1 1 100%;font-size:22px;padding:16px}
 .bar{height:14px;background:var(--line);border-radius:7px;overflow:hidden}.bar div{height:100%;background:var(--acc);width:0}
 table{width:100%;border-collapse:collapse;font-size:14px}td{padding:6px 4px;border-bottom:1px solid var(--line)}
-td:last-child{text-align:right;white-space:nowrap}td button{padding:6px 9px;font-size:14px}
+td{word-break:break-word}td:last-child{text-align:right;white-space:nowrap}td button{padding:6px 9px;font-size:14px}
 canvas{width:100%;aspect-ratio:1;background:#000;border-radius:8px}
 .keys{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.keys button{padding:12px 4px;font-size:14px}
 input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--in);color:var(--fg);width:100%}
@@ -33,7 +44,7 @@ input[type=text],input[type=password]{font:inherit;padding:8px;border-radius:6px
 .keys button.hold{touch-action:none;user-select:none;-webkit-user-select:none}.keys button.down{background:var(--acc)}
 #log{font:13px ui-monospace,monospace;white-space:pre-wrap;max-height:220px;overflow:auto;color:var(--dim)}
 details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;font-weight:600;padding:4px 0}
-.cfg{display:grid;grid-template-columns:1fr 150px;gap:6px 10px;align-items:center;font-size:14px;margin:6px 0}
+.cfg{display:grid;grid-template-columns:minmax(0,1fr) min(150px,42%);gap:6px 10px;align-items:center;font-size:14px;margin:6px 0}
 .cfg input[type=number],.cfg select{font:inherit;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--in);color:var(--fg);width:100%}
 .cfg input[type=color]{width:100%;height:36px;padding:2px;border-radius:6px;border:1px solid var(--line);background:var(--in)}
 .cfg .hint{grid-column:1/-1;font-size:12px;color:var(--dim);margin-top:-4px}.changed{outline:2px solid var(--warn)}
@@ -43,32 +54,32 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 .pill{padding:4px 12px;border-radius:14px;border:1px solid #2f6db3;color:#9ecbff;font-weight:700;letter-spacing:.05em}
 .grow{flex:1}.mini{padding:6px 12px;font-size:13px;font-weight:700;letter-spacing:.05em;background:var(--btn2)}
 .mini.go{color:#36d399}.mini.hold{color:var(--warn)}.mini.halt{color:#ff5a5a;border-color:#5a2020}
-.cgrid{display:grid;gap:14px;grid-template-columns:1fr}@media(min-width:760px){.cgrid{grid-template-columns:1fr 1fr}}
-.axis{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;border-radius:12px;
+.cgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}.cgrid>div{min-width:0}@media(min-width:760px){.cgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.axis{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 10px;margin-bottom:8px;border-radius:12px;
  background:var(--tile);border:1px solid var(--tileb);border-left:5px solid var(--c);cursor:pointer}
 .axis.sel{border-color:var(--c);box-shadow:0 0 14px -4px var(--c)}
-.axis .l{font:800 30px system-ui;color:var(--c)}.axis .v{font:600 var(--dro) ui-monospace,monospace;text-align:right}
+.axis .l{font:800 28px system-ui;color:var(--c)}.axis .v{font:600 min(var(--dro),8vw) ui-monospace,monospace;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:clip}
 .axis .v small{font-size:14px;color:var(--dim);margin-left:4px}.axis .m{grid-column:2;font:12px ui-monospace,monospace;color:var(--dim);text-align:right;margin-top:-6px}
-.axis .z{grid-row:1/3;grid-column:3;font-size:12px;padding:10px 12px;line-height:1.1}
-.chips{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:6px 0 10px}.chips button{padding:8px 0;font:600 14px ui-monospace,monospace}
+.axis .z{grid-row:1/3;grid-column:3;font-size:11px;padding:8px 8px;line-height:1.1}
+.chips{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:6px 0 10px}.chips button{min-width:0;padding:8px 0;font:600 14px ui-monospace,monospace}
 .chips button.on{background:var(--or);color:#000;border-color:var(--or)}
 .wheelrow{display:flex;align-items:center;justify-content:center;gap:14px}
 .round{width:56px;height:56px;border-radius:50%;font-size:26px;padding:0;background:var(--btn2)}
-.wheel{position:relative;width:min(64vw,230px);aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none}
+.wheel{position:relative;width:min(56vw,230px);aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none}
 .wheel svg{width:100%;height:100%}.wcenter{position:absolute;inset:26%;border-radius:50%;background:radial-gradient(var(--w1),var(--w2));
  display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--wb);pointer-events:none}
-.wcenter b{font:800 40px system-ui;color:var(--or)}.wcenter span{font:13px ui-monospace,monospace;color:var(--fg)}
-.ovr{display:grid;grid-template-columns:70px 40px 1fr 54px 40px;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--dim)}
+.wcenter b{font:800 40px system-ui;color:var(--or)}.wcenter .small{font:11px system-ui;white-space:nowrap}.wcenter span{font:13px ui-monospace,monospace;color:var(--fg)}
+.ovr{display:grid;grid-template-columns:52px 38px minmax(0,1fr) 46px 38px;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--dim)}
 .ovr button{padding:6px 0}.obar{height:6px;background:var(--track);border-radius:3px;overflow:hidden}.obar div{height:100%;background:var(--or);width:50%}
 .ovr b{color:var(--fg);font:600 14px ui-monospace,monospace;text-align:right}
-.cnav{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}.cnav button{padding:12px 4px;font-size:14px;background:var(--btn2)}
+.cnav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}.cnav button{min-width:0;padding:12px 2px;font-size:14px;background:var(--btn2)}
 .cnav button.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or)}
 .macros{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:10px}
 </style></head><body>
-<header><h1>NanoEls H4 CNC</h1><span class="badge" id="state">-</span><span class="small" id="wifi"></span></header>
+<header><h1 id="title">NanoEls H4 CNC</h1><span class="badge" id="state">-</span><button class="hstop" onclick="cmd('stop')">STOP</button></header>
 <main>
-<section class="ctl"><div class="ctop"><span class="pill" id="cState">-</span><span>WCS <b id="cWcs">G54</b></span><span>Units <b id="cUnits">mm</b></span>
-<span id="cRssi"></span><span class="grow"></span><button class="mini go" onclick="startSel()">START</button><button class="mini hold" id="cHold" onclick="cmd(st.state=='Hold'?'resume':'pause')">HOLD</button><button class="mini halt" onclick="cmd('stop')">STOP</button></div>
+<section class="ctl" data-tab="control"><div class="ctop"><span class="pill" id="cState">-</span><span>WCS <b id="cWcs">G54</b></span><span>Units <b id="cUnits">mm</b></span>
+<span id="cRssi"></span><span class="grow"></span><button class="mini go" onclick="startSel()">START</button><button class="mini hold" id="cHold" onclick="cmd(st.state=='Hold'?'resume':'pause')">HOLD</button></div>
 <div class="cgrid"><div id="axes"></div>
 <div><div class="small">STEP PER DETENT <b id="stepTxt"></b></div><div class="chips" id="chips"></div>
 <div class="wheelrow"><button class="round" id="jm">&minus;</button><div class="wheel" id="wheel"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="var(--w2)" stroke="var(--wb)"/><g id="ticks"></g>
@@ -77,14 +88,14 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 <div class="ovr"><span>FEED</span><button onclick="ovr(146)">&minus;</button><div class="obar"><div id="foBar"></div></div><b id="foTxt">100%</b><button onclick="ovr(145)">+</button></div>
 <div class="ovr"><span>RAPIDS</span><button onclick="ovr(st.ro>50?150:151)">&minus;</button><div class="obar"><div id="roBar"></div></div><b id="roTxt">100%</b><button onclick="ovr(st.ro<50?150:149)">+</button></div></div></div>
 <nav class="cnav"><button onclick="homeAll()">Home</button><button onclick="go('fileSec')">Files</button><button id="bMac" onclick="toggleMacros()">Macros</button>
-<button onclick="go('mdi')">MDI</button><button onclick="go('lookSec')">Settings</button></nav><div class="macros" id="macros" hidden></div></section>
-<section><h2>Position</h2>
+<button onclick="go('mdi')">MDI</button></nav><div class="macros" id="macros" hidden></div></section>
+<section data-tab="machine"><h2>Position</h2>
 <div class="dro"><span>X</span><span id="x">-</span><span>Z</span><span id="z">-</span><span id="cl">C</span><span id="c">-</span></div>
 <div class="small" id="info"></div><div class="small" id="mach"></div>
 <div class="row"><button id="bHome" onclick="if(confirm('Home All? The axes move to their switches.'))cmd('home')">Home All</button></div>
 <div class="small">Inputs (terminal A2): <span id="ins"></span></div></section>
 
-<section><h2>Program</h2>
+<section data-tab="program"><h2>Program</h2>
 <div><b id="pname">no program</b> <span class="small" id="stext"></span></div>
 <div class="bar"><div id="pbar"></div></div>
 <div class="small"><span id="ppct">0 %</span> &middot; <code id="pline"></code></div>
@@ -97,19 +108,19 @@ details{border-top:1px solid var(--line);padding:6px 0}summary{cursor:pointer;fo
 <div class="small">Keep a real emergency stop within reach. The page is a convenience, not a safety device.</div>
 <div id="msg"></div></section>
 
-<section><h2>Path</h2><canvas id="cv" width="600" height="600"></canvas>
+<section data-tab="program" style="order:1"><h2>Path</h2><canvas id="cv" width="600" height="600"></canvas>
 <div class="small" id="pathinfo">Select a file and press Draw.</div></section>
 
-<section id="fileSec"><h2>Files on the controller</h2>
+<section id="fileSec" data-tab="program"><h2>Files on the controller</h2>
 <form id="up" class="row"><input type="file" id="file" accept=".nc,.ngc,.gcode,.tap,.txt"><input type="submit" value="Upload"></form>
 <div class="bar"><div id="ubar"></div></div>
 <table id="files"></table><div class="small" id="fs"></div></section>
 
-<section><h2>H4 display and keys</h2><div class="lcd" id="lcd"></div><div style="height:8px"></div><div class="keys" id="keys"></div>
+<section data-tab="h4"><h2>H4 display and keys</h2><div class="lcd" id="lcd"></div><div style="height:8px"></div><div class="keys" id="keys"></div>
 <div class="small">The same as the keys on the controller. Arrows, GEARS and TURN move while held; if the page loses
 the connection the key is released within half a second.</div></section>
 
-<section><h2>Gamepad</h2><div id="gpstate">No gamepad.</div>
+<section data-tab="h4"><h2>Gamepad</h2><div id="gpstate">No gamepad.</div>
 <div class="small">PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). Hold <b>L1</b> to move:
 left stick Z, right stick X, L2 / R2 C+ / C-, R1 fast. L1 + Share = Home All, L1 + D-pad down = touch off Z,
 Options = STOP, PS = unlock ($X). D-pad (without L1): up / down feed +10 / &minus;10 %, left 100 %. Keep this page open in front; it stops when the page is hidden or the WiFi drops.
@@ -122,15 +133,15 @@ Options = STOP, PS = unlock ($X). D-pad (without L1): up / down feed +10 / &minu
 <label for="gpIX">Reverse X</label><input type="checkbox" id="gpIX"><label for="gpIZ">Reverse Z</label><input type="checkbox" id="gpIZ">
 <label for="gpIC">Reverse C</label><input type="checkbox" id="gpIC"></div></section>
 
-<section><h2>Diagnostics</h2><div id="diag" class="small">-</div>
+<section data-tab="machine"><h2>Diagnostics</h2><div id="diag" class="small">-</div>
 <div class="row"><button onclick="cmd('diagReset')">Clear</button></div>
 <div class="small">Measured by the controller itself since the program started (or Clear): the step interrupt must
 stay well below the time between two steps at the highest step rate, it should never start late, and the step buffer
 should never run empty. Run a program in the air at full speed with WiFi in use to see the real limits.</div></section>
 
-<section><h2>Messages</h2><div id="log">No messages.</div></section>
+<section id="logSec" data-tab="machine"><h2>Messages</h2><div id="log">No messages.</div></section>
 
-<section id="lookSec"><h2>Appearance</h2><div class="cfg">
+<section id="lookSec" data-tab="settings"><h2>Appearance</h2><div class="cfg">
 <label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select>
 <label for="lkAcc">Accent colour</label><input type="color" id="lkAcc">
 <label for="lkX">X colour</label><input type="color" id="lkX"><label for="lkZ">Z colour</label><input type="color" id="lkZ">
@@ -139,19 +150,20 @@ should never run empty. Run a program in the air at full speed with WiFi in use 
 <div class="row"><button onclick="lookReset()">Back to the original colours</button></div>
 <div class="small">Kept in this phone or browser only; the machine is not affected.</div></section>
 
-<section id="cfgSec"><h2>Machine settings</h2><div id="cfg" class="small">Loading...</div>
+<section id="cfgSec" data-tab="settings"><h2>Machine settings</h2><div id="cfg" class="small">Loading...</div>
 <div class="row"><button onclick="saveCfg()">Save and restart</button><button onclick="resetCfg()">Defaults from the firmware</button></div>
 <div class="small">Only while the machine is off. If the steps or the travel per turn of an axis (or the encoder) change,
 the saved positions, stops and other H4 values are cleared.</div></section>
 
-<section><h2>WiFi and firmware</h2>
+<section data-tab="settings"><h2>WiFi and firmware</h2>
 <div class="row"><input type="text" id="ssid" placeholder="WiFi network name"><input type="password" id="pw" placeholder="password (empty = keep)">
 <button onclick="saveWifi()">Save WiFi and restart</button></div>
 <div class="row"><input type="file" id="fw" accept=".bin"><button onclick="uploadFw()">Update firmware (.bin)</button></div>
 <div class="row" id="fwApp" style="display:none"><button onclick="H4App.checkFirmware()">Check for a firmware update (from GitHub)</button></div>
 <div class="small">Firmware <b id="fwVer">-</b>. The settings of the machine stay through an update.</div>
-<div class="small" id="fwmsg"></div></section>
+<div class="small" id="wifi"></div><div class="small" id="fwmsg"></div></section>
 </main>
+<nav class="tabs" id="tabs"><button data-t="control" onclick="tab('control')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3"/></svg><span>Control</span></button><button data-t="program" onclick="tab('program')"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>Program</span></button><button data-t="h4" onclick="tab('h4')"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/></svg><span>H4 keys</span></button><button data-t="machine" onclick="tab('machine')"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span>Machine</span></button><button data-t="settings" onclick="tab('settings')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button></nav><div class="toast off" id="toast"></div>
 <script>
 // Demo (the page opened with ?demo, e.g. in the Android app without an H4): a simulated machine answers instead
 // of the controller, so the page can be seen and tried. Nothing here runs when the page comes from an H4.
@@ -219,7 +231,7 @@ if(DEMO)(function(){
  window.XMLHttpRequest=function(){const x=this;x.upload={};x.open=()=>{};x.send=()=>setTimeout(()=>{x.responseText='Demo: files are not stored.';x.onload&&x.onload()},100)};
 })();
 const $=id=>document.getElementById(id);let st={},selected='',drawn=null,files=[];
-function msg(t){$('msg').textContent=t||''}
+let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
 async function post(url,body){const r=await fetch(url,{method:'POST',body});const t=await r.text();if(!r.ok)throw new Error(t);return t}
 async function cmd(c,extra){try{msg(await post('/cmd?do='+c+(extra||'')))}catch(e){msg(e.message)}}
 function startSel(){if(!selected){msg('Select a file first.');return}
@@ -247,7 +259,7 @@ function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(st.fw
  if(st.a2){const N=['A21 home X','A22 home Z','A23 alarm'],A=st.act||[0,0,0],U=st.use||[0,0,0];
   $('ins').textContent=N.map((n,i)=>n+': '+((st.in>>i)&1?'high':'LOW')+(U[i]?(A[i]?' (ACTIVE)':' (ok)'):'')).join(' · ')}
  else $('ins').textContent='used by handwheel 2';$('bMdi').disabled=!!st.running;
- if(st.log!==logSeen){logSeen=st.log;loadLog()}
+ if(st.log!==logSeen){logSeen=st.log;loadLog();if(logRead<0||curTab=='machine')logRead=st.log}tabBadges();
  drawPath()}
 async function listFiles(){try{const r=await fetch('/files');if(!r.ok){msg(await r.text());return}files=await r.json();
  $('files').innerHTML=files.map(f=>`<tr><td><label><input type="radio" name="sel" value="${f.name}" ${f.name==selected?'checked':''} onchange="selected=this.value"> ${f.name}</label></td><td>${(f.size/1024).toFixed(1)} kB</td><td><button onclick="draw('${f.name}')">Draw</button> <button onclick="bench('${f.name}')" title="Reads and plans the file as when it runs, nothing moves: is the controller fast enough for it?">Test</button> <button onclick="del('${f.name}')">Delete</button></td></tr>`).join('')||'<tr><td>No files yet.</td></tr>'}catch(e){msg(e.message)}}
@@ -391,7 +403,27 @@ function selAxis(a){jogAxis=a;ctlJogShow();axesShow()}
 function zeroAxis(a){const warn=a=='X'?'\n\nOn a polar machine X0 must stay the chuck centre: zero X only if the tool is exactly there.':'';
  if(confirm('Set '+a+' = 0 here (active work offset)?'+warn))gpMdi('G10 L20 P0 '+a+'0')}
 function homeAll(){if(confirm('Home All? The axes move to their switches.'))cmd('home')}
-function go(id){const e=$(id);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});if(id=='mdi')setTimeout(()=>$('mdi').focus(),400)}
+function go(id){const e=$(id);if(!e)return;const s=e.closest('section');if(s&&s.dataset.tab)tab(s.dataset.tab);
+ setTimeout(()=>{e.scrollIntoView({behavior:'smooth',block:'start'});if(id=='mdi')$('mdi').focus()},50)}
+// Tabs: one screen each (the phone's Back key goes to the tab before); the last tab is remembered.
+const TABS=['control','program','h4','machine','settings'];let curTab='';
+function tab(t,noHist){if(!TABS.includes(t))t='control';if(t==curTab)return;curTab=t;
+ document.querySelectorAll('main>section').forEach(s=>s.hidden=s.dataset.tab!=t);
+ document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
+ if(t=='machine'){logRead=logSeen;tabBadges()}if(t=='program')drawPath();
+ try{localStorage.setItem('h4tab',t)}catch(e){}window.scrollTo(0,0);
+ if(!noHist)try{history.pushState({t},'','#'+t)}catch(e){}}
+addEventListener('popstate',e=>tab((e.state&&e.state.t)||location.hash.slice(1)||'control',true));
+let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs button[data-t="'+q+'"]');
+ const m=b('machine'),p=b('program');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
+ if(unread&&!d){d=document.createElement('i');d.className='dot';m.appendChild(d)}if(!unread&&d)d.remove();
+ let c=p.querySelector('.pct');const run=st.running&&st.progress!==undefined;if(run&&!c){c=document.createElement('i');c.className='pct';p.appendChild(c)}
+ if(run)c.textContent=Math.floor(st.progress*100)+'%';else if(c)c.remove()}
+// swipe left / right changes the tab (not on the jog wheel, the drawing, fields or the H4 keys)
+(function(){let x0=null,y0=0,t0=0;addEventListener('touchstart',e=>{const t=e.target;
+ x0=t.closest('.wheel,canvas,input,select,textarea,.keys,.lcd,.chips,.obar,table')?null:e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
+ addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
+  if(Date.now()-t0<600&&Math.abs(dx)>80&&Math.abs(dx)>2*Math.abs(dy)){const i=TABS.indexOf(curTab)+(dx<0?1:-1);if(i>=0&&i<TABS.length)tab(TABS[i])}},{passive:true})})();
 function ctlJogShow(){$('chips').innerHTML=STEPS.map(v=>`<button class="${v==jogStep?'on':''}" onclick="setStep(${v})">${v<1?String(v).slice(1):v}</button>`).join('');
  const u=jogAxis=='C'?'°':(st.inch?' in':' mm');$('stepTxt').textContent=jogStep+u;$('wAxis').textContent=jogAxis;$('wAxis').style.color=AXC[jogAxis];$('wStep').textContent='±'+jogStep.toFixed(3)+u}
 function setStep(v){jogStep=v;try{localStorage.setItem('h4step',v)}catch(e){}ctlJogShow()}
@@ -424,7 +456,9 @@ function ctlShow(){const s=st.state||'-';$('cState').textContent=s.toUpperCase()
  $('cWcs').textContent=st.wcs||'G54';$('cUnits').textContent=st.inch?'inch':'mm';$('cRssi').textContent=st.rssi?st.rssi+' dBm':'';
  $('cHold').textContent=s=='Hold'?'RESUME':'HOLD';if(st.fo!==undefined){$('foTxt').textContent=st.fo+'%';$('foBar').style.width=(st.fo/2)+'%';$('roTxt').textContent=st.ro+'%';$('roBar').style.width=st.ro+'%'}
  axesShow()}
-ctlJogShow();
+ctlJogShow();if(DEMO)$('title').textContent='H4 CNC · DEMO';
+{let t0=location.hash.slice(1);if(!TABS.includes(t0))try{t0=localStorage.getItem('h4tab')}catch(e){}t0=TABS.includes(t0)?t0:'control';
+ tab(t0,true);try{history.replaceState({t:t0},'','#'+t0)}catch(e){}}
 listFiles();loadCfg();poll();
 </script></body></html>
 )rawpage";

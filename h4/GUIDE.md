@@ -161,15 +161,22 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
    address in your router (DHCP reservation), so it does not change.
 4. Android: the [H4 CNC app](../android/README.md) shows the same page full screen and reads a PS4 / PS5 gamepad.
 
-At the top the **control screen** (tablet or phone): X / Z / C in work coordinates with the machine position under
-them and a ZERO per axis (it asks first; on a polar machine X0 must stay the chuck centre), START / HOLD / STOP, the
-active work offset and WiFi signal, a **jog wheel** (tap an axis, pick the step per detent .001 ... 10, turn the wheel
-or press - / +; one move at a time, at the gamepad jog speed), feed and rapid overrides, and Home, Files, Macros
-(your own one-line G-code buttons, kept in that phone or browser), MDI and Settings.
-*Appearance* (above *Machine settings*): dark or light theme, accent colour, the colour of each axis and the
-size of the numbers, kept in that phone or browser.
-Below it the rest of the page: positions, Home All, program start / pause / resume / **STOP**, files (upload, draw, delete), one-line
-MDI, the H4 display and keys, the gamepad box, messages, machine settings, WiFi and firmware update.
+The page is split into screens, chosen with the **tab bar at the bottom** (or by swiping left / right; the phone's
+Back key goes to the screen before). It fits a phone's width; on a tablet or computer the parts of a screen sit side
+by side. **STOP** is always at the top right, whatever screen is open. Messages also appear for a few seconds above
+the tab bar; a red dot on *Machine* means a new message, and *Program* shows the progress while a program runs.
+
+- **Control**: X / Z / C in work coordinates with the machine position under them and a ZERO per axis (it asks
+  first; on a polar machine X0 must stay the chuck centre), START / HOLD, the active work offset and WiFi signal, a
+  **jog wheel** (tap an axis, pick the step per detent .001 ... 10, turn the wheel or press - / +; one move at a
+  time, at the gamepad jog speed), feed and rapid overrides, and Home, Files, Macros (your own one-line G-code
+  buttons, kept in that phone or browser) and MDI.
+- **Program**: start / pause / resume / **STOP**, overrides, one-line MDI, the files (upload, draw, test, delete)
+  and the drawing of the path.
+- **H4 keys**: the H4 display and keys, and the gamepad box.
+- **Machine**: positions, Home All, the inputs, diagnostics and messages.
+- **Settings**: *Appearance* (dark or light theme, accent colour, the colour of each axis and the size of the
+  numbers, kept in that phone or browser), machine settings, WiFi and firmware update.
 
 ## 7 First start checklist
 
