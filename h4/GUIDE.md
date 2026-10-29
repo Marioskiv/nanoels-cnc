@@ -226,8 +226,10 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 - **Turning on the lathe**: in the CAM choose the **LinuxCNC turning** post (Fusion 360 "LinuxCNC Turning",
   FreeCAD's LinuxCNC lathe post): mm, tool nose compensation in the computer (not G41/G42), no turning cycles
   (G70-G72), arcs allowed.
-- **Polar milling** (router on the cross slide, chuck on C): make a normal 3-axis XYZ milling program with any
-  post (LinuxCNC, Grbl, Fanuc) and convert it with the
+- **Polar milling** (router on the cross slide, chuck on C): make a normal 3-axis XYZ milling program and convert
+  it with the polar converter. Post: **LinuxCNC** (FreeCAD `linuxcnc`, Fusion 360 "LinuxCNC"; Generic GRBL works
+  too): mm, cutter compensation in the computer (not G41/G42), arcs in the XY plane only, retracts to a clearance
+  height. FreeCAD: set the feeds in the Tool Controller (0 gives moves without F, which are refused). Converter:
   [polar converter](https://marioskiv.github.io/polar-cnc-converter/) (output X Z C in G93). A milling program
   with Y moves cannot run on the H4 directly: it has no Y axis.
 - Programs over WiFi: upload on the page (stored in the H4, up to several MB) or stream from a Grbl sender
