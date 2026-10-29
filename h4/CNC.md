@@ -11,14 +11,28 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 
 - **Continuous motion with look-ahead** (the planner and step generator of
   [Grbl](https://github.com/gnea/grbl), ported to the ESP32-S3): the machine no longer stops at the end of
-  every line; corners are taken at a safe speed (`CNC_JUNCTION_DEVIATION`).
+  every line; corners are taken at a limited speed (`CNC_JUNCTION_DEVIATION`, see *Corners* below). The tool
+  always goes through every programmed point (G61, G64 and G64 P all mean that here; nothing is rounded off),
+  and G61.1 stops completely at the end of every move.
 - **X, Z and C move together**, step-synchronised (Bresenham with Grbl's multi-axis step smoothing),
   from one 20 MHz hardware timer.
-- **G93 inverse time**: each move takes exactly 1/F minutes, as polar programs (X radius, C angle) need.
-  G0 runs at the axes' rapid speed.
+- **G93 inverse time**: F gives the time of each move, 1/F minutes, as polar programs (X radius, C angle)
+  need. That is the time the planner aims for, not a guarantee: a move takes longer when an axis would have to
+  go faster than its maximum speed (then the whole move is slowed, all axes together, so the path does not
+  change), while the machine accelerates or decelerates (start, stop, a corner that needs a lower speed), and
+  with the feed override below 100 %. At 100 % it is never faster than 1/F. In the simulation of the author's
+  polar programs the total time is 1.7 % to 7 % longer than programmed (F test: 820 s instead of 767 s).
+  LinuxCNC does the same. G0 runs at the axes' rapid speed.
 - Accelerations and top speeds per axis are the `ACCELERATION_*` and `SPEED_MANUAL_MOVE_*` values of the
   sketch, so no new settings are needed. Backlash (`BACKLASH_DU_*`) is taken up before a reversal, with
-  the motor stopping before the carriage is driven.
+  the motor stopping before the carriage is driven. A STOP in the middle of a take-up is remembered: the next
+  move takes up only what is still missing, so the tool position stays exact.
+- **Step look-ahead by time**: the step generator keeps at least 0.1 s of motion prepared
+  (`CNC_SEGMENT_AHEAD_S`, up to 128 segments), so a run of very short G93 blocks does not empty it while the
+  feeding task is busy.
+- **Step rate limit**: the highest step rate per axis is 1 / (pulse width + direction setup time); a speed
+  setting above it is lowered with a message in the log, so a direction change never comes too close to the
+  next step.
 - The H4 display shows the positions while the program runs; the H4 position bookkeeping is kept exactly,
   so every other mode continues from the true position.
 
@@ -41,8 +55,11 @@ mixed in) and the author's real programs give the same positions and refuse the 
 | units, diameter | G21 (start), G20; G8 (start), G7: X words are diameters |
 | coordinates | G54 (= the H4's own zero, X0 / Z0 keys), G55, G56, G57, G58, G59, G59.1, G59.2, G59.3 |
 | offsets | G10 L2 P, G10 L20 P, G92, G92.1, G92.2, G92.3, G28 / G28.1, G30 / G30.1, G53 (machine coordinates) |
-| tool | G43.1 Z, G49; G43 H accepted with a note (no tool table yet: touch off Z); T, M6 pauses for the change, M61 |
-| other | G4 P (seconds), G40, G61, G61.1, G64 P Q, G97, G96 (noted: the spindle speed is set by hand), M0, M1, M2, M30, M60, M3, M4, M5, M7, M8, M9, M48-M53, S, N, `/` |
+| tool | G43.1 Z, G49; G43 H accepted with a note (no tool table yet: touch off Z); T selects, M6 stops the spindle and pauses with "tool change: put in tool T.., touch off Z, then ON / Resume"; M61 Q sets the tool without a change |
+| path | G61 and G64 [P Q] (start: G64): the path goes through every programmed point, corners are not rounded; G61.1: exact stop, every move ends at rest (an arc is one move) |
+| overrides | M48 (start) and M50 / M50 P1: feed and rapid overrides apply; M49 and M50 P0: they do not, the moves run at the programmed feed and full rapid speed (as LinuxCNC, whose feed override switch covers rapids too); M2 / M30 turn them on again |
+| spindle, coolant | M3, M4, M5, S, M7, M8, M9 (also M7 M8 on one line, as Grbl): the H4 does not switch a spindle motor or coolant, so the state is kept and shown (screen, web page, Grbl `$G`) and a pause or note tells the operator what to switch by hand; M2 / M30 stop both |
+| other | G4 P (seconds), G40, G97, G96 (noted: the spindle speed is set by hand), M0, M1 (optional stop: setting *M1 stops*, on by default), M2, M30, M60, N, `/`, `%` |
 | U, W | incremental X and Z, as Fanuc lathes and the CAM lathe posts use them (`G28 U0 W0`); U is a diameter in G7 |
 
 As in LinuxCNC: two codes of one group on a line are an error; G94 and G95 clear the feed, so the next feed
@@ -52,7 +69,23 @@ are kept in the controller (machine coordinates: they mean something after Home 
 
 Refused with the reason: G41 / G42 cutter compensation (post with compensation *in computer*), the turning
 cycles G70-G72 (post without cycles), G74 / G84 / G86-G88 (they stop or reverse the spindle), G76 with a taper
-(E), G38 probing, Y A B V axes, parameters (`#`), expressions and O-word subroutines.
+(E), G38 probing, M51 (spindle speed override: the spindle speed is set by hand), M52 (adaptive feed), M53 (feed
+stop switch), Y A B V axes, parameters (`#`), expressions and O-word subroutines.
+
+### Corners
+
+At a corner the planner (Grbl's method) does not slow down to zero: it goes through at a *junction speed*
+from the junction deviation and the accelerations, and the direction changes at once, so each axis changes
+its speed at once by a small amount. The calculation uses all axes together, X and Z in mm and C in degrees.
+Measured on the author's polar programs, on edge cases (lines through the centre, radius 0.02 to 102 mm,
+C reversals, sharp star points, zig-zag facing) and on random programs (`test/cnc_junctions.cpp`): **every
+axis stays within sqrt(8 x its acceleration x junction deviation), in its own units**, because the junction
+speed is limited by each axis's own acceleration. With 0.01 and the author's settings that is at most
+2.8 mm/s on X (2.1 motor turns/s), 4 mm/s on Z and 7.6 deg/s on C (0.22 motor turns/s): C, through its 10:1
+belts, gets the smallest jump of the three. The one effect of the units: for C the junction deviation counts
+in degrees, so the corner tolerance of C at a radius r is r x 0.01 x pi / 180 mm: 0.01 mm at r = 57 mm,
+0.019 mm at r = 110 mm, less nearer the centre; X and Z keep 0.01 mm. The run-time test checks the bound on
+every program (`cnc_junctions --check`). G61.1 avoids the jumps completely (every move from rest to rest).
 
 **Posts.** Milling for polar / wrap work: any 3-axis post (Grbl, LinuxCNC, Fanuc) through the polar converter.
 Turning straight on the H4: a LinuxCNC lathe post (G7, G18, U/W retracts are read).
@@ -81,8 +114,9 @@ cancel, the status report `<Idle|WPos:X,0,Z,C|Bf:..|FS:..>` (Y is always 0), `$$
 to the same interpreter as files. Machine settings are changed on the web page, not with `$x=` (a sender gets
 `error:3` and a message). **Feed and rapid overrides** work as in Grbl 1.1 (real-time bytes `0x90`-`0x94` feed
 100 % / +10 / -10 / +1 / -1, range 10-200 %; `0x95`-`0x97` rapids 100 / 50 / 25 %; `Ov:` in the status report):
-what is already planned is re-planned at once, as Grbl does. Spindle overrides and check mode `$C` are not
-supported (the H4 does not drive the spindle).
+what is already planned is re-planned at once, as Grbl does. A program with M49 or M50 P0 switches them off
+for its following moves (the page shows *off*). Spindle overrides and check mode `$C` are not supported (the H4
+does not drive the spindle).
 
 **PS4 / PS5 gamepad.** A plain ESP32 board with the sketch `h4_ps4_pendant` (folder next to `h4`) turns the
 gamepad into a jog pendant through this port (L1 deadman, sticks X/Z, triggers C, Home All, touch off Z,
@@ -212,8 +246,25 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
   programmed point and never leaves the straight line between them by more than one step; no axis is
   faster or accelerates harder than its setting; the step buffer never runs empty (with the feeding task
   pausing up to 50 ms); backlash take-up moves the motor and not the tool; a feed hold stops on the path
-  and the resume reaches the same end point. 64 programs: lathecode style, polar samples and random
-  programs with G0/G93/G94, holds and backlash, for two machine settings.
+  and the resume reaches the same end point. About 120 runs: lathecode style, polar samples and random
+  programs with G0/G93/G94, holds, overrides and backlash, for two machine settings. `--stops all` proves
+  that G61.1 ends every move at rest (the step generator reports speed 0 at the end of the move and at the
+  start of the next one) and `--stops none` that the same path in G64 goes through without stopping;
+- `cnc_junctions --check`: the corner bound above, on polar and random programs;
+- `cnc_sim --delayed --pulse-us --dir-us`: the STEP / DIR pin timing as the interrupt drives the pins (pulse
+  width, direction set before the next step, spacing) at 5, 10 and 20 us direction setup;
+- `cnc_sim --stop-at S`: STOP in the middle of a program (also inside a backlash take-up), then a new move
+  must reach its end point exactly; soft limits and G-code errors in `cnc_parse_test`;
+- `g93_hard.ngc`: G93 blocks of one step, very short and very long blocks, C-only and X-only moves;
+- `cam_check.py`: real programs written by FreeCAD 26.3 (GRBL and LinuxCNC posts, `test/cam/`): straight to the
+  H4 they are refused at the first Y move with nothing moved before; through the polar converter they run in
+  the simulation and match LinuxCNC's interpreter;
+- `cnc_parse_test` also checks M48 / M49 / M50 (state and the planned speed with overrides at 50 % / 25 %),
+  M51-M53 refused and the `%` start / end line;
+- with `RS274=/path/to/rs274`: `lcnc_compare.py` (positions and refused lines against LinuxCNC's own
+  interpreter, 1000 random programs and the samples) and `modes_compare.py` (M48 / M49 / M50, G61 / G61.1 /
+  G64, spindle, coolant and tool in force for the same moves as in LinuxCNC, 500 random programs). GitHub Actions run all of it on every
+  change.
 
 ## License
 

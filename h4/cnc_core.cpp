@@ -17,8 +17,9 @@
   SPDX-License-Identifier: GPL-3.0-or-later
 
   Differences from Grbl: three axes (X, Z, C) instead of X, Y, Z; a 32-bit step timer, so no
-  prescaler and no 16-bit limit; backlash take-up blocks; no spindle, laser, parking, overrides,
-  homing or probing. The planner and the segment generator run in one task; the interrupt only
+  prescaler and no 16-bit limit; backlash take-up blocks; no spindle, laser, parking, homing or
+  probing; feed / rapid overrides as Grbl 1.1, switched off per block by M49 / M50 P0 (as LinuxCNC);
+  G61.1 exact stop per block. The planner and the segment generator run in one task; the interrupt only
   reads the segment buffer, exactly as in Grbl. On the dual-core ESP32 the hand-over of a segment
   is fenced with a memory barrier.
 */
@@ -47,6 +48,7 @@ typedef struct {
   float previous_unit_vec[CNC_N_AXIS];
   float previous_nominal_speed;
   bool previous_was_backlash;
+  bool previous_exact_stop;           // G61.1: the previous block ends at rest
 } planner_t;
 static planner_t pl;
 static float last_block_minutes;  // length / nominal speed of the last planned block (no acceleration)
@@ -180,7 +182,9 @@ static uint8_t rapid_override = 100;
 
 static float plan_compute_profile_nominal_speed(const cnc_block_t* block) {
   float nominal_speed = block->programmed_rate;
-  if (block->condition & CNC_COND_RAPID) {
+  if (block->condition & CNC_COND_NO_OVERRIDE) {  // M49 / M50 P0, as LinuxCNC: neither feed nor rapid override
+    if (!(block->condition & CNC_COND_RAPID) && nominal_speed > block->rapid_rate) nominal_speed = block->rapid_rate;
+  } else if (block->condition & CNC_COND_RAPID) {
     nominal_speed *= 0.01f * rapid_override;
   } else {
     if (!(block->condition & CNC_COND_BACKLASH)) nominal_speed *= 0.01f * feed_override;
@@ -235,9 +239,10 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
     if (condition & CNC_COND_INVERSE_TIME) block->programmed_rate *= block->millimeters;
   }
 
-  if (block_buffer_head == block_buffer_tail || pl.previous_was_backlash) {
+  if (block_buffer_head == block_buffer_tail || pl.previous_was_backlash || pl.previous_exact_stop) {
     // Starts from rest. Also after a backlash take-up: the motor stops when the slack is taken up, so
-    // the carriage is not hit at speed, then the move accelerates normally.
+    // the carriage is not hit at speed, then the move accelerates normally. And after a G61.1 block (exact
+    // stop, as LinuxCNC: every move of that mode ends at rest).
     block->entry_speed_sqr = 0.0f;
     block->max_junction_speed_sqr = 0.0f;
   } else {
@@ -267,6 +272,7 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
   pl.previous_nominal_speed = nominal_speed;
   memcpy(pl.previous_unit_vec, unit_vec, sizeof(unit_vec));
   pl.previous_was_backlash = (condition & CNC_COND_BACKLASH) != 0;
+  pl.previous_exact_stop = (condition & CNC_COND_EXACT_STOP) != 0;
 
   block_buffer_head = next_buffer_head;
   next_buffer_head = plan_next_block_index(block_buffer_head);
@@ -275,6 +281,7 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
 }
 
 void (*cnc_plan_trace)(const int32_t target[CNC_N_AXIS], uint32_t line) = 0;
+void (*cnc_st_block_event)(uint32_t line, uint8_t condition, bool start, float speed) = 0;
 
 bool cnc_plan_buffer_line(const int32_t target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t line) {
   if (cnc_plan_trace) cnc_plan_trace(target, line);
@@ -350,6 +357,8 @@ typedef struct {
   uint8_t st_block_index;
   uint8_t amass_level;
 } segment_t;
+// Timer ticks of motion in a segment (n_step and cycles_per_tick are scaled the opposite way by AMASS).
+static inline uint64_t segment_ticks(const segment_t* s) { return (uint64_t)(s->n_step ? s->n_step : 1) * s->cycles_per_tick; }
 static segment_t segment_buffer[CNC_SEGMENT_BUFFER_SIZE];
 
 typedef struct {
@@ -416,7 +425,18 @@ static uint8_t st_next_block_index(uint8_t i) { i++; return i == (CNC_SEGMENT_BU
 void cnc_st_prep_buffer() {
   if (step_control & STEP_CONTROL_END_MOTION) return;
 
-  while (segment_buffer_tail != segment_next_head) {
+  // Motion already prepared, in timer ticks. The segment at the tail is left out: the interrupt may be running it
+  // and nearly done (a slow segment can last longer than the whole look-ahead), so the next one is always ready.
+  uint64_t ahead = 0;
+  if (segment_buffer_tail != segment_buffer_head) {
+    for (uint8_t i = (segment_buffer_tail + 1 == CNC_SEGMENT_BUFFER_SIZE) ? 0 : segment_buffer_tail + 1; i != segment_buffer_head;
+         i = (i + 1 == CNC_SEGMENT_BUFFER_SIZE) ? 0 : i + 1) {
+      ahead += segment_ticks(&segment_buffer[i]);
+    }
+  }
+  const uint64_t aheadWanted = (uint64_t)(CNC_SEGMENT_AHEAD_S * settings.timerHz);
+
+  while (segment_buffer_tail != segment_next_head && ahead < aheadWanted) {
     if (pl_block == NULL) {
       pl_block = plan_get_current_block();
       if (pl_block == NULL) return;
@@ -444,6 +464,7 @@ void cnc_st_prep_buffer() {
         } else {
           prep.current_speed = sqrtf(pl_block->entry_speed_sqr);
         }
+        if (cnc_st_block_event) cnc_st_block_event(pl_block->line, pl_block->condition, true, prep.current_speed);
       }
 
       // Velocity profile of the block (see the drawing in Grbl stepper.c).
@@ -579,7 +600,9 @@ void cnc_st_prep_buffer() {
       }
     } while (mm_remaining > prep.mm_complete);
 
-    float step_dist_remaining = prep.step_per_mm * mm_remaining;
+    // never more steps left than before (float rounding of step_per_mm * mm can give one more, e.g. a hold that
+    // ends where a block starts: the segment would get -1 steps and a period of 0)
+    float step_dist_remaining = fminf(prep.step_per_mm * mm_remaining, prep.steps_remaining);
     float n_steps_remaining = ceilf(step_dist_remaining);
     float last_n_steps_remaining = ceilf(prep.steps_remaining);
     prep_segment->n_step = (uint32_t)(last_n_steps_remaining - n_steps_remaining);
@@ -608,6 +631,7 @@ void cnc_st_prep_buffer() {
       prep_segment->n_step <<= prep_segment->amass_level;
     }
     prep_segment->cycles_per_tick = cycles;
+    ahead += segment_ticks(prep_segment);
 
     // Hand the segment to the interrupt: everything it reads is written before the head moves.
     CNC_BARRIER();
@@ -624,6 +648,7 @@ void cnc_st_prep_buffer() {
         step_control |= STEP_CONTROL_END_MOTION;
         return;
       }
+      if (cnc_st_block_event) cnc_st_block_event(pl_block->line, pl_block->condition, false, prep.current_speed);
       pl_block = NULL;
       plan_discard_current_block();
     }

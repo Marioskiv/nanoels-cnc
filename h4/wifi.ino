@@ -229,6 +229,11 @@ void handleStatus() {
   json += ",\"rssi\":" + String(wifiSetupAp ? 0 : WiFi.RSSI());
   json += ",\"fw\":\"" FW_VERSION "\"";
   json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
+  if (!modes.overridesEnabled) json += ",\"ovrOff\":1";
+  // what the program asked of the spindle, coolant and tool (the H4 switches neither spindle nor coolant)
+  json += ",\"spin\":" + String(modes.spindle) + ",\"sp\":" + String(modes.spindleSpeed, 0) +
+      ",\"cool\":\"" + String(modes.mist && modes.flood ? "M7 M8" : (modes.mist ? "M7" : (modes.flood ? "M8" : ""))) + "\"" +
+      ",\"tool\":" + String(modes.tool);  // M49 / M50 P0 in the program: the overrides do not apply
   json += ",\"estop\":" + String(emergencyStop);
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
   json += ",\"fsTotal\":" + String((unsigned long)fsTotalBytes);

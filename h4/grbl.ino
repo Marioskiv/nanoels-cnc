@@ -324,7 +324,9 @@ void grblParserState(int ch) {
   s += String(" ") + cs[m.coord] + " G" + String(m.plane / 10) + (m.inches ? " G20" : " G21") + (m.incremental ? " G91" : " G90");
   s += m.feedMode == 930 ? " G93" : (m.feedMode == 950 ? " G95" : " G94");
   s += m.diameter ? " G7" : " G8";
-  s += " M5 M9 T0 F" + String(m.feed, 1) + " S0]";
+  s += " M" + String(m.spindle);
+  s += m.mist && m.flood ? " M7 M8" : (m.mist ? " M7" : (m.flood ? " M8" : " M9"));
+  s += " T" + String(m.tool) + " F" + String(m.feed, 1) + " S" + String(m.spindleSpeed, 0) + "]";
   grblWriteLine(ch, s);
 }
 

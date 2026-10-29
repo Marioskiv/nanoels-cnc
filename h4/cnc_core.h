@@ -33,7 +33,10 @@
 #define CNC_C 2
 
 #define CNC_BLOCK_BUFFER_SIZE 64     // planner blocks (look-ahead)
-#define CNC_SEGMENT_BUFFER_SIZE 24   // step segments, about 0.23 s of motion at 100 segments per second
+#define CNC_SEGMENT_BUFFER_SIZE 128  // step segments (a segment never spans two blocks: room for many short ones)
+#define CNC_SEGMENT_AHEAD_S 0.1      // the step generator prepares this much motion ahead, whatever the block
+                                     // length: covers pauses of the feeding task, and a hold or an override takes
+                                     // effect after at most this time
 #define CNC_ACCELERATION_TICKS_PER_SECOND 100
 #define CNC_MINIMUM_FEED_RATE 1.0f   // units/min
 #define CNC_MINIMUM_JUNCTION_SPEED 0.0f
@@ -43,6 +46,8 @@
 #define CNC_COND_RAPID 0x01        // G0: moves at the rapid rate of the axes
 #define CNC_COND_INVERSE_TIME 0x02 // G93: feed is 1/minutes for the whole block
 #define CNC_COND_BACKLASH 0x04     // takes up backlash: the motor moves, the tool does not
+#define CNC_COND_NO_OVERRIDE 0x08  // M49 / M50 P0: the feed and rapid overrides do not apply to this block
+#define CNC_COND_EXACT_STOP 0x10   // G61.1: the motion stops completely at the end of this block
 
 typedef struct {
   float stepsPerUnit[CNC_N_AXIS];  // steps per mm (X, Z) or per degree (C)
@@ -87,6 +92,8 @@ void cnc_plan_reset();                                  // empties everything an
 void cnc_plan_sync_position(const int32_t steps[CNC_N_AXIS]);
 bool cnc_plan_buffer_line(const int32_t target[CNC_N_AXIS], float feed, uint8_t condition, uint32_t line);
 extern void (*cnc_plan_trace)(const int32_t target[CNC_N_AXIS], uint32_t line);  // tests: every line target
+// tests: the step generator starts (start = true) or finishes a block, at this speed (units/min)
+extern void (*cnc_st_block_event)(uint32_t line, uint8_t condition, bool start, float speed);
 bool cnc_plan_buffer_backlash(int axis, int32_t steps, bool negative, uint32_t line);
 uint8_t cnc_plan_blocks_free();
 uint8_t cnc_plan_blocks_used();

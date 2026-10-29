@@ -79,6 +79,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"cncDir", 'l', (void*)&DIRECTION_SETUP_DELAY_US, 0, 100, "GCODE mode", "Direction set-up time before a step (LinuxCNC DIRSETUP)", "µs"},
   {"cncStops", 'b', (void*)&CNC_RESPECT_STOPS, 0, 1, "GCODE mode", "Refuse moves outside the H4 stops", ""},
   {"cncArc", 'f', (void*)&CNC_ARC_TOLERANCE, 0.0005, 0.1, "GCODE mode", "Arc tolerance (G2/G3 cut in straight pieces)", "mm"},
+  {"cncM1", 'b', (void*)&CNC_OPTIONAL_STOP, 0, 1, "GCODE mode", "Optional stop: M1 pauses the program", ""},
   {"grblUsb", 'b', (void*)&GRBL_ON_USB, 0, 1, "GCODE mode", "USB speaks the Grbl protocol (UGS, gSender, CNCjs); WiFi port 23 always does", ""},
 
   {"hxUse", 'b', (void*)&HOME_X_USE, 0, 1, "Home switch and limits X (A21)", "Home switch connected", ""},
@@ -157,12 +158,15 @@ String configCrossCheck(const double* values) {
     double speed = values[configIndex((String(axes[a]) + "Speed").c_str())];
     if (start > speed) return String("Start speed above the maximum speed (") + axes[a] + ")";
   }
+  // as cncStepRateLimit(): pulse + the longer of pulse and direction set-up time between two steps of one axis
   double pulse = values[configIndex("cncPulse")];
-  double rateLimit = 1000000.0 / (2 * (pulse < 1 ? 1 : pulse));
+  if (pulse < 1) pulse = 1;
+  double dirSetup = values[configIndex("cncDir")];
+  double rateLimit = 1000000.0 / (pulse + (dirSetup > pulse ? dirSetup : pulse));
   for (int a = 0; a < 3; a++) {
     if (values[configIndex((String(axes[a]) + "Speed").c_str())] > rateLimit) {
       return String("Maximum speed of ") + axes[a] + " above " + String((long)rateLimit) +
-          " steps/s, the most the step pulse length allows";
+          " steps/s, the most the step pulse and direction set-up times allow";
     }
   }
   if (values[configIndex("aAct")] != 0 && values[configIndex("p1Use")] != 0) {

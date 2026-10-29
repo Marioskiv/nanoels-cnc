@@ -17,10 +17,25 @@
     --task-gap-ms N   longest pause of the task that feeds the step buffer (default 50)
     --hold-at S       start a feed hold after S seconds, resume 0.5 s after it has stopped
     --backlash X,Z,C  backlash in steps
-    --machine marios|h4default
+    --machine marios|h4default|fast   (fast: 100 000 steps/s on every axis, near the interrupt's limit)
     --ovr S:F:R       at S seconds set the feed override to F % and the rapid override to R % (repeatable)
     --delayed         step output as the H4 interrupt does it: a step computed by one interrupt is put out at the
                       start of the next one; checks that "not busy" never comes while a step is still pending
+    --pulse-us P --dir-us D  with --delayed: the step pins as the H4 drives them (cncOnTimer): a step is put out at
+                      the start of an interrupt and held P us, the direction pins of the next step are set when
+                      that pulse ends, and the next interrupt waits until they have been set D us. Checks that on
+                      every axis a direction change comes at least D us before its step and never during a pulse,
+                      and that two steps of one axis are at least 2 P us apart (pulse and pause), also when a
+                      direction wait made a step late. Defaults: P 4, D 5 (the firmware's defaults).
+    --stop-at S       STOP after S seconds, as the firmware does it: a feed hold, and when the motion has stopped
+                      the rest of the program is dropped. Checks that it stops on the path (within the speed and
+                      acceleration limits) and that a new move from there reaches its target exactly.
+    --stops all|none  checks the motion at the end of every programmed move (where the next point belongs to
+                      another line; the pieces of an arc are one move): "all" = it stops there (G61.1), "none" =
+                      it goes on without stopping (G64 on a path without sharp corners). The step generator
+                      reports the speed at which it finishes each block and starts the next one: a stop is 0 at
+                      both. Shown as well: the time from the last step before the point to the first step after
+                      it (several ms after a stop, a fraction of a ms when the tool goes through at speed).
 */
 #include "../cnc_core.h"
 #include "../cnc_gcode.h"
@@ -45,6 +60,14 @@ static void traceTarget(const int32_t p[CNC_N_AXIS], uint32_t line) {
 
 static const uint32_t TIMER_HZ = 20000000;
 
+// --stops: what the step generator reports when it starts and finishes each block
+struct BlockEvent { uint32_t line; uint8_t condition; bool start; float speed; };
+static std::vector<BlockEvent> blockEvents;
+static void blockEvent(uint32_t line, uint8_t condition, bool start, float speed) {
+  BlockEvent e; e.line = line; e.condition = condition; e.start = start; e.speed = speed;
+  blockEvents.push_back(e);
+}
+
 static std::string stripComments(const std::string& raw) {
   std::string out;
   bool inParen = false;
@@ -54,7 +77,7 @@ static std::string stripComments(const std::string& raw) {
     if (c == ';') break;
     out += c;
   }
-  while (!out.empty() && (out.back() == ' ' || out.back() == '\r' || out.back() == '\t')) out.pop_back();
+  while (!out.empty() && (out.back() == ' ' || out.back() == '\r' || out.back() == '\t' || out.back() == '\n')) out.pop_back();
   size_t b = out.find_first_not_of(" \t");
   return b == std::string::npos ? "" : out.substr(b);
 }
@@ -67,19 +90,29 @@ int main(int argc, char** argv) {
   struct Ovr { double at; int feed, rapid; bool done; };
   std::vector<Ovr> ovrs;
   bool delayed = false;
+  const char* stopsMode = NULL;
+  double pulseUs = 4, dirUs = 5, stopAt = -1;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--task-gap-ms")) taskGapMs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--hold-at")) holdAt = atof(argv[++i]);
     else if (!strcmp(argv[i], "--backlash")) sscanf(argv[++i], "%d,%d,%d", &backlash[0], &backlash[1], &backlash[2]);
     else if (!strcmp(argv[i], "--machine")) machineName = argv[++i];
     else if (!strcmp(argv[i], "--delayed")) delayed = true;
+    else if (!strcmp(argv[i], "--stops")) stopsMode = argv[++i];
+    else if (!strcmp(argv[i], "--pulse-us")) pulseUs = atof(argv[++i]);
+    else if (!strcmp(argv[i], "--dir-us")) dirUs = atof(argv[++i]);
+    else if (!strcmp(argv[i], "--stop-at")) stopAt = atof(argv[++i]);
     else if (!strcmp(argv[i], "--ovr")) { Ovr o; o.done = false; sscanf(argv[++i], "%lf:%d:%d", &o.at, &o.feed, &o.rapid); ovrs.push_back(o); }
     else file = argv[i];
   }
   if (!file) { fprintf(stderr, "usage: cnc_sim [options] program.ngc\n"); return 2; }
 
   cnc_settings_t s;
-  if (!strcmp(machineName, "h4default")) {
+  if (!strcmp(machineName, "fast")) {
+    // near the step-rate limit of the H4 interrupt (4 us pulse: 125 000 steps/s): 100 000 steps/s on every axis
+    s.stepsPerUnit[CNC_X] = 3200; s.stepsPerUnit[CNC_Z] = 3200; s.stepsPerUnit[CNC_C] = 200;
+    for (int i = 0; i < CNC_N_AXIS; i++) { s.maxRate[i] = 100000.0f / s.stepsPerUnit[i] * 60; s.acceleration[i] = 2000000.0f / s.stepsPerUnit[i] * 3600; }
+  } else if (!strcmp(machineName, "h4default")) {
     // The values of the unchanged H4 sketch: Z 800 steps / 2 mm, X 2400 steps / 1.25 mm, A1 300 steps / 2 deg.
     s.stepsPerUnit[CNC_X] = 2400 / 1.25f; s.stepsPerUnit[CNC_Z] = 800 / 2.0f; s.stepsPerUnit[CNC_C] = 300 / 2.0f;
     s.maxRate[CNC_X] = 3 * 2400 / s.stepsPerUnit[CNC_X] * 60; s.maxRate[CNC_Z] = 6 * 800 / s.stepsPerUnit[CNC_Z] * 60;
@@ -92,6 +125,11 @@ int main(int argc, char** argv) {
     s.stepsPerUnit[CNC_X] = 1200; s.stepsPerUnit[CNC_Z] = 400; s.stepsPerUnit[CNC_C] = 91.733333f;
     s.maxRate[CNC_X] = 12 * 60; s.maxRate[CNC_Z] = 25 * 60; s.maxRate[CNC_C] = 360 * 60;
     s.acceleration[CNC_X] = 100 * 3600; s.acceleration[CNC_Z] = 200 * 3600; s.acceleration[CNC_C] = 720 * 3600;
+  }
+  if (delayed) {
+    // as the firmware (cncStepRateLimit): no axis faster than pulse + the longer of pulse and direction set-up
+    double limit = 1e6 / (pulseUs + (dirUs > pulseUs ? dirUs : pulseUs));
+    for (int i = 0; i < CNC_N_AXIS; i++) if (s.maxRate[i] / 60 * s.stepsPerUnit[i] > limit) s.maxRate[i] = (float)(limit / s.stepsPerUnit[i] * 60);
   }
   s.junctionDeviation = 0.01f;
   s.timerHz = TIMER_HZ;
@@ -123,6 +161,7 @@ int main(int argc, char** argv) {
   std::vector<Target> targets;
   traceTargets = &targets;
   cnc_plan_trace = traceTarget;
+  if (stopsMode) cnc_st_block_event = blockEvent;
   size_t lineIdx = 0, targetIdx = 0;
   int32_t from[CNC_N_AXIS] = {0, 0, 0};
   int errors = 0, underruns = 0, pauses = 0, warnings = 0;
@@ -142,15 +181,54 @@ int main(int argc, char** argv) {
   double idealMin = 0;  // sum of the programmed block times (G93: 1/F)
   bool idleSinceStart = true;
   cnc_tick_t pend; bool pendValid = false; int pendingWhileIdle = 0;
+  // --stops: time of the step that reached a move's end point, then the gap to the next step
+  uint64_t endStepAt = 0; bool atMoveEnd = false;
+  // --delayed: the pin timing model (times in us)
+  double pinStep[CNC_N_AXIS] = {-1e9, -1e9, -1e9}, pinDir[CNC_N_AXIS] = {-1e9, -1e9, -1e9};
+  int pinDirNeg[CNC_N_AXIS] = {-1, -1, -1};
+  double dirSetAt = -1e9, minSpacing = 1e9, minDirLead = 1e9, maxLateUs = 0; int pinErrors = 0, dirChanges = 0;
+  bool maxFeedOver100 = false;
+  for (Ovr& o : ovrs) if (o.feed > 100) maxFeedOver100 = true;
+  // --stop-at
+  bool stopRequested = false, stopped = false; int32_t stopPos[CNC_N_AXIS] = {0, 0, 0};
+  size_t stopLine = 0;
+  std::vector<double> gapsMs;  // per move end, in the order the tool reaches them
 
   auto done = [&]() { return lineIdx >= lines.size() && !waitingIdle && !cnc_st_busy(); };
 
   while (!done()) {
+    if (now > (uint64_t)TIMER_HZ * 36000) {  // 10 hours of machine time: something never ends
+      printf("  did not finish: line %zu of %zu, busy %d, hold %d/%d, stop %d/%d, blocks %d\n", lineIdx, lines.size(), cnc_st_busy(),
+             cnc_hold_active(), cnc_hold_complete(), stopRequested, stopped, cnc_plan_blocks_used());
+      errors++;
+      break;
+    }
     // ---- the feeding task
     if (now >= nextTask) {
       // what the firmware reads as "motion finished" must mean every step was given
       if (pendValid && (!cnc_st_busy() || cnc_hold_complete())) pendingWhileIdle++;
       if (holdAt >= 0 && !holdRequested && now >= (uint64_t)(holdAt * TIMER_HZ)) { cnc_hold_start(); holdRequested = true; }
+      if (stopAt >= 0 && !stopRequested && now >= (uint64_t)(stopAt * TIMER_HZ)) { cnc_hold_start(); stopRequested = true; stopLine = lineIdx; }
+      if (stopRequested && !stopped && (cnc_hold_complete() || !cnc_st_busy())) {
+        // the firmware's STOP: the rest is dropped (cncSyncFromAxes), the position is where the tool stands
+        stopped = true;
+        memcpy(stopPos, tool, sizeof(tool));
+        cnc_st_reset();
+        cnc_plan_reset();
+        cnc_gc_reset_modes();
+        bool neg[CNC_N_AXIS];
+        for (int i = 0; i < CNC_N_AXIS; i++) neg[i] = motor[i] != tool[i];
+        int32_t z0[CNC_N_AXIS] = {0, 0, 0};
+        cnc_gc_sync(tool, z0, neg);
+        for (int i = 0; i < CNC_N_AXIS; i++) cnc_gc_set_slack(i, tool[i] - motor[i]);  // as the firmware's cncSyncFromAxes
+        targets.resize(targetIdx);  // what was planned and not done is gone
+        memcpy(from, tool, sizeof(from));
+        // the operator then sends the tool somewhere: it must get there exactly
+        lines.resize(lineIdx);
+        lines.push_back("G90 G94 G0 X1 Z1 C0\n");
+        lines.push_back("G1 X2 Z0.5 F300\n");
+        waitingIdle = false;
+      }
       for (Ovr& o : ovrs) {
         if (!o.done && now >= (uint64_t)(o.at * TIMER_HZ)) { cnc_set_overrides((uint8_t)o.feed, (uint8_t)o.rapid); o.done = true; }
       }
@@ -158,7 +236,7 @@ int main(int argc, char** argv) {
         if (holdStopAt == 0) holdStopAt = now;
         if (now >= holdStopAt + TIMER_HZ / 2) { cnc_hold_resume(); holdDone = true; }
       }
-      if (!cnc_hold_active()) {
+      if (!cnc_hold_active() && !(stopRequested && !stopped)) {
         if (waitingIdle) {
           if (!cnc_st_busy()) {
             if (pendingAction == CNC_DWELL) {
@@ -175,6 +253,8 @@ int main(int argc, char** argv) {
           std::string code = stripComments(lines[lineIdx]);
           if (code.empty() || code == "%") { lineIdx++; continue; }
           char msg[128]; float dwell = 0;
+          int32_t before[CNC_N_AXIS];
+          memcpy(before, cnc_plan_position(), sizeof(before));
           int r = cnc_gc_line(code.c_str(), (uint32_t)(lineIdx + 1), msg, sizeof(msg), &dwell);
           if (r == CNC_WAIT) break;
           if (r == CNC_DWELL_MORE) {  // a cycle dwells, then the same line goes on
@@ -190,7 +270,9 @@ int main(int argc, char** argv) {
             errors++; lineIdx = lines.size(); break;
           }
           if (msg[0]) { warnings++; }
-          idealMin += cnc_plan_last_block_minutes();  // (an arc counts its last piece only: a rough figure)
+          // programmed time: the block this line planned (a line that did not move adds nothing; an arc counts
+          // its last piece only, so programs with arcs give a rough figure)
+          if (memcmp(before, cnc_plan_position(), sizeof(before)) != 0) idealMin += cnc_plan_last_block_minutes();
           lineIdx++;
           if (r == CNC_DWELL || r == CNC_PAUSE || r == CNC_END) { waitingIdle = true; pendingAction = r; dwellLeft = dwell; break; }
         }
@@ -232,8 +314,38 @@ int main(int argc, char** argv) {
         memset(&tick, 0, sizeof(tick));
         if (pendValid) tick = pend;
         pendValid = false;
+        // pin timing: the pending step goes out now, or later if its direction pins were set less than D us ago
+        double tUs = (double)now * 1e6 / TIMER_HZ, outUs = tUs;
+        if (tick.step) {
+          if (outUs < dirSetAt + dirUs) outUs = dirSetAt + dirUs;
+          if (outUs - tUs > maxLateUs) maxLateUs = outUs - tUs;
+          for (int i = 0; i < CNC_N_AXIS; i++) {
+            if (!(tick.step & (1 << i))) continue;
+            double sp = outUs - pinStep[i];
+            if (sp < minSpacing) minSpacing = sp;
+            if (sp < 2 * pulseUs - 1e-6) { if (pinErrors < 5) printf("  %c: steps %.2f us apart (pulse %.1f us)\n", "XZC"[i], sp, pulseUs); pinErrors++; }
+            double lead = outUs - pinDir[i];
+            if (lead < minDirLead) minDirLead = lead;
+            if (lead < dirUs - 1e-6) { if (pinErrors < 5) printf("  %c: direction set %.2f us before the step\n", "XZC"[i], lead); pinErrors++; }
+            pinStep[i] = outUs;
+          }
+        }
         active = cnc_isr(&comp);
-        if (active && comp.step) { pend = comp; pendValid = true; }
+        if (active && comp.step) {
+          pend = comp; pendValid = true;
+          // its direction pins are set when this interrupt's pulse ends (at once if there was no pulse)
+          double setUs = tick.step ? outUs + pulseUs : tUs;
+          bool changed = false;
+          for (int i = 0; i < CNC_N_AXIS; i++) {
+            if (!(comp.step & (1 << i))) continue;
+            int dn = (comp.dirNeg >> i) & 1;
+            if (dn != pinDirNeg[i]) {
+              if (setUs < pinStep[i] + pulseUs - 1e-6) { if (pinErrors < 5) printf("  %c: direction changed during a pulse\n", "XZC"[i]); pinErrors++; }
+              pinDirNeg[i] = dn; pinDir[i] = setUs; changed = true; dirChanges++;
+            }
+          }
+          if (changed) dirSetAt = setUs;
+        }
         tick.period = comp.period;
       } else {
         active = cnc_isr(&tick);
@@ -250,6 +362,10 @@ int main(int argc, char** argv) {
           tool[i] += d;
           steps[i]++;
         }
+      }
+      if (tick.step && !tick.motorOnly && atMoveEnd) {  // first step after a move's end point
+        gapsMs.push_back((double)(now - endStepAt) * 1000.0 / TIMER_HZ);
+        atMoveEnd = false;
       }
       if (tick.step && !tick.motorOnly) {
         // path check against the programmed straight line
@@ -271,10 +387,20 @@ int main(int argc, char** argv) {
           }
           if (memcmp(tool, b, sizeof(tool)) == 0) {
             memcpy(from, b, sizeof(from));
+            // a move ends here when the next point belongs to another line (arc pieces share their line)
+            if (stopsMode && targetIdx + 1 < targets.size() && targets[targetIdx + 1].line != targets[targetIdx].line) {
+              atMoveEnd = true; endStepAt = now;
+            }
             targetIdx++;
           }
           break;
         }
+      }
+      if (tick.period == 0) {
+        printf("  the step interrupt asked to be called again at once (period 0) at %.6f s, line %zu\n", (double)now / TIMER_HZ, lineIdx);
+        errors++;
+        lineIdx = lines.size(); waitingIdle = false; cnc_st_reset(); cnc_plan_reset();
+        break;
       }
       nextIsr = now + tick.period;
     }
@@ -300,8 +426,50 @@ int main(int argc, char** argv) {
     if (maxAccSeen[i] > s.acceleration[i] * 1.05) { printf("  %c accelerates harder than allowed\n", "XZC"[i]); fails++; }
   }
   for (int i = 0; i < CNC_N_AXIS; i++) {
-    int32_t expectMotor = tool[i] - ((backlash[i] > 0 && cnc_gc_last_neg(i)) ? backlash[i] : 0);
+    int32_t expectMotor = tool[i] - cnc_gc_slack(i);
     if (motor[i] != expectMotor) { printf("  %c motor %d, expected %d\n", "XZC"[i], motor[i], expectMotor); fails++; }
+  }
+  if (stopsMode) {
+    // a move ends where the next block belongs to another line; its end speed and the next block's start speed
+    int moveEnds = 0, stopped = 0;
+    double maxStopSpeed = 0, minGoSpeed = 1e9;
+    for (size_t k = 0; k + 1 < blockEvents.size(); k++) {
+      const BlockEvent& e = blockEvents[k];
+      if (e.start || (e.condition & CNC_COND_BACKLASH)) continue;
+      const BlockEvent* next = NULL;
+      for (size_t q = k + 1; q < blockEvents.size(); q++) if (blockEvents[q].start && !(blockEvents[q].condition & CNC_COND_BACKLASH)) { next = &blockEvents[q]; break; }
+      if (!next || next->line == e.line) continue;
+      moveEnds++;
+      double v = e.speed > next->speed ? e.speed : next->speed;
+      if (v == 0) { stopped++; if (v > maxStopSpeed) maxStopSpeed = v; } else if (v < minGoSpeed) minGoSpeed = v;
+    }
+    double gMin = 1e9, gMax = 0;
+    for (double g : gapsMs) { if (g < gMin) gMin = g; if (g > gMax) gMax = g; }
+    printf("  move ends: %d, at rest (end and next start at speed 0) at %d; slowest pass-through %.3f /min; "
+           "time from the last step to the next %.3f ... %.3f ms\n",
+           moveEnds, stopped, minGoSpeed < 1e9 ? minGoSpeed : 0.0, gapsMs.empty() ? 0.0 : gMin, gMax);
+    bool want = !strcmp(stopsMode, "all");
+    if (moveEnds == 0 || (want && stopped != moveEnds) || (!want && stopped != 0)) {
+      printf("  expected %s move ends at rest\n", want ? "all" : "no");
+      fails++;
+    }
+  }
+  if (delayed) {
+    printf("  pins: closest steps of one axis %.2f us (needs %.1f), direction set %.2f us before its step at the least "
+           "(needs %.1f), %d direction changes, a step late by up to %.2f us\n", minSpacing < 1e9 ? minSpacing : 0.0,
+           2 * pulseUs, minDirLead < 1e9 ? minDirLead : 0.0, dirUs, dirChanges, maxLateUs);
+    fails += pinErrors;
+  }
+  if (holdAt >= 0 && holdStopAt) printf("  hold: the tool stood still %.0f ms after the request\n", ((double)holdStopAt / TIMER_HZ - holdAt) * 1000);
+  if (stopAt >= 0) {
+    printf("  STOP at %.1f s (line %zu): stopped at %d %d %d, then moved on to %d %d %d\n", stopAt, stopLine,
+           stopPos[0], stopPos[1], stopPos[2], tool[0], tool[1], tool[2]);
+    if (!stopped) { printf("  the STOP did not end\n"); fails++; }
+  }
+  // the programmed time is the fastest possible: at feed override <= 100 % the motion never takes less
+  if (!maxFeedOver100 && stopAt < 0 && idealMin * 60 > (double)now / TIMER_HZ + 0.01) {
+    printf("  faster than programmed: %.3f s for %.3f s\n", (double)now / TIMER_HZ, idealMin * 60);
+    fails++;
   }
   printf("  %s\n", fails ? "FAIL" : "OK");
   return fails ? 1 : 0;
