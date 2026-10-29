@@ -48,6 +48,10 @@ done
 # step and direction pins as the H4 drives them, near the highest step rate, direction set-up 5 / 10 / 20 us
 for d in 5 10 20; do run pins_sample.ngc --machine fast --delayed --dir-us $d; done
 for i in 111 112 113; do python3 gen_random.py "$i" > "$OUT/r.ngc"; run "$OUT/r.ngc" --machine fast --delayed --dir-us 10 --backlash 40,80,3; done
+# direction hold (LinuxCNC DIRHOLD): a direction pin changes only H us after the axis' last pulse ended; with the
+# author's driver timing (STEPLEN 5, DIRSETUP 10, DIRHOLD 10 us) and near the highest step rate
+for h in 0 10 20; do run pins_sample.ngc --machine fast --delayed --pulse-us 5 --dir-us 10 --dirhold-us $h; done
+run polar_sample.ngc --machine fast --delayed --pulse-us 5 --dir-us 10 --dirhold-us 10 --backlash 40,80,3
 # STOP in the middle of a program: stops on the path, the rest is dropped, a new move from there is exact
 run polar_sample.ngc --stop-at 20
 run polar_sample.ngc --stop-at 33 --delayed --backlash 120,240,5
@@ -65,6 +69,10 @@ open('$OUT/rate.ngc', 'w').write('\\n'.join(L + ['G94', 'M2']) + '\\n')"
 run "$OUT/rate.ngc" --machine marios --task-gap-ms 50
 for f in "$@"; do run "$f"; done
 echo "simulation: $fail failure(s)"
+# G93: every move ends when the sum of 1/F says, without a drift over many moves (FluidNC issue 1372), also for
+# moves shorter than one step and moves slower than a step every few seconds
+python3 g93_timing.py "$OUT/cnc_sim" > "$OUT/g93t.txt" || { cat "$OUT/g93t.txt"; fail=$((fail + 1)); }
+tail -1 "$OUT/g93t.txt"
 # corners: no axis changes its speed at once by more than sqrt(8 x its acceleration x junction deviation),
 # in its own units (X, Z mm, C degrees), on polar and random programs
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_junctions" cnc_junctions.cpp ../cnc_gcode.cpp

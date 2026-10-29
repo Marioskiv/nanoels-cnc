@@ -77,6 +77,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"cncJd", 'f', (void*)&CNC_JUNCTION_DEVIATION, 0.001, 1, "GCODE mode", "Corner tolerance, junction deviation", "mm"},
   {"cncPulse", 'i', (void*)&CNC_STEP_PULSE_US, 1, 50, "GCODE mode", "Step pulse length", "µs"},
   {"cncDir", 'l', (void*)&DIRECTION_SETUP_DELAY_US, 0, 100, "GCODE mode", "Direction set-up time before a step (LinuxCNC DIRSETUP)", "µs"},
+  {"cncHold", 'l', (void*)&DIRECTION_HOLD_US, 0, 100, "GCODE mode", "Direction hold time after a step (LinuxCNC DIRHOLD)", "µs"},
   {"cncStops", 'b', (void*)&CNC_RESPECT_STOPS, 0, 1, "GCODE mode", "Refuse moves outside the H4 stops", ""},
   {"cncArc", 'f', (void*)&CNC_ARC_TOLERANCE, 0.0005, 0.1, "GCODE mode", "Arc tolerance (G2/G3 cut in straight pieces)", "mm"},
   {"cncM1", 'b', (void*)&CNC_OPTIONAL_STOP, 0, 1, "GCODE mode", "Optional stop: M1 pauses the program", ""},

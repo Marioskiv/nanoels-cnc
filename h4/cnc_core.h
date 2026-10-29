@@ -38,7 +38,11 @@
                                      // length: covers pauses of the feeding task, and a hold or an override takes
                                      // effect after at most this time
 #define CNC_ACCELERATION_TICKS_PER_SECOND 100
-#define CNC_MINIMUM_FEED_RATE 1.0f   // units/min
+// Lowest planned speed, units/min. Grbl uses 1.0, but then a G93 move asked to take longer (a step every few tenths
+// of a second, or the time of moves too short for a step added to the next one) runs faster than 1/F. At 0.001 a
+// 1200 steps/mm axis makes a step every 50 s, within the step generator's period cap (200 s); only a move slower
+// than that still runs faster than asked.
+#define CNC_MINIMUM_FEED_RATE 0.001f
 #define CNC_MINIMUM_JUNCTION_SPEED 0.0f
 #define CNC_SOME_LARGE_VALUE 1.0E+38f
 

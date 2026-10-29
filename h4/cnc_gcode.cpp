@@ -50,6 +50,9 @@ static double mOff[CNC_N_AXIS];      // machine coordinate of step 0 (homing), m
 // Backlash of each axis not taken up, in steps: tool position - motor position, 0 (last moved up) ... backlash
 // (last moved down). A take-up stopped half way (STOP) leaves a value in between; the next take-up is what is left.
 static int32_t slack[CNC_N_AXIS];
+// G93 time (minutes) of moves too short to make a step: LinuxCNC moves the tool for 1/F even when the motion is less
+// than one motor step, so that time is added to the next G93 move that steps (the planner has no block without steps).
+static double g93Carry = 0;
 
 // modes
 static int motionMode;               // G code * 10 of the motion group, 800 = G80 (no motion mode)
@@ -169,6 +172,7 @@ void cnc_gc_reset_modes() {
 }
 
 void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t machineOffset[CNC_N_AXIS], const bool neg[CNC_N_AXIS]) {
+  g93Carry = 0;
   for (int i = 0; i < CNC_N_AXIS; i++) {
     slack[i] = neg[i] ? machine.backlashSteps[i] : 0;
     absPos[i] = pos[i] / spu(i);
@@ -251,6 +255,21 @@ static void planLine(const double target[CNC_N_AXIS], float feed, uint8_t condit
   if (exactStop && moveEnd) condition |= CNC_COND_EXACT_STOP;
   int32_t t[CNC_N_AXIS];
   const int32_t* pl = cnc_plan_position();
+  bool moves = false, steps = false;
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    if (target[i] != absPos[i]) moves = true;
+    if (toSteps(i, target[i]) != pl[i]) steps = true;
+  }
+  if (!(condition & CNC_COND_INVERSE_TIME)) {
+    g93Carry = 0;
+  } else if (moves && !steps) {
+    if (feed > 0) g93Carry += 1.0 / feed;
+    for (int i = 0; i < CNC_N_AXIS; i++) absPos[i] = target[i];
+    return;
+  } else if (steps && g93Carry > 0) {
+    feed = (float)(1.0 / (1.0 / feed + g93Carry));
+    g93Carry = 0;
+  }
   for (int i = 0; i < CNC_N_AXIS; i++) {
     t[i] = toSteps(i, target[i]);
     int32_t d = t[i] - pl[i];
