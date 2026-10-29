@@ -22,7 +22,10 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
   change), while the machine accelerates or decelerates (start, stop, a corner that needs a lower speed), and
   with the feed override below 100 %. At 100 % it is never faster than 1/F. In the simulation of the author's
   polar programs the total time is 1.7 % to 7 % longer than programmed (F test: 820 s instead of 767 s).
-  LinuxCNC does the same. G0 runs at the axes' rapid speed.
+  LinuxCNC does the same. G0 runs at the axes' rapid speed. As in LinuxCNC, a move shorter than one motor step
+  still takes its 1/F: its time is added to the next G93 move that makes a step (a G0 or G94 move in between
+  drops it), and slow moves are not sped up (lowest planned speed 0.001 units/min, Grbl used 1). Over many
+  moves the time does not drift (`test/g93_timing.py`, the case of FluidNC issue 1372).
 - Accelerations and top speeds per axis are the `ACCELERATION_*` and `SPEED_MANUAL_MOVE_*` values of the
   sketch, so no new settings are needed. Backlash (`BACKLASH_DU_*`) is taken up before a reversal, with
   the motor stopping before the carriage is driven. A STOP in the middle of a take-up is remembered: the next
@@ -30,8 +33,12 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 - **Step look-ahead by time**: the step generator keeps at least 0.1 s of motion prepared
   (`CNC_SEGMENT_AHEAD_S`, up to 128 segments), so a run of very short G93 blocks does not empty it while the
   feeding task is busy.
-- **Step rate limit**: the highest step rate per axis is 1 / (pulse width + direction setup time); a speed
-  setting above it is lowered with a message in the log, so a direction change never comes too close to the
+- **Step and direction timing** as LinuxCNC's `STEPLEN`, `STEPSPACE` (= the pulse length), `DIRSETUP` and
+  `DIRHOLD`: settings *Step pulse length*, *Direction set-up time* and *Direction hold time*. A direction pin
+  changes only after the hold time since the last pulse, and at least the set-up time before the next step; after
+  an interrupt that came late the pin still rests a pulse length before the next pulse.
+- **Step rate limit**: the highest step rate per axis is 1 / (pulse + the longer of pulse and hold + set-up); a
+  speed setting above it is lowered with a message in the log, so a direction change never comes too close to the
   next step.
 - The H4 display shows the positions while the program runs; the H4 position bookkeeping is kept exactly,
   so every other mode continues from the true position.
@@ -251,8 +258,11 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
   that G61.1 ends every move at rest (the step generator reports speed 0 at the end of the move and at the
   start of the next one) and `--stops none` that the same path in G64 goes through without stopping;
 - `cnc_junctions --check`: the corner bound above, on polar and random programs;
-- `cnc_sim --delayed --pulse-us --dir-us`: the STEP / DIR pin timing as the interrupt drives the pins (pulse
-  width, direction set before the next step, spacing) at 5, 10 and 20 us direction setup;
+- `cnc_sim --delayed --pulse-us --dir-us --dirhold-us`: the STEP / DIR pin timing as the interrupt drives the pins
+  (pulse width, spacing, direction set before the next step and held after the last one) at 5, 10 and 20 us
+  direction setup and 0, 10 and 20 us hold;
+- `g93_timing.py`: G93 moves of 1, 2, 3, 7, 60 steps, shorter than a step and slower than a step every few
+  seconds, on X alone and X Z C together, up to 2000 moves: every move ends when the sum of 1/F says, no drift;
 - `cnc_sim --stop-at S`: STOP in the middle of a program (also inside a backlash take-up), then a new move
   must reach its end point exactly; soft limits and G-code errors in `cnc_parse_test`;
 - `g93_hard.ngc`: G93 blocks of one step, very short and very long blocks, C-only and X-only moves;

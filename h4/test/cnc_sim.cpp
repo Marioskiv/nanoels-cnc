@@ -26,10 +26,12 @@
                       that pulse ends, and the next interrupt waits until they have been set D us. Checks that on
                       every axis a direction change comes at least D us before its step and never during a pulse,
                       and that two steps of one axis are at least 2 P us apart (pulse and pause), also when a
-                      direction wait made a step late. Defaults: P 4, D 5 (the firmware's defaults).
+                      direction wait made a step late; --dirhold-us H: a direction changes at least H us after the
+                      axis' last pulse (LinuxCNC DIRHOLD). Defaults: P 4, D 5, H 5 (the firmware's defaults).
     --stop-at S       STOP after S seconds, as the firmware does it: a feed hold, and when the motion has stopped
                       the rest of the program is dropped. Checks that it stops on the path (within the speed and
                       acceleration limits) and that a new move from there reaches its target exactly.
+    --reach-times     prints "R <line> <seconds>" when the tool reaches each planned point (g93_timing.py)
     --stops all|none  checks the motion at the end of every programmed move (where the next point belongs to
                       another line; the pieces of an arc are one move): "all" = it stops there (G61.1), "none" =
                       it goes on without stopping (G64 on a path without sharp corners). The step generator
@@ -91,7 +93,8 @@ int main(int argc, char** argv) {
   std::vector<Ovr> ovrs;
   bool delayed = false;
   const char* stopsMode = NULL;
-  double pulseUs = 4, dirUs = 5, stopAt = -1;
+  double pulseUs = 4, dirUs = 5, holdUs = 5, stopAt = -1;
+  bool reachTimes = false;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--task-gap-ms")) taskGapMs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--hold-at")) holdAt = atof(argv[++i]);
@@ -99,8 +102,10 @@ int main(int argc, char** argv) {
     else if (!strcmp(argv[i], "--machine")) machineName = argv[++i];
     else if (!strcmp(argv[i], "--delayed")) delayed = true;
     else if (!strcmp(argv[i], "--stops")) stopsMode = argv[++i];
+    else if (!strcmp(argv[i], "--reach-times")) reachTimes = true;
     else if (!strcmp(argv[i], "--pulse-us")) pulseUs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--dir-us")) dirUs = atof(argv[++i]);
+    else if (!strcmp(argv[i], "--dirhold-us")) holdUs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--stop-at")) stopAt = atof(argv[++i]);
     else if (!strcmp(argv[i], "--ovr")) { Ovr o; o.done = false; sscanf(argv[++i], "%lf:%d:%d", &o.at, &o.feed, &o.rapid); ovrs.push_back(o); }
     else file = argv[i];
@@ -128,7 +133,7 @@ int main(int argc, char** argv) {
   }
   if (delayed) {
     // as the firmware (cncStepRateLimit): no axis faster than pulse + the longer of pulse and direction set-up
-    double limit = 1e6 / (pulseUs + (dirUs > pulseUs ? dirUs : pulseUs));
+    double limit = 1e6 / (pulseUs + (holdUs + dirUs > pulseUs ? holdUs + dirUs : pulseUs));
     for (int i = 0; i < CNC_N_AXIS; i++) if (s.maxRate[i] / 60 * s.stepsPerUnit[i] > limit) s.maxRate[i] = (float)(limit / s.stepsPerUnit[i] * 60);
   }
   s.junctionDeviation = 0.01f;
@@ -186,7 +191,8 @@ int main(int argc, char** argv) {
   // --delayed: the pin timing model (times in us)
   double pinStep[CNC_N_AXIS] = {-1e9, -1e9, -1e9}, pinDir[CNC_N_AXIS] = {-1e9, -1e9, -1e9};
   int pinDirNeg[CNC_N_AXIS] = {-1, -1, -1};
-  double dirSetAt = -1e9, minSpacing = 1e9, minDirLead = 1e9, maxLateUs = 0; int pinErrors = 0, dirChanges = 0;
+  double dirSetAt = -1e9, minSpacing = 1e9, minDirLead = 1e9, minDirHold = 1e9, maxLateUs = 0, pulseEndAny = -1e9;
+  int pinErrors = 0, dirChanges = 0;
   bool maxFeedOver100 = false;
   for (Ovr& o : ovrs) if (o.feed > 100) maxFeedOver100 = true;
   // --stop-at
@@ -329,18 +335,26 @@ int main(int argc, char** argv) {
             if (lead < dirUs - 1e-6) { if (pinErrors < 5) printf("  %c: direction set %.2f us before the step\n", "XZC"[i], lead); pinErrors++; }
             pinStep[i] = outUs;
           }
+          pulseEndAny = outUs + pulseUs;
         }
         active = cnc_isr(&comp);
         if (active && comp.step) {
           pend = comp; pendValid = true;
           // its direction pins are set when this interrupt's pulse ends (at once if there was no pulse)
+          // (a change waits until H us after the last pulse ended: the direction hold)
           double setUs = tick.step ? outUs + pulseUs : tUs;
           bool changed = false;
+          for (int i = 0; i < CNC_N_AXIS; i++) {
+            if ((comp.step & (1 << i)) && ((comp.dirNeg >> i) & 1) != pinDirNeg[i] && setUs < pulseEndAny + holdUs) setUs = pulseEndAny + holdUs;
+          }
           for (int i = 0; i < CNC_N_AXIS; i++) {
             if (!(comp.step & (1 << i))) continue;
             int dn = (comp.dirNeg >> i) & 1;
             if (dn != pinDirNeg[i]) {
               if (setUs < pinStep[i] + pulseUs - 1e-6) { if (pinErrors < 5) printf("  %c: direction changed during a pulse\n", "XZC"[i]); pinErrors++; }
+              double hold = setUs - (pinStep[i] + pulseUs);
+              if (pinStep[i] > -1e8 && hold < minDirHold) minDirHold = hold;
+              if (pinStep[i] > -1e8 && hold < holdUs - 1e-6) { if (pinErrors < 5) printf("  %c: direction changed %.2f us after its pulse\n", "XZC"[i], hold); pinErrors++; }
               pinDirNeg[i] = dn; pinDir[i] = setUs; changed = true; dirChanges++;
             }
           }
@@ -387,6 +401,7 @@ int main(int argc, char** argv) {
           }
           if (memcmp(tool, b, sizeof(tool)) == 0) {
             memcpy(from, b, sizeof(from));
+            if (reachTimes) printf("R %u %.6f\n", targets[targetIdx].line, (double)now / TIMER_HZ);
             // a move ends here when the next point belongs to another line (arc pieces share their line)
             if (stopsMode && targetIdx + 1 < targets.size() && targets[targetIdx + 1].line != targets[targetIdx].line) {
               atMoveEnd = true; endStepAt = now;
@@ -456,8 +471,9 @@ int main(int argc, char** argv) {
   }
   if (delayed) {
     printf("  pins: closest steps of one axis %.2f us (needs %.1f), direction set %.2f us before its step at the least "
-           "(needs %.1f), %d direction changes, a step late by up to %.2f us\n", minSpacing < 1e9 ? minSpacing : 0.0,
-           2 * pulseUs, minDirLead < 1e9 ? minDirLead : 0.0, dirUs, dirChanges, maxLateUs);
+           "(needs %.1f) and changed %.2f us after its last pulse at the least (needs %.1f), %d direction changes, a step "
+           "late by up to %.2f us\n", minSpacing < 1e9 ? minSpacing : 0.0, 2 * pulseUs, minDirLead < 1e9 ? minDirLead : 0.0,
+           dirUs, minDirHold < 1e9 ? minDirHold : 0.0, holdUs, dirChanges, maxLateUs);
     fails += pinErrors;
   }
   if (holdAt >= 0 && holdStopAt) printf("  hold: the tool stood still %.0f ms after the request\n", ((double)holdStopAt / TIMER_HZ - holdAt) * 1000);

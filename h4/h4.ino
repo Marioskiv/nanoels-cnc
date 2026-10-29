@@ -81,6 +81,7 @@ const long PASSES_MAX = 999; // No more turn or face passes than this
 const long SAFE_DISTANCE_DU = 5000; // Step back 0.5mm from the material when moving between cuts in automated modes
 const long SAVE_DELAY_US = 5000000; // Wait 5s after last save and last change of saveable data before saving again
 long DIRECTION_SETUP_DELAY_US = 5; // Stepper driver needs some time to adjust to direction change (LinuxCNC DIRSETUP)
+long DIRECTION_HOLD_US = 5; // GCODE mode: the direction stays this long after a step pulse ends before it changes (LinuxCNC DIRHOLD)
 const long STEPPED_ENABLE_DELAY_MS = 100; // Delay after stepper is enabled and before issuing steps
 
 // Version of the pref storage format, should be changed when non-backward-compatible
@@ -150,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.5"
+#define FW_VERSION "1.6"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1615,6 +1616,7 @@ static cnc_tick_t cncPending;                   // computed, put out by the next
 static bool cncPendingValid = false;
 static bool cncDirWait = false;                 // the direction pins changed for the pending step
 static uint32_t cncDirSetCycles = 0;
+static uint32_t cncPulseEndCycles = 0;          // when the last step pulse ended (direction hold counts from it)
 // Self-measurement, shown on the web page (Diagnostics): no instrument is needed to see the limits.
 volatile uint32_t cncDiagIsrMaxCycles = 0;      // longest interrupt
 volatile uint32_t cncDiagLateMaxTicks = 0;      // latest start after its alarm (timer ticks)
@@ -1684,16 +1686,25 @@ static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_eve
     uint32_t pulseCycles = CNC_STEP_PULSE_US * cncCpuCyclesPerUs;
     while (esp_cpu_get_cycle_count() - pulseStart < pulseCycles) {}
     REG_WRITE(GPIO_OUT_W1TS_REG, stepMask);
+    cncPulseEndCycles = esp_cpu_get_cycle_count();
   }
 
-  // 4. Direction pins of the next step.
+  // 4. Direction pins of the next step. A driver reads the direction at the edge that ends (or starts) a pulse,
+  // through optocouplers that may switch at different speeds: the pin keeps its level DIRECTION_HOLD_US after the
+  // last pulse (LinuxCNC DIRHOLD) before it changes.
   if (cncPendingValid) {
+    bool holdDone = false;
     for (int i = 0; i < CNC_N_AXIS; i++) {
       if (!(cncPending.step & (1 << i))) continue;
       Axis* a = cncAxis(i);
       bool positive = !(cncPending.dirNeg & (1 << i));
       // a->direction is the cache that setDir() uses: keep it true so manual moves set the pin correctly later.
       if (!a->directionInitialized || a->direction != positive) {
+        if (!holdDone) {
+          uint32_t holdCycles = DIRECTION_HOLD_US * cncCpuCyclesPerUs;
+          while (esp_cpu_get_cycle_count() - cncPulseEndCycles < holdCycles) {}
+          holdDone = true;
+        }
         a->direction = positive;
         a->directionInitialized = true;
         if (positive ^ a->invertStepper) REG_WRITE(GPIO_OUT_W1TS_REG, 1UL << a->dir);
@@ -1706,10 +1717,12 @@ static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_eve
 
   uint32_t used = esp_cpu_get_cycle_count() - cycles0;
   if (used > cncDiagIsrMaxCycles) cncDiagIsrMaxCycles = used;
-  // Next tick, never in the past even if this one took long.
+  // Next tick, never in the past even if this one took long. After a late interrupt the pin still rests at least as
+  // long as a pulse (LinuxCNC STEPSPACE = STEPLEN here) and at least 5 us before the next pulse.
   uint64_t elapsed = used / cncCpuCyclesPerTick;
   uint64_t next = edata->alarm_value + t.period;
-  uint64_t earliest = edata->count_value + elapsed + 100;
+  uint64_t space = (uint64_t)CNC_STEP_PULSE_US * (CNC_TIMER_HZ / 1000000);
+  uint64_t earliest = edata->count_value + elapsed + (space > 100 ? space : 100);
   gptimer_alarm_config_t alarm = {};
   alarm.alarm_count = next > earliest ? next : earliest;
   gptimer_set_alarm_action(timer, &alarm);
@@ -1768,12 +1781,13 @@ void cncRunBench() {
 }
 
 // The highest step rate the interrupt can give on one axis. Between two steps there must be the pulse and a pause
-// as long again, and before a step in the other direction the direction pins (set when the previous pulse ends)
-// must have been set DIRECTION_SETUP_DELAY_US: so pulse + the longer of the two. At a higher rate a direction
-// wait would make a step late and bring it too close to the next one (test/cnc_sim --delayed --dir-us).
+// as long again; before a step in the other direction the direction pins change DIRECTION_HOLD_US after the
+// previous pulse and must have been set DIRECTION_SETUP_DELAY_US: so pulse + the longer of pulse and hold + set-up.
+// At a higher rate a direction change would make a step late and bring it too close to the next one
+// (test/cnc_sim --delayed --dir-us --dirhold-us).
 uint32_t cncStepRateLimit() {
   long pulse = max(1, CNC_STEP_PULSE_US);
-  return 1000000UL / (uint32_t)(pulse + max(pulse, DIRECTION_SETUP_DELAY_US));
+  return 1000000UL / (uint32_t)(pulse + max(pulse, DIRECTION_HOLD_US + DIRECTION_SETUP_DELAY_US));
 }
 
 void cncConfigure() {
@@ -1789,8 +1803,8 @@ void cncConfigure() {
       // never ask the step interrupt for more than it can give: the axis is slowed, and the page says so
       s.maxRate[i] = cncStepRateLimit() / stepsPerUnit * 60;
       char text[100];
-      snprintf(text, sizeof(text), "%c: maximum speed lowered to %lu steps/s (step pulse %d us, direction set-up %ld us)",
-          a->name, (unsigned long)cncStepRateLimit(), CNC_STEP_PULSE_US, DIRECTION_SETUP_DELAY_US);
+      snprintf(text, sizeof(text), "%c: maximum speed lowered to %lu steps/s (step pulse %d us, direction hold %ld + set-up %ld us)",
+          a->name, (unsigned long)cncStepRateLimit(), CNC_STEP_PULSE_US, DIRECTION_HOLD_US, DIRECTION_SETUP_DELAY_US);
       cncLog(text);
     }
     s.acceleration[i] = a->acceleration / stepsPerUnit * 3600;

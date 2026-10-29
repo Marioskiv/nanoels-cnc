@@ -71,8 +71,9 @@ The H4 sinks the signals ("common anode"): the driver's `+` inputs go to 5 V, th
 - **Enable**: the H4 keeps ENA high (no current) to enable the driver and pulls it low to release the motor
   (the setting "disable the driver when stopped" for open-loop drivers, or an axis switched off on the H4). If your driver works the other
   way round (motor free when it should hold), leave ENA unconnected: the driver is then always enabled.
-- Step pulse length and direction set-up time are settings (`CNC_STEP_PULSE_US`, `DIRECTION_SETUP_DELAY_US`,
-  LinuxCNC `STEPLEN` / `DIRSETUP`); 5 µs and 10 µs suit almost every driver.
+- Step pulse length, direction set-up and direction hold time are settings (`CNC_STEP_PULSE_US`,
+  `DIRECTION_SETUP_DELAY_US`, `DIRECTION_HOLD_US`, LinuxCNC `STEPLEN` / `DIRSETUP` / `DIRHOLD`); 5, 10 and 10 µs suit
+  almost every driver. Take the values from a working LinuxCNC `.ini` or the driver's datasheet, not shorter.
 - Use shielded cable for the signals, keep it away from motor wires, connect the shield to GND at the H4 end only.
 - A wrong direction is fixed in the settings (*Invert direction*), not by rewiring.
 

@@ -264,6 +264,37 @@ int main() {
     checks++;
     if (fabsf(m - o.want) > 0.0005f) { printf("FAIL %s: %.4f min, want %.4f\n", o.what, m, o.want); failures++; }
   }
+  // G93 inverse time (LinuxCNC): a move takes 1/F even when it is shorter than one motor step. Such a move makes no
+  // block (the planner needs steps), so its time goes to the next G93 move that steps; a G0 / G94 move drops it.
+  // A move slower than 1 unit/min keeps its time too (Grbl's minimum feed rate made it faster than 1/F).
+  {
+    setup(true, 0);
+    char msg[128];
+    run("G21 G90 M49", msg);
+    run("G93 G1 X0.0004 F600", msg);   // 0.48 step: rounds to 0, no block, 0.1 s kept
+    run("G93 G1 X0.0008 F600", msg);   // 0.96 step: 1 step, its block takes 0.1 + 0.1 s
+    float minutes[4];
+    int n = cnc_plan_take_all(minutes, 4);
+    checks++;
+    if (n != 1 || fabsf(minutes[0] - 2.0f / 600) > 1e-6f) { printf("FAIL G93 shorter than a step: %d blocks, %.6f min, want 1 block of %.6f\n", n, n ? minutes[0] : -1, 2.0f / 600); failures++; }
+    run("G93 G1 X0.0010 F600", msg);   // 1.2 steps: still 1, no block, kept
+    run("G0 X1", msg);                  // a rapid drops it
+    run("G93 G1 X2 F600", msg);
+    n = cnc_plan_take_all(minutes, 4);
+    checks++;
+    if (n != 2 || fabsf(minutes[1] - 1.0f / 600) > 1e-6f) { printf("FAIL G93 time dropped by G0: %d blocks, last %.6f min, want %.6f\n", n, n > 1 ? minutes[1] : -1, 1.0f / 600); failures++; }
+    run("G93 G1 X2.001 F2", msg);       // 1.2 steps in 30 s: 0.002 mm/min, below Grbl's 1 unit/min
+    n = cnc_plan_take_all(minutes, 4);
+    checks++;
+    if (n != 1 || fabsf(minutes[0] - 0.5f) > 1e-4f) { printf("FAIL slow G93: %.4f min, want 0.5\n", n ? minutes[0] : -1); failures++; }
+    run("G93 G1 X2.001 F2", msg);       // the same point again: no motion, no time (as a zero-length move)
+    run("G93 G1 X3 F600", msg);
+    n = cnc_plan_take_all(minutes, 4);
+    checks++;
+    if (n != 1 || fabsf(minutes[0] - 1.0f / 600) > 1e-6f) { printf("FAIL G93 after a zero-length move: %.6f min, want %.6f\n", n ? minutes[0] : -1, 1.0f / 600); failures++; }
+    run("M48 G94", msg);
+  }
+
   // the override change on a line is applied before that line's move (LinuxCNC order): "M49 G1 ..." is not scaled
   {
     float m = blockMinutes("G21", "M49 G1 X10 F100");
