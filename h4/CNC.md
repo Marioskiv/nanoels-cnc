@@ -25,7 +25,14 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
   LinuxCNC does the same. G0 runs at the axes' rapid speed.
 - Accelerations and top speeds per axis are the `ACCELERATION_*` and `SPEED_MANUAL_MOVE_*` values of the
   sketch, so no new settings are needed. Backlash (`BACKLASH_DU_*`) is taken up before a reversal, with
-  the motor stopping before the carriage is driven.
+  the motor stopping before the carriage is driven. A STOP in the middle of a take-up is remembered: the next
+  move takes up only what is still missing, so the tool position stays exact.
+- **Step look-ahead by time**: the step generator keeps at least 0.1 s of motion prepared
+  (`CNC_SEGMENT_AHEAD_S`, up to 128 segments), so a run of very short G93 blocks does not empty it while the
+  feeding task is busy.
+- **Step rate limit**: the highest step rate per axis is 1 / (pulse width + direction setup time); a speed
+  setting above it is lowered with a message in the log, so a direction change never comes too close to the
+  next step.
 - The H4 display shows the positions while the program runs; the H4 position bookkeeping is kept exactly,
   so every other mode continues from the true position.
 
@@ -48,10 +55,11 @@ mixed in) and the author's real programs give the same positions and refuse the 
 | units, diameter | G21 (start), G20; G8 (start), G7: X words are diameters |
 | coordinates | G54 (= the H4's own zero, X0 / Z0 keys), G55, G56, G57, G58, G59, G59.1, G59.2, G59.3 |
 | offsets | G10 L2 P, G10 L20 P, G92, G92.1, G92.2, G92.3, G28 / G28.1, G30 / G30.1, G53 (machine coordinates) |
-| tool | G43.1 Z, G49; G43 H accepted with a note (no tool table yet: touch off Z); T, M6 pauses for the change, M61 |
+| tool | G43.1 Z, G49; G43 H accepted with a note (no tool table yet: touch off Z); T selects, M6 stops the spindle and pauses with "tool change: put in tool T.., touch off Z, then ON / Resume"; M61 Q sets the tool without a change |
 | path | G61 and G64 [P Q] (start: G64): the path goes through every programmed point, corners are not rounded; G61.1: exact stop, every move ends at rest (an arc is one move) |
 | overrides | M48 (start) and M50 / M50 P1: feed and rapid overrides apply; M49 and M50 P0: they do not, the moves run at the programmed feed and full rapid speed (as LinuxCNC, whose feed override switch covers rapids too); M2 / M30 turn them on again |
-| other | G4 P (seconds), G40, G97, G96 (noted: the spindle speed is set by hand), M0, M1, M2, M30, M60, M3, M4, M5, M7, M8, M9, S, N, `/` |
+| spindle, coolant | M3, M4, M5, S, M7, M8, M9 (also M7 M8 on one line, as Grbl): the H4 does not switch a spindle motor or coolant, so the state is kept and shown (screen, web page, Grbl `$G`) and a pause or note tells the operator what to switch by hand; M2 / M30 stop both |
+| other | G4 P (seconds), G40, G97, G96 (noted: the spindle speed is set by hand), M0, M1 (optional stop: setting *M1 stops*, on by default), M2, M30, M60, N, `/`, `%` |
 | U, W | incremental X and Z, as Fanuc lathes and the CAM lathe posts use them (`G28 U0 W0`); U is a diameter in G7 |
 
 As in LinuxCNC: two codes of one group on a line are an error; G94 and G95 clear the feed, so the next feed
@@ -243,11 +251,19 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
   that G61.1 ends every move at rest (the step generator reports speed 0 at the end of the move and at the
   start of the next one) and `--stops none` that the same path in G64 goes through without stopping;
 - `cnc_junctions --check`: the corner bound above, on polar and random programs;
+- `cnc_sim --delayed --pulse-us --dir-us`: the STEP / DIR pin timing as the interrupt drives the pins (pulse
+  width, direction set before the next step, spacing) at 5, 10 and 20 us direction setup;
+- `cnc_sim --stop-at S`: STOP in the middle of a program (also inside a backlash take-up), then a new move
+  must reach its end point exactly; soft limits and G-code errors in `cnc_parse_test`;
+- `g93_hard.ngc`: G93 blocks of one step, very short and very long blocks, C-only and X-only moves;
+- `cam_check.py`: real programs written by FreeCAD 26.3 (GRBL and LinuxCNC posts, `test/cam/`): straight to the
+  H4 they are refused at the first Y move with nothing moved before; through the polar converter they run in
+  the simulation and match LinuxCNC's interpreter;
 - `cnc_parse_test` also checks M48 / M49 / M50 (state and the planned speed with overrides at 50 % / 25 %),
   M51-M53 refused and the `%` start / end line;
 - with `RS274=/path/to/rs274`: `lcnc_compare.py` (positions and refused lines against LinuxCNC's own
-  interpreter, 1000 random programs and the samples) and `modes_compare.py` (M48 / M49 / M50 and G61 / G61.1 /
-  G64 in force for the same moves as in LinuxCNC, 500 random programs). GitHub Actions run all of it on every
+  interpreter, 1000 random programs and the samples) and `modes_compare.py` (M48 / M49 / M50, G61 / G61.1 /
+  G64, spindle, coolant and tool in force for the same moves as in LinuxCNC, 500 random programs). GitHub Actions run all of it on every
   change.
 
 ## License

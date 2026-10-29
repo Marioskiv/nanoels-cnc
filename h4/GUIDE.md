@@ -274,7 +274,8 @@ No instrument is needed to see whether the controller keeps up with a machine an
   - the longest step interrupt, next to the time between two steps at the highest step rate given - it must stay
     well below it;
   - how often an interrupt started more than 10 µs late (WiFi, flash, other interrupts) - should be 0;
-  - the highest step rate given and the limit (from the step pulse length: 1 / (2 x pulse));
+  - the highest step rate given and the limit (1 / (pulse + the longer of pulse and direction set-up time): with
+    4 us and 5 us 111 000 steps/s, with 4 us and 10 us 71 000 steps/s);
   - how often the step buffer ran empty while moves were waiting (the controller could not keep up) - should be 0.
   The page shows **OK** or **CHECK**.
 - How to use them: *Test* the file, then run it **in the air** at full speed with the page open (WiFi in use) and

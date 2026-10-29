@@ -1,0 +1,15 @@
+(fast zig-zag: one axis at full speed while the other reverses at every corner, and C reversals)
+G21 G90 G18 G64
+G0 X0 Z0 C0
+G1 X1 Z0.05 F1800
+G1 X2 Z0 F1800
+G1 X3 Z0.05 F1800
+G1 X4 Z0 F1800
+G1 X5 Z0.05 F1800
+G1 X6 Z0 F1800
+G1 X7 Z0.05 C1 F1800
+G1 X8 Z0 C0 F1800
+G1 X9 Z0.05 C1 F1800
+G1 X10 Z0 C0 F1800
+G1 X0 Z0.02 F1800
+M2

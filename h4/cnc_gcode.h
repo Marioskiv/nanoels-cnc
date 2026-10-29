@@ -23,6 +23,7 @@ typedef struct {
   float defaultFeed;                 // not used: a feed move needs an F first, as in LinuxCNC and Grbl
   float arcTolerance;                // mm, largest distance of an arc segment from the true arc
   float (*spindleRpm)();             // measured spindle speed, for G95 (NULL: G95 refused)
+  bool skipOptionalStop;             // the optional stop switch is off: M1 does not pause (as LinuxCNC / Grbl)
 } cnc_machine_t;
 
 // Offsets kept by the interpreter (machine coordinates, mm or degrees). The firmware stores them.
@@ -56,6 +57,10 @@ void cnc_gc_reset_modes();           // G1 G17 G90 G94 G21 G54 ..., start of a p
 int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float* dwell);
 bool cnc_gc_inverse_time();          // G93 active
 bool cnc_gc_last_neg(int axis);
+// Backlash not taken up (tool - motor position, steps): after cnc_gc_sync(), a take-up that a STOP cut short is set
+// with cnc_gc_set_slack() so that the next take-up is only what is left (0 ... the axis's backlash).
+int32_t cnc_gc_slack(int axis);
+void cnc_gc_set_slack(int axis, int32_t steps);
 // Target (steps) and lead (mm per spindle turn) of the last CNC_THREAD line. The caller moves the axes,
 // then calls cnc_gc_sync() with the reached position.
 void cnc_gc_thread(int32_t target[CNC_N_AXIS], float* leadMm);
@@ -72,6 +77,11 @@ typedef struct {
   bool incremental, arcIncremental, inches, diameter, retractToR;
   bool overridesEnabled;             // M48 / M49 / M50
   bool exactStop;                    // G61.1 (G61 / G64: false)
+  int spindle;                       // 3, 4 or 5 (M3 / M4 / M5): what the program asked for (the H4 does not switch it)
+  double spindleSpeed;               // last S
+  bool mist, flood;                  // M7 / M8 (M9: both off): asked for, the H4 has no coolant output
+  int tool;                          // tool in the spindle (M6 / M61), 0 = none
+  int toolSelected;                  // last T
   double feed, tloZ;
 } cnc_modes_t;
 void cnc_gc_get_modes(cnc_modes_t* m);

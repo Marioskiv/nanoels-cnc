@@ -100,6 +100,7 @@ float CNC_JUNCTION_DEVIATION = 0.01; // mm, how fast corners are taken (as Grbl 
 int CNC_STEP_PULSE_US = 4; // length of a step pulse in GCODE mode; most drivers need 2.5 us or more
 bool CNC_RESPECT_STOPS = false; // true: refuse GCODE moves outside the stops set on the H4 (the old GCODE mode ignored them)
 float CNC_ARC_TOLERANCE = 0.002; // mm, largest distance between an arc (G2/G3) and the straight pieces it is cut in
+bool CNC_OPTIONAL_STOP = true; // M1 pauses the program (the optional stop switch of LinuxCNC); false: M1 is skipped
 bool GRBL_ON_USB = false; // true: USB speaks the Grbl 1.1 protocol (UGS, gSender, CNCjs, bCNC); WiFi port 23 always does
 
 // Home switches, soft limits and driver alarm, as in LinuxCNC (see homing.ino and CNC.md). All off by default,
@@ -1766,8 +1767,13 @@ void cncRunBench() {
   cncBenchCount = cncBenchCount + 1;
 }
 
+// The highest step rate the interrupt can give on one axis. Between two steps there must be the pulse and a pause
+// as long again, and before a step in the other direction the direction pins (set when the previous pulse ends)
+// must have been set DIRECTION_SETUP_DELAY_US: so pulse + the longer of the two. At a higher rate a direction
+// wait would make a step late and bring it too close to the next one (test/cnc_sim --delayed --dir-us).
 uint32_t cncStepRateLimit() {
-  return 1000000UL / (2UL * max(1, CNC_STEP_PULSE_US));
+  long pulse = max(1, CNC_STEP_PULSE_US);
+  return 1000000UL / (uint32_t)(pulse + max(pulse, DIRECTION_SETUP_DELAY_US));
 }
 
 void cncConfigure() {
@@ -1783,8 +1789,8 @@ void cncConfigure() {
       // never ask the step interrupt for more than it can give: the axis is slowed, and the page says so
       s.maxRate[i] = cncStepRateLimit() / stepsPerUnit * 60;
       char text[100];
-      snprintf(text, sizeof(text), "%c: maximum speed lowered to %lu steps/s (step pulse %d us)", a->name,
-          (unsigned long)cncStepRateLimit(), CNC_STEP_PULSE_US);
+      snprintf(text, sizeof(text), "%c: maximum speed lowered to %lu steps/s (step pulse %d us, direction set-up %ld us)",
+          a->name, (unsigned long)cncStepRateLimit(), CNC_STEP_PULSE_US, DIRECTION_SETUP_DELAY_US);
       cncLog(text);
     }
     s.acceleration[i] = a->acceleration / stepsPerUnit * 3600;
@@ -1806,6 +1812,7 @@ void cncConfigure() {
   }
   m.arcTolerance = CNC_ARC_TOLERANCE;
   m.spindleRpm = cncSpindleRpm;
+  m.skipOptionalStop = !CNC_OPTIONAL_STOP;
   cnc_core_settings(&s);
   cnc_gc_init(&m);
   cncLoadOffsets();
@@ -1933,6 +1940,7 @@ void cncSyncFromAxes(bool keepModes) {
   m.checkLimits = CNC_RESPECT_STOPS || softLimitsActive();
   m.arcTolerance = CNC_ARC_TOLERANCE;
   m.spindleRpm = cncSpindleRpm;
+  m.skipOptionalStop = !CNC_OPTIONAL_STOP;
   portENTER_CRITICAL(&cncMux);
   cnc_st_reset();
   cnc_plan_reset();
@@ -1940,6 +1948,11 @@ void cncSyncFromAxes(bool keepModes) {
   if (keepModes) cnc_gc_set_machine(&m);
   else cnc_gc_init(&m);
   cnc_gc_sync(pos, mOffset, neg);
+  // a backlash take-up that a STOP cut short: the next take-up is only what is left
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    if (a->backlashSteps > 0) cnc_gc_set_slack(i, a->pos - a->motorPos);
+  }
   cncG54FromAxes();
 }
 
@@ -2273,7 +2286,15 @@ bool cncProcessLine(const String& line, bool isSerial) {
   } else if (r == CNC_PAUSE) {
     cncPaused = true;
     cncResumeRequest = false;
-    cncStatusText = "Paused: ON to go on";
+    if (msg[0]) {  // M6: which tool; M0 / M1: why. Two buffers in turn: the screen redraws when the pointer changes
+      static char pauseText[2][96];
+      static int pauseIdx = 0;
+      pauseIdx ^= 1;
+      snprintf(pauseText[pauseIdx], sizeof(pauseText[0]), "%s", msg);
+      cncStatusText = pauseText[pauseIdx];
+    } else {
+      cncStatusText = "Paused: ON to go on";
+    }
     beepFlag = true;
     while (!cncResumeRequest) {
       if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) {

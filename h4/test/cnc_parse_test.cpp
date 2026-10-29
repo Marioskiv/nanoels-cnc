@@ -51,6 +51,8 @@ static void expect(const char* line, int want, const char* msgPart = NULL) {
   }
 }
 
+static int32_t toSteps100k() { return (int32_t)llround(100000 * 91.733333f); }
+
 static void expectPos(int32_t x, int32_t z, int32_t c, const char* what) {
   const int32_t* p = cnc_plan_position();
   checks++;
@@ -267,6 +269,84 @@ int main() {
     float m = blockMinutes("G21", "M49 G1 X10 F100");
     checks++;
     if (fabsf(m - 0.1f) > 0.0005f) { printf("FAIL M49 on the move's line: %.4f min, want 0.1\n", m); failures++; }
+  }
+
+  // spindle, coolant, tool: the state a normal controller keeps and reports; the H4 switches none of them, so the
+  // first request in a program gets a note (never silently ignored); M2 stops spindle and coolant (as LinuxCNC)
+  setup(true, 0);
+  expect("M61 Q0 S0", CNC_OK);  // the tool in the spindle and S stay from before (as on a real machine): start from none
+  auto modes = []() { cnc_modes_t m; cnc_gc_get_modes(&m); return m; };
+  auto expectState = [&](int spin, double s, bool mist, bool flood, int tool, const char* what) {
+    cnc_modes_t m = modes();
+    checks++;
+    if (m.spindle != spin || m.spindleSpeed != s || m.mist != mist || m.flood != flood || m.tool != tool) {
+      printf("FAIL %s: M%d S%g mist %d flood %d T%d\n", what, m.spindle, m.spindleSpeed, m.mist, m.flood, m.tool); failures++;
+    }
+  };
+  expectState(5, 0, false, false, 0, "start");
+  expect("S12000 M3", CNC_OK, "does not switch the spindle");
+  expectState(3, 12000, false, false, 0, "S12000 M3");
+  expect("M4", CNC_OK);  // the second request of the program: no new note
+  {
+    char msg[128]; run("M3 S9000", msg); checks++;
+    if (msg[0]) { printf("FAIL second spindle request noted again: %s\n", msg); failures++; }
+  }
+  expectState(3, 9000, false, false, 0, "M3 S9000");
+  expect("M8", CNC_OK, "no coolant output");
+  expect("M7", CNC_OK);
+  expectState(3, 9000, true, true, 0, "M7 and M8");
+  expect("M9", CNC_OK);
+  expectState(3, 9000, false, false, 0, "M9");
+  expect("M7 M8", CNC_OK);  // mist and flood on one line, as LinuxCNC allows
+  expect("T3", CNC_OK);
+  expect("M6", CNC_PAUSE, "put in tool T3");
+  expectState(5, 9000, true, true, 3, "after M6 T3 (the spindle stops, as LinuxCNC)");
+  expect("M3", CNC_OK);
+  expect("M61 Q5", CNC_OK);
+  expectState(3, 9000, true, true, 5, "M61 Q5");
+  expect("M61", CNC_ERROR, "M61 needs Q");
+  expect("T-1", CNC_ERROR, "tool number");
+  expect("S-5", CNC_ERROR, "S must not be negative");
+  expect("M2", CNC_END);
+  expectState(5, 9000, false, false, 5, "M2: spindle and coolant off");
+  expect("M0", CNC_PAUSE, "program stop");
+  expect("M1", CNC_PAUSE, "optional stop (M1): ON");
+  {  // the optional stop switch off: M1 goes on, with a note
+    cnc_machine_t m;
+    memset(&m, 0, sizeof(m));
+    m.name[0] = 'X'; m.name[1] = 'Z'; m.name[2] = 'C';
+    m.active[0] = m.active[1] = m.active[2] = true;
+    m.rotary[2] = true;
+    m.skipOptionalStop = true;
+    cnc_gc_set_machine(&m);
+    expect("M1", CNC_OK, "skipped");
+  }
+
+  // soft limits (after Home All): a line that would leave them is refused before anything moves, the position stays
+  {
+    setup(true, 0);
+    cnc_machine_t m;
+    memset(&m, 0, sizeof(m));
+    m.name[0] = 'X'; m.name[1] = 'Z'; m.name[2] = 'C';
+    m.active[0] = m.active[1] = m.active[2] = true;
+    m.rotary[2] = true;
+    m.checkLimits = true;
+    m.minSteps[0] = 0;           m.maxSteps[0] = 100 * 1200;  // X 0 ... 100 mm
+    m.minSteps[1] = -50 * 400;   m.maxSteps[1] = 10 * 400;    // Z -50 ... 10 mm
+    m.minSteps[2] = INT32_MIN;   m.maxSteps[2] = INT32_MAX;   // C unlimited
+    m.arcTolerance = 0.002f;
+    cnc_gc_set_machine(&m);
+    expect("G21 G90 G18 G0 X50 Z0", CNC_OK);
+    expectPos(50 * 1200, 0, 0, "inside the limits");
+    expect("G0 X120", CNC_ERROR, "outside the limits");
+    expect("G1 Z-60 F100", CNC_ERROR, "outside the limits");
+    expect("G0 X-1", CNC_ERROR, "outside the limits");
+    expectPos(50 * 1200, 0, 0, "refused moves did not move");
+    expect("G2 X50 Z0 I0 K30 F100", CNC_ERROR, "arc goes outside");  // a full circle of radius 30 reaches X 80 and Z 30 > 10
+    expectPos(50 * 1200, 0, 0, "refused arc did not move");
+    expect("G0 C100000", CNC_OK);  // C has no limits here
+    expect("G0 X100 Z10", CNC_OK);  // exactly on the limits
+    expectPos(100 * 1200, 10 * 400, toSteps100k(), "on the limits");
   }
 
   printf("parse: %d checks, %d failures\n", checks, failures);

@@ -45,13 +45,31 @@ for m in marios h4default; do
   run g611_sample.ngc --machine $m --stops all --delayed --backlash 40,80,3
   run g64_sample.ngc --machine $m --stops none
 done
+# step and direction pins as the H4 drives them, near the highest step rate, direction set-up 5 / 10 / 20 us
+for d in 5 10 20; do run pins_sample.ngc --machine fast --delayed --dir-us $d; done
+for i in 111 112 113; do python3 gen_random.py "$i" > "$OUT/r.ngc"; run "$OUT/r.ngc" --machine fast --delayed --dir-us 10 --backlash 40,80,3; done
+# STOP in the middle of a program: stops on the path, the rest is dropped, a new move from there is exact
+run polar_sample.ngc --stop-at 20
+run polar_sample.ngc --stop-at 33 --delayed --backlash 120,240,5
+# a STOP that ends exactly where a backlash take-up block starts (found a step count of -1 and a period of 0)
+run polar_sample.ngc --stop-at 33.04 --backlash 120,240,5
+run lathecode_sample.ngc --machine h4default --stop-at 1
+# G93 hard cases (1 ms blocks, F above what the axes can do, very slow, near the centre, a G93 arc), and
+# 1500 blocks of 1 ms (1000 blocks/s) with the feeding task pausing up to 50 ms: no stutter
+run g93_hard.ngc --machine marios
+run g93_hard.ngc --machine h4default --delayed --dir-us 10
+python3 -c "
+L=['G21 G90 G18 G8','G0 X20 Z1 C0','G93']
+for i in range(1500): L.append('G1 X%.3f C%.2f F60000' % (20 + 0.01 * (i + 1), (i + 1) * 0.05))
+open('$OUT/rate.ngc', 'w').write('\\n'.join(L + ['G94', 'M2']) + '\\n')"
+run "$OUT/rate.ngc" --machine marios --task-gap-ms 50
 for f in "$@"; do run "$f"; done
 echo "simulation: $fail failure(s)"
 # corners: no axis changes its speed at once by more than sqrt(8 x its acceleration x junction deviation),
 # in its own units (X, Z mm, C degrees), on polar and random programs
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_junctions" cnc_junctions.cpp ../cnc_gcode.cpp
 jfail=0
-for f in polar_sample.ngc g611_sample.ngc g64_sample.ngc modes_sample.ngc; do
+for f in polar_sample.ngc g611_sample.ngc g64_sample.ngc modes_sample.ngc g93_hard.ngc; do
   "$OUT/cnc_junctions" "$f" --check > "$OUT/j.txt" || { cat "$OUT/j.txt"; jfail=$((jfail + 1)); }
 done
 for i in $(seq 1 30); do
@@ -61,6 +79,11 @@ for i in $(seq 1 30); do
 done
 echo "corners: $jfail failure(s)"
 fail=$((fail + jfail))
+# real CAM programs (test/cam): as written, and through the polar converter
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
+python3 cam_check.py "$OUT" $RS274 > "$OUT/cam.txt" || { cat "$OUT/cam.txt"; fail=$((fail + 1)); }
+tail -1 "$OUT/cam.txt"
 # the controller's self-test (cnc_bench.cpp) on the sample programs
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
 "$OUT/cnc_bench_pc" polar_sample.ngc lathecode_sample.ngc || fail=$((fail + 1))

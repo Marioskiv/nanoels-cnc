@@ -33,7 +33,10 @@
 #define CNC_C 2
 
 #define CNC_BLOCK_BUFFER_SIZE 64     // planner blocks (look-ahead)
-#define CNC_SEGMENT_BUFFER_SIZE 24   // step segments, about 0.23 s of motion at 100 segments per second
+#define CNC_SEGMENT_BUFFER_SIZE 128  // step segments (a segment never spans two blocks: room for many short ones)
+#define CNC_SEGMENT_AHEAD_S 0.1      // the step generator prepares this much motion ahead, whatever the block
+                                     // length: covers pauses of the feeding task, and a hold or an override takes
+                                     // effect after at most this time
 #define CNC_ACCELERATION_TICKS_PER_SECOND 100
 #define CNC_MINIMUM_FEED_RATE 1.0f   // units/min
 #define CNC_MINIMUM_JUNCTION_SPEED 0.0f

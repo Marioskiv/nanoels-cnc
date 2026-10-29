@@ -47,7 +47,9 @@ static cnc_offsets_t offs;
 static uint32_t offsChanges = 0;
 static double absPos[CNC_N_AXIS];    // tool position, mm/deg, in the planner's coordinates (step 0 = 0)
 static double mOff[CNC_N_AXIS];      // machine coordinate of step 0 (homing), mm/deg
-static bool lastNeg[CNC_N_AXIS];     // last direction of each motor, for the backlash take-up
+// Backlash of each axis not taken up, in steps: tool position - motor position, 0 (last moved up) ... backlash
+// (last moved down). A take-up stopped half way (STOP) leaves a value in between; the next take-up is what is left.
+static int32_t slack[CNC_N_AXIS];
 
 // modes
 static int motionMode;               // G code * 10 of the motion group, 800 = G80 (no motion mode)
@@ -60,6 +62,13 @@ static double tloZ;                  // G43.1 tool length offset on Z, mm
 static bool retractToR;              // G99 (start, as LinuxCNC): back to R; G98: back to the level where the series began
 static bool overridesEnabled = true; // M48 (start) / M49 / M50 P: the feed and rapid overrides apply to the moves
 static bool exactStop = false;       // G61.1: every move ends at rest (G61 / G64: false)
+// What the program asked of the spindle, the coolant and the tool. The H4 switches neither spindle nor
+// coolant: the state is kept and reported (Grbl $G, the page), and the first request of a program gets a note.
+static int spindleState = 5;
+static double spindleSpeed = 0;
+static bool coolMist = false, coolFlood = false;
+static int toolNow = 0, toolSelected = 0;
+static bool notedSpindle = false, notedCoolant = false;
 
 // canned cycles G73 G81 G82 G83 G85 G89, as LinuxCNC (interp_cycles.cc): the values the next cycle line reuses
 static double cycleR, cycleQ, cycleP, cycleDrillWord;
@@ -154,11 +163,14 @@ void cnc_gc_reset_modes() {
   cycleILFlag = false;
   overridesEnabled = true;  // M48
   exactStop = false;        // G64
+  spindleState = 5;
+  coolMist = coolFlood = false;
+  notedSpindle = notedCoolant = false;
 }
 
 void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t machineOffset[CNC_N_AXIS], const bool neg[CNC_N_AXIS]) {
   for (int i = 0; i < CNC_N_AXIS; i++) {
-    lastNeg[i] = neg[i];
+    slack[i] = neg[i] ? machine.backlashSteps[i] : 0;
     absPos[i] = pos[i] / spu(i);
     mOff[i] = machineOffset[i] / spu(i);
   }
@@ -166,7 +178,12 @@ void cnc_gc_sync(const int32_t pos[CNC_N_AXIS], const int32_t machineOffset[CNC_
 }
 
 bool cnc_gc_inverse_time() { return feedMode == 930; }
-bool cnc_gc_last_neg(int axis) { return lastNeg[axis]; }
+bool cnc_gc_last_neg(int axis) { return machine.backlashSteps[axis] > 0 && slack[axis] == machine.backlashSteps[axis]; }
+int32_t cnc_gc_slack(int axis) { return slack[axis]; }
+void cnc_gc_set_slack(int axis, int32_t steps) {
+  int32_t b = machine.backlashSteps[axis] > 0 ? machine.backlashSteps[axis] : 0;
+  slack[axis] = steps < 0 ? 0 : (steps > b ? b : steps);
+}
 void cnc_gc_thread(int32_t target[CNC_N_AXIS], float* leadMm) {
   for (int i = 0; i < CNC_N_AXIS; i++) target[i] = threadTarget[i];
   *leadMm = threadLead;
@@ -188,6 +205,12 @@ void cnc_gc_get_modes(cnc_modes_t* m) {
   m->retractToR = retractToR;
   m->overridesEnabled = overridesEnabled;
   m->exactStop = exactStop;
+  m->spindle = spindleState;
+  m->spindleSpeed = spindleSpeed;
+  m->mist = coolMist;
+  m->flood = coolFlood;
+  m->tool = toolNow;
+  m->toolSelected = toolSelected;
   m->feed = feedWord;
   m->tloZ = tloZ;
 }
@@ -203,6 +226,12 @@ void cnc_gc_set_modes(const cnc_modes_t* m) {
   retractToR = m->retractToR;
   overridesEnabled = m->overridesEnabled;
   exactStop = m->exactStop;
+  spindleState = m->spindle;
+  spindleSpeed = m->spindleSpeed;
+  coolMist = m->mist;
+  coolFlood = m->flood;
+  toolNow = m->tool;
+  toolSelected = m->toolSelected;
   feedWord = m->feed;
   tloZ = m->tloZ;
 }
@@ -225,11 +254,12 @@ static void planLine(const double target[CNC_N_AXIS], float feed, uint8_t condit
   for (int i = 0; i < CNC_N_AXIS; i++) {
     t[i] = toSteps(i, target[i]);
     int32_t d = t[i] - pl[i];
-    if (d != 0 && machine.backlashSteps[i] > 0) {
-      bool neg = d < 0;
-      if (neg != lastNeg[i]) cnc_plan_buffer_backlash(i, machine.backlashSteps[i], neg, lineNo);
+    int32_t b = machine.backlashSteps[i];
+    if (d != 0 && b > 0) {
+      if (d < 0 && slack[i] < b) cnc_plan_buffer_backlash(i, b - slack[i], true, lineNo);
+      if (d > 0 && slack[i] > 0) cnc_plan_buffer_backlash(i, slack[i], false, lineNo);
+      slack[i] = d < 0 ? b : 0;
     }
-    if (d != 0) lastNeg[i] = d < 0;
   }
   cnc_plan_buffer_line(t, feed, condition, lineNo);  // false only for a zero-length move
   for (int i = 0; i < CNC_N_AXIS; i++) absPos[i] = target[i];
@@ -639,6 +669,7 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     g[grp] = c;
   }
   int mStop = -1, mSpindle = -1, mCool = -1, mTool = -1, mOverride = -1;
+  bool mMist = false, mFlood = false;  // M7 and M8 may come together on one line
   for (int n = 0; n < nM; n++) {
     int c = mCodes[n];
     int* slot;
@@ -657,6 +688,8 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
       return CNC_ERROR;
     }
     *slot = c;
+    if (c == 7) mMist = true;
+    if (c == 8) mFlood = true;
   }
   (void)mSpindle;
   // M48 / M49 / M50 as LinuxCNC (feed and rapid override on / off); the others cannot be honoured here
@@ -732,7 +765,10 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (HAS('P') && !dwellCode && nonModal != 100 && !isArc && !pCycle && !isG76 && g[GR_PATH] != 640 && mOverride != 50) {
     return fail(msg, msgLen, "P word without G4, G10, G64, M50, an arc, G76, G82 or G89");
   }
-  if (HAS('Q') && !qCycle && !isG76 && g[GR_PATH] != 640) return fail(msg, msgLen, "Q word without G64, G73, G76 or G83");
+  if (HAS('Q') && !qCycle && !isG76 && g[GR_PATH] != 640 && mTool != 61) return fail(msg, msgLen, "Q word without G64, G73, G76, G83 or M61");
+  if (mTool == 61 && (!HAS('Q') || VAL('Q') < 0 || VAL('Q') != floor(VAL('Q')))) return fail(msg, msgLen, "M61 needs Q (a tool number, 0 or more)");
+  if (HAS('T') && (VAL('T') < 0 || VAL('T') != floor(VAL('T')))) return fail(msg, msgLen, "T must be a tool number (0 or more)");
+  if (HAS('S') && VAL('S') < 0) return fail(msg, msgLen, "S must not be negative");
 
   // F: per minute, inverse time or per turn
   double nFeedWord = feedWord;
@@ -1036,7 +1072,42 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   int result = CNC_OK;
   if (g[GR_TOOL] == 430) snprintf(msg, msgLen, "G43 H: tool lengths are not stored yet, touch off Z for every tool");
   if (g[GR_SPINDLE] == 960) snprintf(msg, msgLen, "G96: the spindle is set by hand on this machine, its speed does not follow the diameter");
-  if (mTool == 6) result = CNC_PAUSE;
+  // spindle, coolant and tool: kept and reported; the H4 itself switches none of them (notes, never silent)
+  if (HAS('S')) spindleSpeed = VAL('S');
+  if (HAS('T')) toolSelected = (int)VAL('T');
+  auto note = [&](const char* text) {  // several notes of one line are joined
+    size_t n = strlen(msg);
+    if (n == 0) snprintf(msg, msgLen, "%s", text);
+    else if (n + 3 < (size_t)msgLen) snprintf(msg + n, msgLen - n, "; %s", text);
+  };
+  if (mSpindle >= 0) {
+    spindleState = mSpindle;
+    if (mSpindle != 5 && !notedSpindle) {
+      char t[128];
+      snprintf(t, sizeof(t), "M%d S%g: the H4 does not switch the spindle - run it by hand (%s)", mSpindle, spindleSpeed,
+               mSpindle == 3 ? "clockwise" : "counter-clockwise");
+      note(t);
+      notedSpindle = true;
+    }
+  }
+  if (mCool >= 0) {
+    if (mCool == 9) coolMist = coolFlood = false;
+    if (mMist) coolMist = true;
+    if (mFlood) coolFlood = true;
+    if (mCool != 9 && !notedCoolant) {
+      note(mFlood ? "M8: the H4 has no coolant output (flood): switch it by hand" : "M7: the H4 has no coolant output (mist): switch it by hand");
+      notedCoolant = true;
+    }
+  }
+  if (mTool == 61) toolNow = (int)VAL('Q');
+  if (mTool == 6) {
+    result = CNC_PAUSE;
+    char t[128];
+    snprintf(t, sizeof(t), "tool change: put in tool T%d, touch off Z, then ON / Resume", toolSelected);
+    note(t);
+    toolNow = toolSelected;
+    spindleState = 5;  // LinuxCNC stops the spindle for a tool change
+  }
   if (dwellCode) {
     *dwell = (float)VAL('P');
     result = CNC_DWELL;
@@ -1124,10 +1195,16 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   } else if (plainMove) {
     planLine(target, feed, condition, lineNo);
   }
-  if (mStop == 0 || mStop == 1 || mStop == 60) result = CNC_PAUSE;
+  if (mStop == 0 || mStop == 60) { result = CNC_PAUSE; note(mStop == 0 ? "program stop (M0): ON / Resume goes on" : "pallet change pause (M60): ON / Resume goes on"); }
+  if (mStop == 1) {
+    if (machine.skipOptionalStop) note("optional stop (M1) skipped: the optional stop switch is off");
+    else { result = CNC_PAUSE; note("optional stop (M1): ON / Resume goes on"); }
+  }
   if (mStop == 2 || mStop == 30) {
     result = CNC_END;
-    overridesEnabled = true;  // LinuxCNC M2 / M30: overrides on again (M48)
+    overridesEnabled = true;    // LinuxCNC M2 / M30: overrides on again (M48),
+    spindleState = 5;           // spindle stopped (M5) and coolant off (M9)
+    coolMist = coolFlood = false;
   }
   if (isArc) {
     arc.result = result;

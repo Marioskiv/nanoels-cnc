@@ -80,7 +80,8 @@ int main(int argc, char** argv) {
     printf("L %u OK %.5f %.5f %.5f\n", lineNo, p[CNC_X] / SPU, p[CNC_Z] / SPU, p[CNC_C] / SPU);
     cnc_modes_t md;  // overrides on / off and the path mode after the line (for modes_compare.py)
     cnc_gc_get_modes(&md);
-    printf("M %u %d %d\n", lineNo, md.overridesEnabled ? 1 : 0, md.exactStop ? 1 : 0);
+    printf("M %u %d %d %d %d %d %d\n", lineNo, md.overridesEnabled ? 1 : 0, md.exactStop ? 1 : 0, md.spindle, md.mist ? 1 : 0,
+           md.flood ? 1 : 0, md.tool);
     if (r == CNC_END) return 0;
   }
   return 0;

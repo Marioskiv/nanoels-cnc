@@ -540,7 +540,7 @@ function editMacros(){const t=prompt('One macro per line: name = G-code line (em
  macros=t.trim()?t.split('|').map(x=>x.split('=')).filter(p=>p.length>1).map(p=>({n:p[0].trim(),l:p.slice(1).join('=').trim()})):MACRO_DEFAULT;
  try{localStorage.setItem('h4macros',JSON.stringify(macros))}catch(e){}macroSheet()}
 function ctlShow(){const s=st.state||'-';$('cState').textContent=s.toUpperCase();$('cState').style.borderColor={Run:'#2e9e5b',Hold:'#d9a21b',Stopping:'#d64040'}[s]||'#2f6db3';
- $('cWcs').textContent=st.wcs||'G54';$('cUnits').textContent=st.inch?'inch':'mm';$('cRssi').textContent=st.rssi?'· '+st.rssi+' dBm':'';
+ $('cWcs').textContent=st.wcs||'G54';$('cUnits').textContent=(st.inch?'inch':'mm')+(st.tool?' · T'+st.tool:'')+(st.spin==3||st.spin==4?' · S'+st.sp+' M'+st.spin:'')+(st.cool?' · '+st.cool:'');$('cRssi').textContent=st.rssi?'· '+st.rssi+' dBm':'';
  $('cHold').textContent=s=='Hold'?'RESUME':'HOLD';if(st.fo!==undefined){$('foTxt').textContent=st.ovrOff?'off':st.fo+'%';$('roTxt').textContent=st.ovrOff?'off':st.ro+'%';if($('sFo')){$('sFo').textContent=st.fo;$('sRo').textContent=st.ro}}
  axesShow()}
 // Pages instead of scrolling: the items of a .pg box that fit are shown, ‹ › in the .pgc after it turns the page.

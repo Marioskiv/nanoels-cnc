@@ -357,6 +357,8 @@ typedef struct {
   uint8_t st_block_index;
   uint8_t amass_level;
 } segment_t;
+// Timer ticks of motion in a segment (n_step and cycles_per_tick are scaled the opposite way by AMASS).
+static inline uint64_t segment_ticks(const segment_t* s) { return (uint64_t)(s->n_step ? s->n_step : 1) * s->cycles_per_tick; }
 static segment_t segment_buffer[CNC_SEGMENT_BUFFER_SIZE];
 
 typedef struct {
@@ -423,7 +425,18 @@ static uint8_t st_next_block_index(uint8_t i) { i++; return i == (CNC_SEGMENT_BU
 void cnc_st_prep_buffer() {
   if (step_control & STEP_CONTROL_END_MOTION) return;
 
-  while (segment_buffer_tail != segment_next_head) {
+  // Motion already prepared, in timer ticks. The segment at the tail is left out: the interrupt may be running it
+  // and nearly done (a slow segment can last longer than the whole look-ahead), so the next one is always ready.
+  uint64_t ahead = 0;
+  if (segment_buffer_tail != segment_buffer_head) {
+    for (uint8_t i = (segment_buffer_tail + 1 == CNC_SEGMENT_BUFFER_SIZE) ? 0 : segment_buffer_tail + 1; i != segment_buffer_head;
+         i = (i + 1 == CNC_SEGMENT_BUFFER_SIZE) ? 0 : i + 1) {
+      ahead += segment_ticks(&segment_buffer[i]);
+    }
+  }
+  const uint64_t aheadWanted = (uint64_t)(CNC_SEGMENT_AHEAD_S * settings.timerHz);
+
+  while (segment_buffer_tail != segment_next_head && ahead < aheadWanted) {
     if (pl_block == NULL) {
       pl_block = plan_get_current_block();
       if (pl_block == NULL) return;
@@ -587,7 +600,9 @@ void cnc_st_prep_buffer() {
       }
     } while (mm_remaining > prep.mm_complete);
 
-    float step_dist_remaining = prep.step_per_mm * mm_remaining;
+    // never more steps left than before (float rounding of step_per_mm * mm can give one more, e.g. a hold that
+    // ends where a block starts: the segment would get -1 steps and a period of 0)
+    float step_dist_remaining = fminf(prep.step_per_mm * mm_remaining, prep.steps_remaining);
     float n_steps_remaining = ceilf(step_dist_remaining);
     float last_n_steps_remaining = ceilf(prep.steps_remaining);
     prep_segment->n_step = (uint32_t)(last_n_steps_remaining - n_steps_remaining);
@@ -616,6 +631,7 @@ void cnc_st_prep_buffer() {
       prep_segment->n_step <<= prep_segment->amass_level;
     }
     prep_segment->cycles_per_tick = cycles;
+    ahead += segment_ticks(prep_segment);
 
     // Hand the segment to the interrupt: everything it reads is written before the head moves.
     CNC_BARRIER();
