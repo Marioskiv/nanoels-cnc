@@ -187,8 +187,14 @@ program runs.
   lock again 15 s after the last move.
 - **Lathe** (*Τόρνος*): the H4's own lathe modes (feed, turning, facing, taper, thread, parting, sphere, constant
   feed): large X / Z readout, spindle speed and angle, a side view with Z0, the stops and the tool, and what the
-  H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass). Read
-  only in this version: the values are set on the H4 as before. Updated about 7 times a second.
+  H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
+  Updated about 7 times a second. Pick an operation at the top and fill its form (or a preset: metric and UNC
+  threads, Morse and other tapers, spheres; every value stays editable). The start point is where the tool is now:
+  the form gives the length to the left in Z and the depth in X from there. The form shows the highest spindle
+  speed Z can follow for that pitch and an estimate of the time. **Hold START** for a moment: the page sends the
+  values with the same functions the H4 keys use (only while the H4 is OFF and nothing moves) and then presses ON
+  as many times as the H4's own setup steps need, as on the keypad; the H4 refuses as it does from the keys
+  (missing stops, wrong mode). **STOP** turns it OFF. Inch measure: set the values on the H4 keys.
 - **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
 - **H4 keys**: the H4 display and keys, and the gamepad.

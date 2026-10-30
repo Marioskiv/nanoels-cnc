@@ -124,9 +124,10 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .toast.off{opacity:0;pointer-events:none}
 
 /* Lathe screen (the H4's own modes): operations on top, drawing beside or above the DRO and the settings */
-.lt{display:grid!important;grid-template-rows:auto minmax(0,1fr);gap:8px}
+.lt{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto;gap:8px}
 .ltops{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
-.ltop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:10px;border:1px solid var(--line);background:var(--card);min-width:0}
+.ltop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0;cursor:pointer}
+.ltop.sel{border-color:var(--or);border-style:dashed}.ltop:disabled{opacity:.55;cursor:default}
 .ltop svg{width:30px;height:22px}.ltop span{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .ltop.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}
 .ltop .ic-l{stroke:var(--fg);fill:none}.ltop .ic-c{fill:#ff7a2e}.ltop .ic-s{fill:#8b95a6}
@@ -144,13 +145,32 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltax .v small,.ltsp .v small{font:500 12px system-ui;color:var(--dim);margin-left:5px}
 .ltsp{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:6px;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;padding:5px 10px}
 .ltsp b{font-size:12px;color:var(--dim);font-weight:600}.ltsp .v{font:600 clamp(18px,2.4vw,24px) ui-monospace,monospace;text-align:right;white-space:nowrap}
-.ltpanel h3{margin:0;font-size:16px}.ltrows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.ltpanel h3{margin:0;font-size:16px}
+.ltfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ltfields .f{display:flex;flex-direction:column;gap:3px;min-width:0}.ltfields .wide{grid-column:1/-1}
+.ltfields label{font-size:12px;color:var(--dim)}
+.ltfields .step{display:grid;grid-template-columns:36px 1fr 36px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--tile)}
+.ltfields .step button{border:0;background:transparent;font-size:20px;padding:0;color:var(--fg)}
+.ltfields .step input{border:0;background:transparent;color:var(--fg);text-align:center;font:600 18px ui-monospace,monospace;width:100%;min-width:0;padding:6px 0}
+.ltfields .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.ltfields .seg button{flex:1;border:0;border-radius:0;background:var(--tile);padding:7px 4px;font-size:13px;color:var(--fg)}
+.ltfields .seg button.on{background:var(--or);color:#111;font-weight:700}
+.ltfields .sel{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:7px 8px;font:600 14px system-ui;width:100%}
+.ltinfo{font-size:12.5px;color:var(--dim);line-height:1.45}.ltinfo .bad{color:var(--bad)}
+.ltnow{margin-top:auto;font:12px/1.45 ui-monospace,monospace;color:var(--dim);border-top:1px dashed var(--line);padding-top:6px}
+.ltbot{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+.ltstart{position:relative;overflow:hidden;border:0;border-radius:12px;background:var(--ok);color:#fff;font-weight:800;letter-spacing:.04em;padding:13px 22px;min-width:190px}
+.ltstart .fill{position:absolute;inset:0;width:0;background:rgba(255,255,255,.3)}.ltstart span{position:relative}.ltstart.run{background:var(--acc)}
+.ltprog{display:flex;flex-direction:column;gap:4px;min-width:0}.ltprog .bar{height:8px;border-radius:99px;background:var(--tile);border:1px solid var(--line);overflow:hidden}
+.ltprog .bar div{height:100%;width:0;background:var(--or)}.ltprog small{color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ltrows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
 .ltrows span:nth-child(odd){color:var(--dim)}.ltrows span:nth-child(even){font:600 15px ui-monospace,monospace;text-align:right}
 .ltnote{margin-top:auto;font-size:12px;color:var(--dim)}
 .ltspin{width:22px;height:22px;fill:none;stroke:var(--fg);stroke-width:2;vertical-align:middle;animation:ltspin .8s linear infinite}
 @keyframes ltspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.ltspin{animation:none}}
 @media (orientation:portrait),(max-width:760px){.ltops{grid-template-columns:repeat(4,minmax(0,1fr))}.ltmain{grid-template-columns:1fr;grid-template-rows:minmax(80px,24%) minmax(0,1fr)}
- .ltleg{display:none}.ltax .l{font-size:30px}.ltax .v{font-size:27px}.ltrows{font-size:13px;gap:2px 10px}.ltpanel h3{font-size:14px}}
+ .ltleg{display:none}.ltax .l{font-size:28px}.ltax .v{font-size:25px}.ltpanel h3{font-size:14px}.ltmain{grid-template-rows:minmax(70px,18%) minmax(0,1fr)}
+ .ltfields{gap:5px}.ltfields label{font-size:11px}.ltfields .step input{font-size:15px;padding:3px 0}.ltfields .step{grid-template-columns:30px 1fr 30px}
+ .ltfields .seg button{padding:5px 2px;font-size:12px}.ltfields .sel{padding:4px 6px}.ltinfo{font-size:11.5px}.ltnow{font-size:11px}.ltstart{min-width:150px;padding:11px 12px}
+ .ltdro{gap:4px}.ltsp{padding:3px 8px}.ltsp .v{font-size:17px}.ltside{gap:6px}.card.ltpanel{padding:8px;gap:6px}}
 </style></head><body>
 <div id="app">
 <header><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
@@ -182,7 +202,9 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
 <div class="ltsp"><b id="ltRpmL"></b><span class="v"><span id="ltRpm">-</span><small id="ltRpmU"></small></span></div>
 <div class="ltsp"><b id="ltAngL"></b><span class="v"><span id="ltAng">-</span><small>&deg;</small></span></div></div>
-<div class="card ltpanel" id="ltPanel"></div></div></div>
+<div class="card ltpanel" id="ltForm"></div></div></div>
+<div class="ltbot"><button type="button" class="ltstart" id="ltStart"><span class="fill" id="ltFill"></span><span id="ltStartT"></span></button>
+<div class="ltprog"><div class="bar"><div id="ltBar"></div></div><small id="ltProg"></small></div></div>
 </section>
 <section class="scr" data-tab="program" hidden>
 <div class="subtabs" data-s="program"><button data-p="run">Run</button><button data-p="files">Files</button><button data-p="path">Path</button></div>
@@ -271,7 +293,7 @@ const DEMO=/[?&]demo\b/.test(location.search);
 if(DEMO)(function(){
  const S={x:-21,z:-2,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
   log:['Demo: a simulated machine, no H4 is connected.'],t:Date.now(),benchN:0,bench:'',program:'',steps:0,
-  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}],ang:0};
+  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}],ang:0,mode:4,on:false,lt:{pitch:0.1,measure:0,starts:1,passes:8,cone:1,aux:1,setup:0,op:0,zl:40,zr:0,xl:-18,xr:-20}};
  const lines=['(demo program)','G21 G90 G94 G8','G0 Z5','G0 X40 C0','G1 Z-0.5 F200','G93'];
  for(let i=0;i<=720;i+=6)lines.push('G1 X'+(40-i/24).toFixed(3)+' C'+i+' F'+(60).toFixed(1));
  lines.push('G94','G0 Z5','M2');const text={'demo_spiral.ngc':lines.join('\n'),
@@ -283,13 +305,15 @@ if(DEMO)(function(){
   if(now-S.jog.t<300&&!S.running){S.x+=S.jog.x/60*dt;S.z+=S.jog.z/60*dt;S.c+=S.jog.c/60*dt;S.steps+=Math.round((Math.abs(S.jog.x)+Math.abs(S.jog.z))*20*dt)}
   if(S.running&&!S.paused){S.progress=Math.min(1,S.progress+dt/40*S.fo/100);const p=pts[Math.min(pts.length-1,Math.floor(S.progress*pts.length))];
    S.x=p[0];S.c=p[1];S.z=-0.5;S.steps+=Math.round(400*dt*S.fo/100);
-   if(S.progress>=1){S.running=false;S.state='Idle';S.z=5;add('Demo: program end')}}}
+   if(S.progress>=1){S.running=false;S.state='Idle';S.z=5;add('Demo: program end')}}
+  if(S.on){const L=S.lt;S.lp=(S.lp||0)+dt/3;if(S.lp>=1){S.lp=0;L.op++;if(L.op>=L.passes){S.on=false;L.op=0;add('Demo: lathe passes done')}}
+   if(L.zl!=null&&L.zr!=null)S.z=L.zr+(L.zl-L.zr)*(S.lp||0)}}
  function status(){tick();const st=S.running?(S.paused?'Hold':'Run'):'Idle';
-  return {state:st,gcodeMode:1,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
+  return {state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
-   mode:S.running?9:4,rpm:S.running?0:820,lathe:{pitch:0.1,measure:0,starts:1,passes:8,cone:1,aux:1,setup:0,op:0,ang:(S.ang=(S.ang+29)%360),zl:40,zr:0,xl:-18,xr:-20},
+   mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360)}),
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
    diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
@@ -309,6 +333,11 @@ if(DEMO)(function(){
   if(p=='/wifi')return opt&&opt.method=='POST'?ok('Demo: not saved.'):ok({ssid:'demo',passwordSet:0,setupAp:0,ip:'demo',apName:'NanoEls-H4-Setup'});
   if(p=='/jog'){S.jog={x:+arg('x')||0,z:+arg('z')||0,c:+arg('c')||0,t:Date.now()};return ok('ok')}
   if(p=='/key')return ok('ok');
+  if(p=='/lathe'){if(S.on||S.running)return no('The machine is ON or moving: stop it (OFF) first.');
+   if(arg('do')=='start'){if(S.mode==9)return no('G-code mode: use the G-code tab.');S.on=true;S.lp=0;S.lt.op=0;add('Demo: lathe ON');return ok('ON')}
+   const L=S.lt,n=k=>arg(k)===null?undefined:(arg(k)===''?null:+arg(k));
+   if(n('mode')!==undefined)S.mode=n('mode');if(n('pitch')!==undefined)L.pitch=n('pitch');for(const k of ['starts','passes','cone','aux'])if(n(k)!==undefined)L[k]=n(k);
+   for(const k of ['zl','zr','xl','xr'])if(n(k)!==undefined)L[k]=n(k);add('Demo: lathe set '+u.search);return ok('Set')}
   if(p=='/delete'){S.files=S.files.filter(f=>f.name!=arg('name'));return ok('Deleted')}
   if(p=='/mdi'){const l=(arg('line')||'').trim();if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');
    if(/^\$H$/i.test(l)){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
@@ -316,7 +345,7 @@ if(DEMO)(function(){
    add('Demo: '+l);return ok('Running: '+l)}
   if(p=='/cmd'){const d=arg('do');
    if(d=='start'){if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);return ok('Started '+S.program)}
-   if(d=='stop'){S.running=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
+   if(d=='stop'){S.running=false;S.on=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
    if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
    if(d=='resume'){S.paused=false;return ok('Resuming')}
    if(d=='home'){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
@@ -636,21 +665,33 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
  addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
   if(Date.now()-t0<600&&Math.abs(dx)>80&&Math.abs(dx)>2*Math.abs(dy)){const i=TN.indexOf(curTab)+(dx<0?1:-1);if(i>=0&&i<TN.length)tab(TN[i])}},{passive:true})})();
 
-// ---------------------------------------------------------------- Lathe screen: the H4's own modes, read only for now.
-// It shows what the H4 is set to (mode, pitch, passes, starts, cone, stops) with a DRO and a drawing; it changes
-// nothing on the machine. Texts in English or Greek (Settings, Appearance, Language).
-const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',settings:'Settings'},rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',mode:'Mode',pitch:'Feed per turn',thpitch:'Pitch',tpi:'Threads per inch',
-  starts:'Starts',passes:'Passes',cone:'Cone ratio',side:'Side',ext:'external',int:'internal',stops:'Stops',zl:'Z left',zr:'Z right',xu:'X up',xd:'X down',
-  none:'not set',len:'length',depth:'depth',on:'Running',off:'Stopped',setup:'Setting up on the H4: step',pass:'pass',gcode:'G-code mode: see Control and Program.',
-  a1:'A1 mode (rotary axis).',ro:'As set on the H4. Changing them from here comes in the next version.',
-  speed:'Speed',legend:['stock','between the stops','Z0 and stops','tool'],
-  m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code',10:'A1'}},
- el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',mode:'Λειτουργία',pitch:'Πρόωση ανά στροφή',thpitch:'Βήμα',tpi:'Σπείρες ανά ίντσα',
-  starts:'Αρχές',passes:'Περάσματα',cone:'Λόγος κώνου',side:'Πλευρά',ext:'εξωτερική',int:'εσωτερική',stops:'Όρια',zl:'Z αριστερά',zr:'Z δεξιά',xu:'X επάνω',xd:'X κάτω',
-  none:'—',len:'μήκος',depth:'βάθος',on:'Σε λειτουργία',off:'Σταματημένο',setup:'Ρύθμιση στο H4: βήμα',pass:'πέρασμα',gcode:'Λειτουργία G-code: δες Έλεγχο και Πρόγραμμα.',
-  a1:'Λειτουργία A1 (περιστροφικός άξονας).',ro:'Όπως είναι ρυθμισμένα στο H4. Η αλλαγή από εδώ έρχεται στην επόμενη έκδοση.',
-  speed:'Ταχύτητα',legend:['κομμάτι','ανάμεσα στα όρια','Z0 και όρια','εργαλείο'],
-  m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code',10:'A1'}}};
+// ---------------------------------------------------------------- Lathe screen: the H4's own modes.
+// A form per mode in the turner's terms (zero at the start, how far left in Z, how deep in X, how many passes);
+// the start point is where the tool stands. The form becomes the H4's own values (pitch, starts, passes, cone
+// ratio, external / internal, the four stops) through /lathe, which uses the same functions as the H4's keys;
+// START presses ON through the H4's key queue. Nothing here changes how a mode works.
+// H4 conventions (as its display): Z grows to the left (towards the chuck); X grows towards the centre, so with
+// X0 on the centre line (zero X from a measured diameter) the outside of the part is negative.
+const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',settings:'Settings'},
+  rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',from:'Start point: the tool, Z',
+  inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
+  pass:'pass',passes:'passes',ready:'ready',sent:'Set on the H4.',estimate:'at',maxrpm:'Z can follow up to',fast:'TOO FAST: Z cannot follow this pitch at',
+  ext:'External',int:'Internal',none:'—',side:'Side view',legend:['stock','material removed','Z0 and stops','tool'],
+  m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code'},
+  t:{0:'Feed per turn',2:'Constant feed (without the spindle)',3:'Taper',4:'Turning in passes',5:'Facing in passes',6:'Parting / grooving',7:'Threading',8:'Half sphere / ellipse'},
+  f:{feed:'Feed mm/turn',pitch:'Pitch mm',speed:'Speed mm/s',len:'Length Z ← mm',depth:'Depth X ↓ mm',zdepth:'Depth Z ← mm',xlen:'Travel X ↓ mm',
+   passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',rz:'Radius Z mm',rx:'Radius X mm',dbig:'Ø large mm',dsmall:'Ø small mm',
+   preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex',concave:'Concave'}},
+ el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},
+  rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',from:'Αρχή: η θέση του εργαλείου, Z',
+  inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
+  pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',sent:'Ρυθμίστηκε στο H4.',estimate:'στις',maxrpm:'Ο Z προλαβαίνει έως',fast:'ΠΟΛΥ ΓΡΗΓΟΡΑ: ο Z δεν προλαβαίνει αυτό το βήμα στις',
+  ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',side:'Πλάγια όψη',legend:['κομμάτι','υλικό που φεύγει','Z0 και όρια','εργαλείο'],
+  m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code'},
+  t:{0:'Πρόωση ανά στροφή',2:'Σταθερή πρόωση (χωρίς άτρακτο)',3:'Κώνος',4:'Τόρνευση σε περάσματα',5:'Τόρνευση προσώπου',6:'Αποκοπή / αυλάκι',7:'Σπείρωμα',8:'Ημισφαίριο / έλλειψη'},
+  f:{feed:'Πρόωση mm/στροφή',pitch:'Βήμα mm',speed:'Ταχύτητα mm/s',len:'Μήκος Z ← mm',depth:'Βάθος X ↓ mm',zdepth:'Βάθος Z ← mm',xlen:'Διαδρομή X ↓ mm',
+   passes:'Περάσματα',starts:'Αρχές',dir:'Φορά',hand:'Σπείρωμα',side:'Πλευρά',shape:'Μορφή',rz:'Ακτίνα Z mm',rx:'Ακτίνα X mm',dbig:'Ø μεγάλη mm',dsmall:'Ø μικρή mm',
+   preset:'Τυποποιημένο',left:'← προς το τσοκ',right:'→ από το τσοκ',rh:'Δεξιό',lh:'Αριστερό',convex:'Κυρτό',concave:'Κοίλο'}}};
 const LTOPS=[[0,'<rect class="ic-s" x="2" y="8" width="24" height="9" rx="1"/><path class="ic-l" d="M25 4 L6 4 M10 1 L6 4 L10 7" stroke-width="2"/>'],
  [4,'<rect class="ic-s" x="2" y="9" width="24" height="10" rx="1"/><rect class="ic-c" x="12" y="6" width="14" height="3"/><path class="ic-l" d="M27 3 L12 3" stroke-width="1.6"/>'],
  [5,'<rect class="ic-s" x="2" y="4" width="20" height="16" rx="1"/><rect class="ic-c" x="22" y="4" width="4" height="16"/><path class="ic-l" d="M28 2 L28 21" stroke-width="1.6"/>'],
@@ -659,50 +700,112 @@ const LTOPS=[[0,'<rect class="ic-s" x="2" y="8" width="24" height="9" rx="1"/><p
  [6,'<rect class="ic-s" x="2" y="6" width="24" height="14" rx="1"/><rect class="ic-c" x="15" y="6" width="3" height="10"/><path class="ic-l" d="M16.5 1 L16.5 5" stroke-width="2"/>'],
  [8,'<path class="ic-s" d="M2 7 L14 7 A10 10 0 0 1 24 15 L24 19 L2 19 Z"/><path class="ic-c" d="M14 7 A10 10 0 0 1 24 15 L24 4 L14 4 Z"/>'],
  [2,'<rect class="ic-s" x="2" y="9" width="24" height="9" rx="1"/><path class="ic-l" d="M6 4 L24 4 M19 1 L24 4 L19 7" stroke-width="1.8"/><circle class="ic-c" cx="6" cy="4" r="2"/>']];
+// Ready-made values; every field stays free to change. Threads: ISO metric coarse / fine and UNC (pitch mm),
+// depth 0.6134 P outside, 0.5413 P inside. Tapers: diameter change per mm of length (Morse, metric 1:20, 7:24,
+// 1:10, taper pins 1:50). Spheres: a ball of that diameter (radius in Z and in X).
+const LTPRE={7:[['M3 × 0.5',0.5],['M4 × 0.7',0.7],['M5 × 0.8',0.8],['M6 × 1',1],['M8 × 1.25',1.25],['M8 × 1',1],['M10 × 1.5',1.5],['M10 × 1.25',1.25],
+  ['M12 × 1.75',1.75],['M12 × 1.5',1.5],['M12 × 1.25',1.25],['M14 × 2',2],['M14 × 1.5',1.5],['M16 × 2',2],['M16 × 1.5',1.5],['M20 × 2.5',2.5],['M20 × 1.5',1.5],
+  ['M24 × 3',3],['M24 × 2',2],['1/4-20 UNC',1.27],['5/16-18 UNC',25.4/18],['3/8-16 UNC',25.4/16],['1/2-13 UNC',25.4/13],['5/8-11 UNC',25.4/11],['3/4-10 UNC',2.54]],
+ 3:[['MT0',0.05205],['MT1',0.04988],['MT2',0.04995],['MT3',0.05020],['MT4',0.05194],['MT5',0.05263],['1:20',0.05],['1:10',0.1],['7:24',7/24],['1:50',0.02]],
+ 8:[['Ø 10',10],['Ø 12',12],['Ø 16',16],['Ø 20',20],['Ø 25',25],['Ø 30',30],['Ø 40',40]]};
+// The fields of each mode: [key, label key, default, step, decimals] or [key, label key, [options], default]
+const LTF={0:[['feed','feed',0.1,0.01,2],['dir','dir',['left','right'],0]],
+ 4:[['len','len',40,1,2],['depth','depth',2,0.1,2],['passes','passes',8,1,0],['feed','feed',0.1,0.01,2],['side','side',['ext','int'],0]],
+ 5:[['zdepth','zdepth',1,0.1,2],['xlen','xlen',20,1,2],['passes','passes',4,1,0],['feed','feed',0.08,0.01,2]],
+ 3:[['dbig','dbig',40,0.5,2],['dsmall','dsmall',30,0.5,2],['len','len',30,1,2],['feed','feed',0.08,0.01,2],['side','side',['ext','int'],0]],
+ 7:[['pitch','pitch',1.5,0.05,3],['len','len',25,1,2],['depth','depth',0.92,0.01,3],['passes','passes',10,1,0],['starts','starts',1,1,0],
+   ['hand','hand',['rh','lh'],0],['side','side',['ext','int'],0]],
+ 6:[['depth','depth',10,0.5,2],['passes','passes',1,1,0],['feed','feed',0.04,0.01,2],['side','side',['ext','int'],0]],
+ 8:[['rz','rz',12,0.5,2],['rx','rx',12,0.5,2],['passes','passes',12,1,0],['feed','feed',0.07,0.01,2],['side','shape',['convex','concave'],0]],
+ 2:[['speed','speed',0.5,0.1,2],['dir','dir',['left','right'],0]]};
+let ltOp=-1,ltPre={},ltV={};try{ltV=JSON.parse(localStorage.getItem('h4lathe')||'{}')}catch(e){}
+for(const m in LTF){ltV[m]=ltV[m]||{};for(const f of LTF[m])if(ltV[m][f[0]]===undefined)ltV[m][f[0]]=Array.isArray(f[2])?f[3]:f[2]}
 const ltT=()=>LTT[look.lang=='el'?'el':'en'];
+const ltSave=()=>{try{localStorage.setItem('h4lathe',JSON.stringify(ltV))}catch(e){}};
 function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
  for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
- $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<div class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></div>`).join('');
- $('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;
+ $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<button type="button" class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></button>`).join('');
+ $('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
  const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--fg)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
- $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);if(st.lathe)ltShow()}
-function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm',f=v=>v==null?L.none:(+v).toFixed(3);
- document.querySelectorAll('.ltop').forEach(b=>b.classList.toggle('on',+b.dataset.m==st.mode));
+ $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltForm();if(st.lathe)ltShow()}
+$('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;ltForm();if(st.lathe)ltShow()});
+function ltForm(){const L=ltT(),m=ltOp<0?(st.mode in LTF?st.mode:4):ltOp,v=ltV[m],F=LTF[m];if(!F)return;
+ const pre=LTPRE[m]?`<div class="f wide"><label for="ltPre">${L.f.preset}</label><select id="ltPre" class="sel"><option value="">—</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${ltPre[m]===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select></div>`:'';
+ $('ltForm').innerHTML=`<h3>${L.t[m]}</h3><div class="ltfields">${pre}${F.map(f=>Array.isArray(f[2])
+  ?`<div class="f${F.length%2&&f==F[F.length-1]?' wide':''}"><label>${L.f[f[1]]}</label><div class="seg" data-k="${f[0]}">${f[2].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[o]||L[o]}</button>`).join('')}</div></div>`
+  :`<div class="f"><label for="lt_${f[0]}">${L.f[f[1]]}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><input id="lt_${f[0]}" inputmode="decimal" value="${(+v[f[0]]).toFixed(f[4])}" data-k="${f[0]}"><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`).join('')}</div>
+  <div class="ltinfo" id="ltInfo"></div><div class="ltnow" id="ltNow"></div>`;ltInfo()}
+$('ltForm').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||st.on)return;const m=ltCur(),v=ltV[m];
+ const sg=b.closest('.seg');if(sg){v[sg.dataset.k]=+b.dataset.i;ltPre[m]='';ltSave();ltForm();ltShow();return}
+ if(b.dataset.k){const f=LTF[m].find(f=>f[0]==b.dataset.k);v[f[0]]=Math.max(f[4]?f[3]:1,+(+v[f[0]]+f[3]*b.dataset.d).toFixed(5));ltPre[m]='';ltSave();ltForm();ltShow()}});
+$('ltForm').addEventListener('change',e=>{const m=ltCur(),v=ltV[m],t=e.target;
+ if(t.id=='ltPre'){ltPre[m]=t.value;if(t.value!==''){const p=LTPRE[m][+t.value][1];
+   if(m==7){v.pitch=+p.toFixed(4);v.depth=+(p*(v.side?0.5413:0.6134)).toFixed(3)}
+   if(m==3)v.dsmall=+(v.dbig-p*v.len).toFixed(3);if(m==8){v.rz=v.rx=p/2}}ltSave();ltForm();ltShow();return}
+ if(!t.dataset.k)return;const n=parseFloat(String(t.value).replace(',','.'));if(isFinite(n)&&n>0){v[t.dataset.k]=n;ltPre[m]=''}ltSave();ltForm();ltShow()});
+const ltCur=()=>ltOp<0?(st.mode in LTF?st.mode:4):ltOp;
+// Z maximum speed (mm/min) from the machine settings: a thread or a feed needs pitch x rpm of it.
+function ltZmax(){if(!cfg||!cfg.items)return 0;const g=k=>{const it=cfg.items.find(i=>i.k==k);return it?+it.v:0};
+ const sp=g('zSpeed'),st_=g('zSteps'),sc=g('zScrew');return sp&&st_&&sc?sp*(sc/10000)/st_*60:0}
+// What the form becomes on the H4 (displayed units; the start point is where the tool stands).
+function ltPlan(){const m=ltCur(),v=ltV[m],Z=st.z,X=st.x,q={mode:m};
+ if(m==0){q.pitch=(v.dir?-1:1)*v.feed}
+ if(m==2){q.pitch=(v.dir?-1:1)*v.speed}
+ if(m==4){q.pitch=v.feed;q.passes=v.passes;q.aux=v.side?0:1;q.zr=Z;q.zl=Z+v.len;if(v.side){q.xl=X;q.xr=X-v.depth}else{q.xr=X;q.xl=X+v.depth}}
+ if(m==5){q.pitch=v.feed;q.passes=v.passes;q.zr=Z;q.zl=Z+v.zdepth;q.xr=X;q.xl=X+v.xlen}
+ if(m==3){q.pitch=v.feed;q.cone=Math.abs(v.dbig-v.dsmall)/v.len;q.aux=v.side?0:1;q.zl=q.zr=q.xl=q.xr=''}
+ if(m==7){q.pitch=(v.hand?-1:1)*v.pitch;q.starts=v.starts;q.passes=v.passes;q.aux=v.side?0:1;q.zr=Z;q.zl=Z+v.len;if(v.side){q.xl=X;q.xr=X-v.depth}else{q.xr=X;q.xl=X+v.depth}}
+ if(m==6){q.pitch=(v.side?-1:1)*v.feed;q.passes=v.passes;q.zl=q.zr='';if(v.side){q.xl=X;q.xr=X-v.depth}else{q.xr=X;q.xl=X+v.depth}}
+ if(m==8){q.pitch=v.feed;q.passes=v.passes;q.aux=v.side?0:1;q.zr=Z;q.zl=Z+v.rz;q.xr=X;q.xl=X+v.rx}
+ return q}
+function ltInfo(){const e=$('ltInfo');if(!e||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),rpm=Math.max(1,st.rpm||0),zmax=ltZmax(),out=[];
+ out.push(L.from+' '+st.z.toFixed(3)+', X '+st.x.toFixed(3));
+ const p=Math.abs(q.pitch||0);
+ if(zmax&&p&&[0,4,7].includes(m)){const lim=Math.floor(zmax/p);out.push((st.rpm>lim?'<b class="bad">'+L.fast+' '+st.rpm+' '+L.rpmu+'</b> · ':'')+L.maxrpm+' '+lim+' '+L.rpmu)}
+ let mm=0;if(m==4||m==7)mm=v.len*v.passes;if(m==5)mm=v.xlen*v.passes;if(m==6)mm=v.depth;if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
+ if(mm&&p&&m!=2){const min=mm/(p*rpm)*1.15,r=st.rpm>1?st.rpm:500;const t=mm/(p*r)*1.15;
+  out.push('≈ '+(t<1?Math.max(1,Math.round(t*60))+(look.lang=='el'?' δευτ.':' s'):t.toFixed(1)+(look.lang=='el'?' λεπτά':' min'))+' '+L.estimate+' '+r+' '+L.rpmu)}
+ e.innerHTML=out.join('<br>')}
+function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm';
+ document.querySelectorAll('.ltop').forEach(b=>{b.classList.toggle('on',+b.dataset.m==st.mode);b.classList.toggle('sel',+b.dataset.m==ltCur()&&ltCur()!=st.mode);b.disabled=!!st.on});
  $('ltXv').textContent=st.x.toFixed(3);$('ltXu').textContent=u;$('ltZv').textContent=st.z.toFixed(3);$('ltZu').textContent=u;
  $('ltRpm').textContent=st.rpm;const turning=Math.abs(st.rpm)>10,ae=$('ltAng');
  if(turning){if(!ae.firstElementChild)ae.innerHTML='<svg class="ltspin" viewBox="0 0 24 24" aria-label="turning"><circle cx="12" cy="12" r="9"/><path d="M12 3v5"/></svg>'}else ae.textContent=(+l.ang).toFixed(1);
- const m=st.mode,rows=[[L.mode,L.m[m]||m]];
- const pitch=l.measure==2&&l.pitch?[L.tpi,(25.4/Math.abs(l.pitch)).toFixed(1)]:[m==7?L.thpitch:L.pitch,Math.abs(l.pitch).toFixed(3)+(m==2?' '+u+'/s':' '+u)+(l.pitch<0?' ←':'')];
- if(m!=9&&m!=10)rows.push(pitch);
- if([4,5,6,7,8].includes(m))rows.push([L.passes,l.passes]);
- if(m==7)rows.push([L.starts,l.starts]);
- if([3,7,8,4,5,6].includes(m))rows.push([L.side,l.aux?L.ext:L.int]);
- if(m==3)rows.push([L.cone,(+l.cone).toFixed(4)]);
- rows.push([L.zl+' / '+L.zr,f(l.zl)+' / '+f(l.zr)]);rows.push([L.xu+' / '+L.xd,f(l.xl)+' / '+f(l.xr)]);
- if(l.zl!=null&&l.zr!=null)rows.push(['Z '+L.len,(l.zl-l.zr).toFixed(3)]);if(l.xl!=null&&l.xr!=null)rows.push(['X '+L.depth,(l.xl-l.xr).toFixed(3)]);
- let state=st.on?L.on+(l.passes&&[4,5,6,7,8].includes(m)?' · '+L.pass+' '+(l.op+1)+' / '+l.passes:''):L.off;if(!st.on&&l.setup>0)state=L.setup+' '+l.setup;
- $('ltPanel').innerHTML=`<h3>${L.m[m]||''}</h3><div class="ltrows">${rows.map(r=>`<span>${r[0]}</span><span>${r[1]}</span>`).join('')}<span></span><span>${state}</span></div>
-  <div class="ltnote">${m==9?L.gcode:m==10?L.a1:L.ro}</div>`;
- ltDraw()}
-// Side view, fitted to Z0, the stops and the tool. As on the H4: Z grows to the left (towards the chuck); X is
-// drawn with X0 on the spindle centre line and the outside of the part below it (zero X from a measured diameter).
-function ltDraw(){const l=st.lathe,W=600,H=300,zs=[0,st.z],xs=[0,st.x];
- for(const k of ['zl','zr'])if(l[k]!=null)zs.push(+l[k]);for(const k of ['xl','xr'])if(l[k]!=null)xs.push(+l[k]);
+ const f=v=>v==null?L.none:(+v).toFixed(3),m=st.mode;
+ const now=[L.m[m]||m,(m==7?'P ':'')+Math.abs(l.pitch).toFixed(3)+(l.pitch<0?' ←':''),[4,5,6,7,8].includes(m)?l.passes+' '+L.passes:'',m==7&&l.starts>1?l.starts+'×':'',m==3?'k '+(+l.cone).toFixed(4):'',
+  'Z '+f(l.zr)+'…'+f(l.zl),'X '+f(l.xr)+'…'+f(l.xl)].filter(Boolean).join(' · ');
+ if($('ltNow'))$('ltNow').textContent=(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now);
+ const sb=$('ltStart');sb.classList.toggle('run',!!st.on);$('ltStartT').textContent=st.on?L.running:L.start;
+ const pm=[4,5,6,7,8].includes(m);$('ltBar').style.width=st.on&&pm&&l.passes?Math.min(100,100*l.op/l.passes)+'%':'0';
+ $('ltProg').textContent=(L.m[m]||'')+(st.on&&pm?' · '+L.pass+' '+Math.min(l.op+1,l.passes)+' / '+l.passes:(pm?' · '+l.passes+' '+L.passes:'')+' · '+(st.on?'':L.ready));
+ ltInfo();ltDraw()}
+// START: send the form (the H4 refuses while it is ON or moving), then press ON through the H4's key queue.
+async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.measure){msg(L.inch);return}
+ const q=ltPlan(),p=new URLSearchParams();for(const [k,v] of Object.entries(q))p.set(k,v===''?'':(typeof v=='number'?+v.toFixed(5):v));
+ try{await post('/lathe?'+p.toString());await new Promise(r=>setTimeout(r,300));await post('/lathe?do=start')}catch(e){msg(e.message)}}
+(function(){const b=$('ltStart');let t=null,t0=0;const end=()=>{clearInterval(t);t=null;$('ltFill').style.width='0'};
+ const go=e=>{if(st.on||t)return;e.preventDefault();t0=performance.now();t=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/800);$('ltFill').style.width=k*100+'%';if(k>=1){end();ltStartGo()}},30)};
+ b.addEventListener('pointerdown',go);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,end));
+ b.addEventListener('keydown',e=>{if(e.key=='Enter'||e.key==' ')go(e)});b.addEventListener('keyup',end)})();
+// Side view, fitted to Z0, the stops (or the form's plan) and the tool; X0 on the spindle centre line.
+function ltDraw(){const l=st.lathe,W=600,H=300,q=st.on?null:ltPlan(),src=st.on||!q?l:{zl:q.zl,zr:q.zr,xl:q.xl,xr:q.xr};
+ const num=v=>v===''||v==null?null:+v,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),zs=[0,st.z],xs=[0,st.x];
+ for(const v of [zl,zr])if(v!=null)zs.push(v);for(const v of [xl,xr])if(v!=null)xs.push(v);
  let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
- const zr=Math.max(10,z1-z0),xr=Math.max(5,x1-x0);z0-=zr*.15;z1+=zr*.35;x0-=xr*.25;x1+=xr*.25;
+ const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.15;z1+=zr_*.35;x0-=xr_*.25;x1+=xr_*.25;
  const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>20+(x-x0)*S,g=[];
  const ax=py(0),chuck=px(z1);
  for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="var(--tileb)" stroke-width="1"/>`);
- const surf=l.xr!=null?+l.xr:Math.min(st.x,0),top=py(surf);
- g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${px(0)-chuck}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
+ const surf=xr!=null?xr:Math.min(st.x,0),top=py(surf);
+ g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
  g.push(`<rect x="${chuck-40}" y="${Math.min(top,ax)-30}" width="40" height="${Math.abs(ax-top)+60}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
- if(l.zl!=null&&l.zr!=null&&l.xl!=null&&l.xr!=null){const a=px(+l.zl),b=px(+l.zr),c=py(+l.xl),d=py(+l.xr);
-  g.push(`<rect x="${Math.min(a,b)}" y="${Math.min(c,d)}" width="${Math.abs(b-a)}" height="${Math.abs(d-c)}" fill="#ff7a2e" opacity=".5"/>`)}
+ if(zl!=null&&zr!=null&&xl!=null&&xr!=null){const a=px(zl),b=px(zr),c=py(xl),d=py(xr);
+  g.push(`<rect x="${Math.min(a,b)}" y="${Math.min(c,d)}" width="${Math.abs(b-a)}" height="${Math.abs(d-c)}" fill="#ff7a2e" opacity=".55"/>`)}
  g.push(`<line x1="10" y1="${ax}" x2="${W-10}" y2="${ax}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
  const vl=(z,t)=>g.push(`<line x1="${px(z)}" y1="10" x2="${px(z)}" y2="${H-10}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(z)+4}" y="24" fill="${AXC.Z}" font-size="13" font-weight="700">${t}</text>`);
- vl(0,'Z0');if(l.zl!=null)vl(+l.zl,'◂');if(l.zr!=null&&+l.zr!=0)vl(+l.zr,'▸');
- const hl=(x)=>g.push(`<line x1="10" y1="${py(x)}" x2="${W-10}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="4 4" opacity=".8"/>`);
- if(l.xl!=null)hl(+l.xl);if(l.xr!=null)hl(+l.xr);
+ vl(0,'Z0');if(zl!=null)vl(zl,'◂');if(zr!=null&&zr!=0)vl(zr,'▸');
+ const hl=x=>g.push(`<line x1="10" y1="${py(x)}" x2="${W-10}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="4 4" opacity=".8"/>`);
+ if(xl!=null)hl(xl);if(xr!=null)hl(xr);
  const tx=px(st.z),ty=py(st.x);g.push(`<g transform="translate(${tx},${ty})"><path d="M0 0 L-8 26 L18 26 Z" fill="var(--fg)"/><rect x="-6" y="26" width="26" height="30" fill="var(--dim)"/></g>`);
  $('ltSvg').innerHTML=g.join('')}
 window.ltReady=true;ltLang();

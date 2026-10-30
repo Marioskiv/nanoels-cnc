@@ -554,6 +554,81 @@ bool sendKeyEvent(int event) {
   return true;
 }
 
+// ------------------------------------------------------------------ Lathe screen
+
+// A value as the H4 displays it (mm, or inch in the inch modes) -> the axis position in steps.
+long latheDisplayToPos(Axis* a, float v) {
+  double du = v * (measure == MEASURE_METRIC ? 10000.0 : 254000.0);
+  return lround(du / a->screwPitch * a->motorSteps) - a->originPos;
+}
+
+// The Lathe screen sets the H4's own lathe values with the functions its keys use (setModeFromTask, setDupr,
+// setStarts, setTurnPasses, setConeRatio, the stops, external / internal), and never while anything moves or
+// the H4 is ON. "do=start" presses ON exactly as many times as the H4's setup steps need, through the same key
+// queue as a real key, so the mode starts as it does from the keypad (and refuses as it does: missing stops).
+void handleLathe() {
+  if (server.arg("do") == "start") {
+    if (isOn || cncBusy() || homingActive || mode == MODE_GCODE || emergencyStop != ESTOP_NONE) {
+      server.send(409, "text/plain", "The H4 is ON, moving or in GCODE mode.");
+      return;
+    }
+    int presses = getLastSetupIndex() - setupIndex + 1;
+    for (int i = 0; i < presses; i++) {
+      if (!sendKeyEvent(B_ON | 128) || !sendKeyEvent(B_ON)) {
+        server.send(503, "text/plain", "Busy");
+        return;
+      }
+    }
+    server.send(200, "text/plain", "Starting");
+    return;
+  }
+  if (refuseWhileRunning()) return;
+  if (server.hasArg("mode")) {
+    int m = server.arg("mode").toInt();
+    if (m != MODE_NORMAL && (m < MODE_ASYNC || m > MODE_ELLIPSE)) {
+      server.send(400, "text/plain", "Bad mode");
+      return;
+    }
+    setModeFromTask(m);
+  }
+  if (server.hasArg("pitch")) {
+    long du = lround(server.arg("pitch").toFloat() * (measure == MEASURE_METRIC ? 10000.0 : 254000.0));
+    if (labs(du) > DUPR_MAX) {
+      server.send(400, "text/plain", "Pitch out of range");
+      return;
+    }
+    setDupr(du);
+  }
+  if (server.hasArg("starts")) setStarts(constrain(server.arg("starts").toInt(), 1, (int)STARTS_MAX));
+  if (server.hasArg("passes")) setTurnPasses(constrain(server.arg("passes").toInt(), 1, (int)PASSES_MAX));
+  if (server.hasArg("cone")) {
+    float c = server.arg("cone").toFloat();
+    if (!(c > 0 && c < 100)) {
+      server.send(400, "text/plain", "Bad cone ratio");
+      return;
+    }
+    setConeRatio(c);
+  }
+  if (server.hasArg("aux")) auxForward = server.arg("aux") == "1";
+  // A new pitch, starts, cone ratio or mode is applied by loop(), and applying it moves the axes' position origin
+  // (markOrigin): the stops are worked out only after that, in the frame they will be used in.
+  unsigned long t0 = millis();
+  while ((nextDuprFlag || nextStartsFlag || nextConeRatioFlag || nextModeFlag) && millis() - t0 < 1000) vTaskDelay(2);
+  if (nextDuprFlag || nextStartsFlag || nextConeRatioFlag || nextModeFlag) {
+    server.send(503, "text/plain", "The H4 did not take the values in time: try again.");
+    return;
+  }
+  // stops: a value in displayed units, or empty to clear the stop
+  struct { const char* k; Axis* a; bool left; } stops[] = {{"zl", &z, true}, {"zr", &z, false}, {"xl", &x, true}, {"xr", &x, false}};
+  for (auto& st : stops) {
+    if (!server.hasArg(st.k)) continue;
+    String v = server.arg(st.k);
+    if (st.left) setLeftStop(st.a, v.length() == 0 ? LONG_MAX : latheDisplayToPos(st.a, v.toFloat()));
+    else setRightStop(st.a, v.length() == 0 ? LONG_MIN : latheDisplayToPos(st.a, v.toFloat()));
+  }
+  server.send(200, "text/plain", "ok");
+}
+
 void releaseHeldKey() {
   if (heldKey == 0) return;
   int code = heldKey;
@@ -867,6 +942,7 @@ void taskWifi(void* param) {
   server.on("/config", HTTP_POST, handleConfigSave);
   server.on("/mdi", HTTP_POST, handleMdi);
   server.on("/log", HTTP_GET, handleLog);
+  server.on("/lathe", HTTP_POST, handleLathe);
   server.begin();
   while (emergencyStop == ESTOP_NONE) {
     server.handleClient();
