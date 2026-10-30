@@ -83,7 +83,7 @@ The H4 sinks the signals ("common anode"): the driver's `+` inputs go to 5 V, th
 |---|---|
 | ENA (A21) | home switch X, one wire; the other wire to GND |
 | DIR (A22) | home switch Z, one wire; the other wire to GND |
-| STEP (A23) | driver alarm outputs (all drivers together, see [CNC.md](CNC.md#home-switches-limits-and-driver-alarm-wiring)) |
+| STEP (A23) | driver alarm outputs and the E-stop contact (all together, see [CNC.md](CNC.md#home-switches-limits-and-driver-alarm-wiring)) |
 | 5V | nothing |
 
 GND is the `GND` of the Encoder terminal (use a small terminal strip for the switch and alarm ground wires).

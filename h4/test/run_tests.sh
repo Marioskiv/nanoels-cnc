@@ -86,6 +86,10 @@ for i in $(seq 1 30); do
   "$OUT/cnc_junctions" "$OUT/r.ngc" --machine $m --check > "$OUT/j.txt" || { cat "$OUT/j.txt"; jfail=$((jfail + 1)); }
 done
 echo "corners: $jfail failure(s)"
+# Home All, home switches as limits, driver alarm / E-stop and soft limits: the firmware's own homing.ino on a
+# simulated machine (switch bounce, noise, NC broken wire, disconnected switch, alarm and STOP during homing)
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/homing_test" homing_test.cpp
+"$OUT/homing_test" || fail=$((fail + 1))
 fail=$((fail + jfail))
 # real CAM programs (test/cam): as written, and through the polar converter
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp

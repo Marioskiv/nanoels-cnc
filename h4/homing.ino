@@ -7,7 +7,7 @@
 // MAX_LIMIT (soft limits in machine coordinates, active once homed). Home All: Z, then X (or X, then Z),
 // then A1 (C) takes machine 0 where it stands (as HOME_SEARCH_VEL = 0 in LinuxCNC).
 //
-// Inputs on terminal A2: A21 home switch X, A22 home switch Z, A23 driver alarm (see CNC.md for the wiring).
+// Inputs on terminal A2: A21 home switch X, A22 home switch Z, A23 driver alarms and the E-stop contact (see CNC.md).
 // loop() reads them on every pass (cncInputsLoop), so a switch stops the axis within a fraction of a
 // millisecond. A home switch that is hit outside homing, or a driver alarm, stops all motion at once
 // (no deceleration, as a limit in LinuxCNC); the positions stay exact because every step given is counted.
@@ -69,8 +69,9 @@ int cncClampJog(Axis* a, long posCopy, int delta) {
   if (homingActive) return 0; // the homing task moves the axes now
   long lo, hi;
   if (softLimitSteps(a, &lo, &hi)) {
-    if (posCopy + delta > hi) delta = max(0L, hi - posCopy);
-    if (posCopy + delta < lo) delta = min(0L, lo - posCopy);
+    // only a move further out is cut: an axis outside its limits (pushed by hand, limits changed) can come back
+    if (delta > 0 && posCopy + delta > hi) delta = max(0L, hi - posCopy);
+    if (delta < 0 && posCopy + delta < lo) delta = min(0L, lo - posCopy);
   }
   if (switchUsed(a) && switchActive(a) && !homingActive) {
     int towards = homeSearchVel(a) > 0 ? 1 : -1;
@@ -81,7 +82,7 @@ int cncClampJog(Axis* a, long posCopy, int delta) {
 
 // Why a G-code program may not start now, or NULL.
 const char* cncStartRefusal() {
-  if (ALARM_USE && inAlarm) return "Driver alarm";
+  if (ALARM_USE && inAlarm) return "Driver alarm or E-stop";
   if (HOME_X_USE && HOME_X_IS_LIMIT && inHomeX) return "X on its switch";
   if (HOME_Z_USE && HOME_Z_IS_LIMIT && inHomeZ) return "Z on its switch";
   if (homingActive) return "Homing";
@@ -149,7 +150,7 @@ void cncInputsLoop() {
     homingHit = true;
   }
   if (inAlarm && !prevAlarm) {
-    cncFault("Driver alarm", true); // a driver that stopped has lost its position
+    cncFault("Driver alarm or E-stop", true); // a driver that stopped (or lost its power) has lost its position
   } else if (inHomeX && !prevHomeX && HOME_X_IS_LIMIT && watch != &x) {
     cncFault("Limit X", false);
   } else if (inHomeZ && !prevHomeZ && HOME_Z_IS_LIMIT && watch != &z) {
@@ -199,6 +200,8 @@ bool homingMoveUntil(Axis* a, int dir, float vel, bool wantActive, float maxMm) 
   return homingHit && !homingAbort;
 }
 
+const char* homingFailText = NULL;  // why homeAxis() failed, for the message
+
 bool homeAxis(Axis* a, float search, float latch, float finalVel, float offset, float home, float maxTravelMm) {
   float spm = axisStepsPerMm(a);
   int dir = search > 0 ? 1 : -1;
@@ -206,7 +209,11 @@ bool homeAxis(Axis* a, float search, float latch, float finalVel, float offset, 
   bool ok = true;
   a->movingManually = true;
   stepperEnable(a, true);
-  if (switchActive(a)) ok = homingMoveUntil(a, -dir, search, false, backOffMm);
+  homingFailText = NULL;
+  if (switchActive(a)) {
+    ok = homingMoveUntil(a, -dir, search, false, backOffMm);
+    if (!ok) homingFailText = "the switch stays pressed (stuck, or the wire of a normally closed switch is broken)";
+  }
   if (ok) ok = homingMoveUntil(a, dir, search, true, maxTravelMm);
   if (ok) {
     if (latch * search < 0) {
@@ -235,7 +242,8 @@ bool homingOne(Axis* a, const char* searching) {
   bool ok = homeAxis(a, isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL, isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL,
       isX ? HOME_X_FINAL_VEL : HOME_Z_FINAL_VEL, isX ? HOME_X_OFFSET : HOME_Z_OFFSET, isX ? HOME_X_HOME : HOME_Z_HOME, travel);
   if (!ok && !homingAbort) {
-    const char* text = isX ? "Homing X: switch not found" : "Homing Z: switch not found";
+    static char text[120];
+    snprintf(text, sizeof(text), "Homing %c: %s", isX ? 'X' : 'Z', homingFailText ? homingFailText : "switch not found");
     cncLog(text);
     cncStatusText = text;
   }
@@ -252,7 +260,7 @@ void homingRun() {
   const char* refusal = NULL;
   if (mode != MODE_GCODE) refusal = "Homing: not in GCODE mode";
   else if (isOn || cncBusy() || cncStopRequest) refusal = "Homing: stop the program first";
-  else if (ALARM_USE && inAlarm) refusal = "Homing: driver alarm";
+  else if (ALARM_USE && inAlarm) refusal = "Homing: driver alarm or E-stop";
   else if (emergencyStop != ESTOP_NONE) refusal = "Homing: emergency stop";
   if (refusal != NULL) {
     cncStatusText = refusal;

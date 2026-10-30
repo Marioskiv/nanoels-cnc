@@ -228,7 +228,17 @@ JD57 manual; most drivers of this kind keep it **open** in normal running and **
   Drivers of one model behave the same.
 
 An alarm stops all motion at once and the machine counts as not homed (a driver that stopped has lost its
-position). A JD57 alarm is cleared only by switching the driver off and on. A home switch that is hit outside
+position). A JD57 alarm is cleared only by switching the driver off and on.
+
+**Emergency stop.** The E-stop must stop the machine without the H4: a normally closed mushroom button in the coil
+circuit of a relay or contactor that switches off the drivers' supply and the spindle / router (with a separate
+start button, so that nothing restarts by itself when the button is released). The H4 is only told, through A23
+together with the alarms: a second contact of the same button (or of the relay)
+- alarms in parallel (they close on alarm): a contact that **closes** when the E-stop is pressed, in parallel;
+- alarms in series (they open on alarm): a contact that **opens** when the E-stop is pressed, in series (fail-safe:
+  a broken wire also stops).
+The page then says *Driver alarm or E-stop*; the program stops and the machine counts as not homed. After the
+button is released and the drivers are powered again: Home All. A home switch that is hit outside
 homing (*The switch also stops everything*) stops all motion at once as well; the axis can then be jogged away
 from the switch only.
 
@@ -263,6 +273,11 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
 - `cnc_sim --delayed --pulse-us --dir-us --dirhold-us`: the STEP / DIR pin timing as the interrupt drives the pins
   (pulse width, spacing, direction set before the next step and held after the last one) at 5, 10 and 20 us
   direction setup and 0, 10 and 20 us hold;
+- `homing_test`: the firmware's own `homing.ino` on a simulated machine: Home All with NO and NC switches that
+  bounce for 2 ms (switch point = `HOME_OFFSET`, axis at `HOME`), starting on the switch, an NC switch with a
+  broken wire, a disconnected switch, noise shorter / longer than the 0.5 ms debounce during a program, a driver
+  alarm or E-stop and a STOP during homing, homing and programs refused while an alarm is on, soft limits and
+  jogging (only back inside when outside them, never further into a pressed switch), Z or X first;
 - `g93_timing.py`: G93 moves of 1, 2, 3, 7, 60 steps, shorter than a step and slower than a step every few
   seconds, on X alone and X Z C together, up to 2000 moves: every move ends when the sum of 1/F says, no drift;
 - `cnc_sim --stop-at S`: STOP in the middle of a program (also inside a backlash take-up), then a new move
