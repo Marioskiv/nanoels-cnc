@@ -151,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.6"
+#define FW_VERSION "1.7"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1608,9 +1608,9 @@ IRAM_ATTR Axis* cncAxis(int i) {
 
 // The step interrupt works as FluidNC's "timed" stepping engine (and Grbl): the step computed by the previous
 // interrupt is put out at the very start of this one, so its timing does not depend on how long the computation
-// takes; the next step is computed while the pulse is high and only the rest of the pulse length is waited; the
-// direction pins of the next step are set right after the pulse, so the driver sees them a whole step period
-// (and at least DIRECTION_SETUP_DELAY_US) before its step. Step pulse, H4 style: the step pin idles HIGH and a step
+// takes; the next step is computed while the pulse lasts and only the rest of the pulse length is waited; the
+// direction pins of the next step are set DIRECTION_HOLD_US after the pulse, so the driver sees them a whole step
+// period (and at least DIRECTION_SETUP_DELAY_US) before its step. Step pulse, H4 style: the step pin idles HIGH and a step
 // is a LOW pulse. The positions count a step when it is put out, so "not busy" always means "all steps given".
 static cnc_tick_t cncPending;                   // computed, put out by the next interrupt
 static bool cncPendingValid = false;

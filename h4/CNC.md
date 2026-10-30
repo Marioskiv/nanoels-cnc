@@ -170,8 +170,10 @@ convenience, **not** an emergency stop: keep a real one within reach.
   upload is not limited by RAM.
 - **Running**: Start reads the whole program into memory first (PSRAM, up to about 2 MB; 120 kB on a board
   without PSRAM) and then runs it from memory with look-ahead. Nothing is read from or written to the flash
-  while the machine moves (the step timer must not stop during a flash write), so uploads, deletions and
-  settings are refused while a program runs.
+  while the machine moves: a flash read or write turns the CPU cache off, and the step interrupt (not cache-safe in
+  the Arduino core) and the step tasks of the other modes wait meanwhile. So the file list, *Draw*, uploads,
+  deletions, settings and WiFi changes are refused while a program runs, while the H4 is ON in any mode (turning,
+  threading, ...) and while an axis is being jogged.
 - **H4 display and keys**: the page shows the 4 lines of the H4 display and all its keys. The arrows (and
   GEARS / TURN, which move A1 in its mode) move while held; the page repeats the press every 150 ms and the
   controller releases the key by itself if the repeats stop for half a second (page closed, phone asleep,

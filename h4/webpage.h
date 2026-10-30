@@ -269,12 +269,12 @@ if(DEMO)(function(){
   if(p=='/jog'){S.jog={x:+arg('x')||0,z:+arg('z')||0,c:+arg('c')||0,t:Date.now()};return ok('ok')}
   if(p=='/key')return ok('ok');
   if(p=='/delete'){S.files=S.files.filter(f=>f.name!=arg('name'));return ok('Deleted')}
-  if(p=='/mdi'){const l=(arg('line')||'').trim();if(S.running)return no('The machine is running a program. Stop it first.');
+  if(p=='/mdi'){const l=(arg('line')||'').trim();if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');
    if(/^\$H$/i.test(l)){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
    const m=/G91 G1 ([XZC])([-\d.]+)/i.exec(l);if(m){S[m[1].toLowerCase()]+= +m[2]}
    add('Demo: '+l);return ok('Running: '+l)}
   if(p=='/cmd'){const d=arg('do');
-   if(d=='start'){if(S.running)return no('The machine is running a program. Stop it first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);return ok('Started '+S.program)}
+   if(d=='start'){if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);return ok('Started '+S.program)}
    if(d=='stop'){S.running=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
    if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
    if(d=='resume'){S.paused=false;return ok('Resuming')}
