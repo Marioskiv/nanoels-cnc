@@ -170,8 +170,10 @@ convenience, **not** an emergency stop: keep a real one within reach.
   upload is not limited by RAM.
 - **Running**: Start reads the whole program into memory first (PSRAM, up to about 2 MB; 120 kB on a board
   without PSRAM) and then runs it from memory with look-ahead. Nothing is read from or written to the flash
-  while the machine moves (the step timer must not stop during a flash write), so uploads, deletions and
-  settings are refused while a program runs.
+  while the machine moves: a flash read or write turns the CPU cache off, and the step interrupt (not cache-safe in
+  the Arduino core) and the step tasks of the other modes wait meanwhile. So the file list, *Draw*, uploads,
+  deletions, settings and WiFi changes are refused while a program runs, while the H4 is ON in any mode (turning,
+  threading, ...) and while an axis is being jogged.
 - **H4 display and keys**: the page shows the 4 lines of the H4 display and all its keys. The arrows (and
   GEARS / TURN, which move A1 in its mode) move while held; the page repeats the press every 150 ms and the
   controller releases the key by itself if the repeats stop for half a second (page closed, phone asleep,
@@ -226,7 +228,17 @@ JD57 manual; most drivers of this kind keep it **open** in normal running and **
   Drivers of one model behave the same.
 
 An alarm stops all motion at once and the machine counts as not homed (a driver that stopped has lost its
-position). A JD57 alarm is cleared only by switching the driver off and on. A home switch that is hit outside
+position). A JD57 alarm is cleared only by switching the driver off and on.
+
+**Emergency stop.** The E-stop must stop the machine without the H4: a normally closed mushroom button in the coil
+circuit of a relay or contactor that switches off the drivers' supply and the spindle / router (with a separate
+start button, so that nothing restarts by itself when the button is released). The H4 is only told, through A23
+together with the alarms: a second contact of the same button (or of the relay)
+- alarms in parallel (they close on alarm): a contact that **closes** when the E-stop is pressed, in parallel;
+- alarms in series (they open on alarm): a contact that **opens** when the E-stop is pressed, in series (fail-safe:
+  a broken wire also stops).
+The page then says *Driver alarm or E-stop*; the program stops and the machine counts as not homed. After the
+button is released and the drivers are powered again: Home All. A home switch that is hit outside
 homing (*The switch also stops everything*) stops all motion at once as well; the axis can then be jogged away
 from the switch only.
 
@@ -261,6 +273,11 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
 - `cnc_sim --delayed --pulse-us --dir-us --dirhold-us`: the STEP / DIR pin timing as the interrupt drives the pins
   (pulse width, spacing, direction set before the next step and held after the last one) at 5, 10 and 20 us
   direction setup and 0, 10 and 20 us hold;
+- `homing_test`: the firmware's own `homing.ino` on a simulated machine: Home All with NO and NC switches that
+  bounce for 2 ms (switch point = `HOME_OFFSET`, axis at `HOME`), starting on the switch, an NC switch with a
+  broken wire, a disconnected switch, noise shorter / longer than the 0.5 ms debounce during a program, a driver
+  alarm or E-stop and a STOP during homing, homing and programs refused while an alarm is on, soft limits and
+  jogging (only back inside when outside them, never further into a pressed switch), Z or X first;
 - `g93_timing.py`: G93 moves of 1, 2, 3, 7, 60 steps, shorter than a step and slower than a step every few
   seconds, on X alone and X Z C together, up to 2000 moves: every move ends when the sum of 1/F says, no drift;
 - `cnc_sim --stop-at S`: STOP in the middle of a program (also inside a backlash take-up), then a new move

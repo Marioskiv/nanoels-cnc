@@ -107,7 +107,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"lzMax", 'f', (void*)&LIMIT_Z_MAX, -100000, 100000, "Home switch and limits Z (A22)", "MAX_LIMIT (machine coordinate)", "mm"},
   {"hZFirst", 'b', (void*)&HOME_Z_FIRST, 0, 1, "Home All and driver alarm", "Home All: Z first, then X", ""},
   {"hReq", 'b', (void*)&HOME_REQUIRED, 0, 1, "Home All and driver alarm", "Programs start only after Home All", ""},
-  {"alUse", 'b', (void*)&ALARM_USE, 0, 1, "Home All and driver alarm", "Driver alarm connected (A23)", ""},
+  {"alUse", 'b', (void*)&ALARM_USE, 0, 1, "Home All and driver alarm", "Driver alarm / E-stop contact connected (A23)", ""},
   {"alLow", 'b', (void*)&ALARM_WHEN_LOW, 0, 1, "Home All and driver alarm", "Alarm connects A23 to GND (off: opens it)", ""},
 };
 const int MACHINE_CONFIG_COUNT = sizeof(MACHINE_CONFIG) / sizeof(MACHINE_CONFIG[0]);

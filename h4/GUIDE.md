@@ -83,7 +83,7 @@ The H4 sinks the signals ("common anode"): the driver's `+` inputs go to 5 V, th
 |---|---|
 | ENA (A21) | home switch X, one wire; the other wire to GND |
 | DIR (A22) | home switch Z, one wire; the other wire to GND |
-| STEP (A23) | driver alarm outputs (all drivers together, see [CNC.md](CNC.md#home-switches-limits-and-driver-alarm-wiring)) |
+| STEP (A23) | driver alarm outputs and the E-stop contact (all together, see [CNC.md](CNC.md#home-switches-limits-and-driver-alarm-wiring)) |
 | 5V | nothing |
 
 GND is the `GND` of the Encoder terminal (use a small terminal strip for the switch and alarm ground wires).
@@ -277,8 +277,9 @@ No instrument is needed to see whether the controller keeps up with a machine an
   - the longest step interrupt, next to the time between two steps at the highest step rate given - it must stay
     well below it;
   - how often an interrupt started more than 10 µs late (WiFi, flash, other interrupts) - should be 0;
-  - the highest step rate given and the limit (1 / (pulse + the longer of pulse and direction set-up time): with
-    4 us and 5 us 111 000 steps/s, with 4 us and 10 us 71 000 steps/s);
+  - the highest step rate given and the limit, 1 / (pulse + the longer of pulse and direction hold + set-up): with
+    the defaults (pulse 4, hold 5, set-up 5 µs) 71 000 steps/s, with 5 / 10 / 10 µs (a typical LinuxCNC `.ini`)
+    40 000 steps/s;
   - how often the step buffer ran empty while moves were waiting (the controller could not keep up) - should be 0.
   The page shows **OK** or **CHECK**.
 - How to use them: *Test* the file, then run it **in the air** at full speed with the page open (WiFi in use) and

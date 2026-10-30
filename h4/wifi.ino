@@ -8,9 +8,11 @@
 // files are written to and read from flash in pieces, so a program can be much larger than the RAM,
 // and it is loaded into RAM (PSRAM when the board has it) before it starts.
 //
-// RULE: no flash access while a G-code program runs. A flash read or write stops the CPU cache and with
-// it the step interrupt for up to milliseconds, which would make the motors stutter. Every handler that
-// touches LittleFS, Preferences or the firmware partition is refused while cncRunActive().
+// RULE: no flash access while anything moves. A flash read or write turns the CPU cache off; the GCODE step
+// interrupt is not cache-safe (Arduino's gptimer allocates it without ESP_INTR_FLAG_IRAM), so it waits, and so
+// do the step tasks of the other modes (turn, thread, ...), for up to milliseconds: the motors would stutter or
+// a thread lose its sync. Every handler that touches LittleFS, Preferences or the firmware partition is refused
+// while motionActive(): a G-code program, homing, the H4 switched ON in any mode, or an axis stepping (jog).
 //
 // Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: GPL-3.0-or-later (this fork)
 
@@ -60,9 +62,15 @@ bool cncRunActive() {
   return homingActive || homingRequest || (mode == MODE_GCODE && (isOn || cncBusy() || cncStopRequest));
 }
 
+// Any motion, or the machine ON in any mode (it may move at any moment, e.g. following the spindle). Only reads
+// flags: refusing a request changes nothing in the program or the planner.
+bool motionActive() {
+  return cncRunActive() || isOn || stepperIsRunning(&x) || stepperIsRunning(&z) || stepperIsRunning(&a1);
+}
+
 bool refuseWhileRunning() {
-  if (!cncRunActive()) return false;
-  server.send(409, "text/plain", "The machine is running a program. Stop it first.");
+  if (!motionActive()) return false;
+  server.send(409, "text/plain", "The machine is ON or moving: stop it (OFF) first.");
   return true;
 }
 
@@ -298,9 +306,9 @@ void handleUploadData() {
     String name = upload.filename;
     int slash = name.lastIndexOf('/');
     if (slash >= 0) name = name.substring(slash + 1);
-    if (cncRunActive()) {
+    if (motionActive()) {
       uploadFailed = true;
-      uploadMessage = "The machine is running a program. Stop it first.";
+      uploadMessage = "The machine is ON or moving: stop it (OFF) first.";
       return;
     }
     if (!validFileName(name)) {
@@ -316,9 +324,9 @@ void handleUploadData() {
     }
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (uploadFailed || !uploadFile) return;
-    if (cncRunActive()) {
+    if (motionActive()) {
       uploadFailed = true;
-      uploadMessage = "A program started during the upload.";
+      uploadMessage = "The machine started during the upload.";
       return;
     }
     size_t written = uploadFile.write(upload.buf, upload.currentSize);
@@ -336,9 +344,9 @@ void handleUploadData() {
       uploadFailed = true;
       uploadMessage = "Upload interrupted.";
     }
-    if (uploadFailed && validFileName(name) && !cncRunActive()) LittleFS.remove(filePath(name));
+    if (uploadFailed && validFileName(name) && !motionActive()) LittleFS.remove(filePath(name));
     if (!uploadFailed) uploadMessage = "Saved " + name + " (" + String((unsigned long)uploadBytes) + " bytes)";
-    if (!cncRunActive()) updateFsUsage();
+    if (!motionActive()) updateFsUsage();
     wifiFsBusy = false;
   }
 }
@@ -853,7 +861,7 @@ void taskWifi(void* param) {
     server.handleClient();
     grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
-    if (wifiRestartPending && (long)(millis() - wifiRestartAt) >= 0 && !cncRunActive()) ESP.restart();
+    if (wifiRestartPending && (long)(millis() - wifiRestartAt) >= 0 && !motionActive()) ESP.restart();
     bool lost = !wifiSetupAp && WiFi.status() != WL_CONNECTED;
     if (lost && wifiStatusText != "WiFi lost") {
       wifiStatusText = "WiFi lost";
