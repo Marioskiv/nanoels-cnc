@@ -243,6 +243,17 @@ void handleStatus() {
       ",\"cool\":\"" + String(modes.mist && modes.flood ? "M7 M8" : (modes.mist ? "M7" : (modes.flood ? "M8" : ""))) + "\"" +
       ",\"tool\":" + String(modes.tool);  // M49 / M50 P0 in the program: the overrides do not apply
   json += ",\"estop\":" + String(emergencyStop);
+  // Lathe modes, as the H4's own screen shows them (read only): pitch, starts, passes, cone ratio, external /
+  // internal, setup step, pass, spindle angle, and the stops in the displayed units (null: not set).
+  auto stopJson = [&](Axis* a, long s, bool isSet) -> String {
+    return isSet ? String(stepsToDu(a, s + a->originPos) / divisor, 4) : String("null");
+  };
+  json += ",\"lathe\":{\"pitch\":" + String(dupr / 10000.0, 4) + ",\"measure\":" + String(measure) +
+      ",\"starts\":" + String(starts) + ",\"passes\":" + String(turnPasses) + ",\"cone\":" + String(coneRatio, 5) +
+      ",\"aux\":" + String(auxForward ? 1 : 0) + ",\"setup\":" + String(setupIndex) + ",\"op\":" + String(opIndex) +
+      ",\"ang\":" + String(spindleModulo(spindlePos) * 360 / ENCODER_STEPS_FLOAT, 1) +
+      ",\"zl\":" + stopJson(&z, z.leftStop, z.leftStop != LONG_MAX) + ",\"zr\":" + stopJson(&z, z.rightStop, z.rightStop != LONG_MIN) +
+      ",\"xl\":" + stopJson(&x, x.leftStop, x.leftStop != LONG_MAX) + ",\"xr\":" + stopJson(&x, x.rightStop, x.rightStop != LONG_MIN) + "}";
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
   json += ",\"fsTotal\":" + String((unsigned long)fsTotalBytes);
   json += ",\"fsUsed\":" + String((unsigned long)fsUsedBytes);

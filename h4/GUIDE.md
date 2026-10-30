@@ -175,7 +175,7 @@ The page **never scrolls**: every screen fits the phone or tablet, upright or tu
 **tabs** (at the bottom when upright, on the left when turned; or swipe left / right; the phone's Back key goes to the
 screen before). What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
 On a tablet turned sideways the parts of a screen sit side by side. **STOP** is always at the top right. Messages
-also appear for a few seconds; a red dot on *Machine* means a new message, *Program* shows the progress while a
+also appear for a few seconds; a red dot on *Machine* means a new message, *G-code* shows the progress while a
 program runs.
 
 - **Control**: X / Z / C in work coordinates with the machine position under them and a ZERO per axis (it asks
@@ -185,11 +185,15 @@ program runs.
   rapid overrides (F / R open a pop-up), Home, Macros (your own one-line G-code buttons, kept in that phone or
   browser), MDI and Files. With the jog lock on, the jog buttons and the wheel do nothing until 🔒 is pressed, and
   lock again 15 s after the last move.
-- **Program**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
+- **Lathe** (*Τόρνος*): the H4's own lathe modes (feed, turning, facing, taper, thread, parting, sphere, constant
+  feed): large X / Z readout, spindle speed and angle, a side view with Z0, the stops and the tool, and what the
+  H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass). Read
+  only in this version: the values are set on the H4 as before. Updated about 7 times a second.
+- **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
 - **H4 keys**: the H4 display and keys, and the gamepad.
 - **Machine**: positions, Home All and the inputs; diagnostics; messages.
-- **Settings**: *Appearance* (theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
+- **Settings**: *Appearance* (language English / Ελληνικά for the Lathe screen, theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
   off; in the Android app also the screen orientation: automatic, landscape or portrait), one page per group of
   machine settings, WiFi, firmware; in the Android app also *App update* (the app's version and a button that
   looks for a newer one at once; the app also looks by itself each time it opens).

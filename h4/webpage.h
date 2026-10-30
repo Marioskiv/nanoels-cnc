@@ -23,7 +23,7 @@ header{grid-area:h;display:flex;gap:8px;align-items:center;padding:6px 10px;bord
 .grow{flex:1}.hstop{padding:7px 16px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
 main{grid-area:m;position:relative;min-height:0;overflow:hidden}
 .scr{position:absolute;inset:0;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:0}.scr[hidden],[hidden]{display:none!important}
-.tabs{grid-area:t;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs{grid-area:t;display:grid;grid-template-columns:repeat(6,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .tabs button{position:relative;border:0;border-radius:0;background:none;padding:6px 2px 5px;font-size:11px;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:2px}
 .tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.on{color:var(--or)}.tabs button.on::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--or)}
@@ -122,6 +122,35 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .toast{position:fixed;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:9;background:#222;color:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;box-shadow:0 6px 20px #0008;transition:opacity .3s;max-width:560px;margin:auto}
 @media (orientation:landscape){.toast{bottom:12px;left:88px}}
 .toast.off{opacity:0;pointer-events:none}
+
+/* Lathe screen (the H4's own modes): operations on top, drawing beside or above the DRO and the settings */
+.lt{display:grid!important;grid-template-rows:auto minmax(0,1fr);gap:8px}
+.ltops{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.ltop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:10px;border:1px solid var(--line);background:var(--card);min-width:0}
+.ltop svg{width:30px;height:22px}.ltop span{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ltop.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}
+.ltop .ic-l{stroke:var(--fg);fill:none}.ltop .ic-c{fill:#ff7a2e}.ltop .ic-s{fill:#8b95a6}
+.ltmain{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px;min-height:0}
+.ltview{background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ltview svg{flex:1;min-height:0;width:100%}
+.ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
+.ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.ltside{display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0}
+.ltdro{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ltax{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 12px;padding:5px 10px 5px 12px;border-radius:12px;
+ background:var(--tile);border:1px solid var(--tileb);border-left:7px solid var(--c);box-shadow:0 0 18px -10px var(--c)}
+.ltax .l{font:900 clamp(32px,4.6vw,50px)/1 system-ui;color:var(--c)}
+.ltax .v{font:600 clamp(28px,4.3vw,46px)/1.05 ui-monospace,monospace;text-align:right;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.ltax .v small,.ltsp .v small{font:500 12px system-ui;color:var(--dim);margin-left:5px}
+.ltsp{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:6px;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;padding:5px 10px}
+.ltsp b{font-size:12px;color:var(--dim);font-weight:600}.ltsp .v{font:600 clamp(18px,2.4vw,24px) ui-monospace,monospace;text-align:right;white-space:nowrap}
+.ltpanel h3{margin:0;font-size:16px}.ltrows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.ltrows span:nth-child(odd){color:var(--dim)}.ltrows span:nth-child(even){font:600 15px ui-monospace,monospace;text-align:right}
+.ltnote{margin-top:auto;font-size:12px;color:var(--dim)}
+.ltspin{width:22px;height:22px;fill:none;stroke:var(--fg);stroke-width:2;vertical-align:middle;animation:ltspin .8s linear infinite}
+@keyframes ltspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.ltspin{animation:none}}
+@media (orientation:portrait),(max-width:760px){.ltops{grid-template-columns:repeat(4,minmax(0,1fr))}.ltmain{grid-template-columns:1fr;grid-template-rows:minmax(80px,24%) minmax(0,1fr)}
+ .ltleg{display:none}.ltax .l{font-size:30px}.ltax .v{font-size:27px}.ltrows{font-size:13px;gap:2px 10px}.ltpanel h3{font-size:14px}}
 </style></head><body>
 <div id="app">
 <header><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
@@ -145,6 +174,16 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="small"><span id="cpPct">0 %</span> &middot; <code id="cpLine"></code></div><h2>Messages</h2><div class="pg" id="cpLog"></div></div>
 </section>
 
+<section class="scr lt" data-tab="lathe" hidden>
+<div class="ltops" id="ltOps"></div>
+<div class="ltmain"><div class="ltview"><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
+<div class="ltside"><div class="ltdro">
+<div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
+<div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
+<div class="ltsp"><b id="ltRpmL"></b><span class="v"><span id="ltRpm">-</span><small id="ltRpmU"></small></span></div>
+<div class="ltsp"><b id="ltAngL"></b><span class="v"><span id="ltAng">-</span><small>&deg;</small></span></div></div>
+<div class="card ltpanel" id="ltPanel"></div></div></div>
+</section>
 <section class="scr" data-tab="program" hidden>
 <div class="subtabs" data-s="program"><button data-p="run">Run</button><button data-p="files">Files</button><button data-p="path">Path</button></div>
 <div class="panes">
@@ -195,6 +234,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="slist"><div class="pg" id="slist"></div><div class="pgc"></div></div>
 <div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="sTitle"></span></h2>
 <div class="spage" data-sp="look"><div class="pg">
+<div class="fr"><label for="lkLang">Language / Γλώσσα</label><select id="lkLang"><option value="en">English</option><option value="el">Ελληνικά</option></select></div>
 <div class="fr"><label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select></div>
 <div class="fr"><label for="lkAcc">Accent colour</label><input type="color" id="lkAcc"></div>
 <div class="fr"><label for="lkX">X colour</label><input type="color" id="lkX"></div><div class="fr"><label for="lkZ">Z colour</label><input type="color" id="lkZ"></div>
@@ -229,9 +269,9 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 // of the controller, so the page can be seen and tried. Nothing here runs when the page comes from an H4.
 const DEMO=/[?&]demo\b/.test(location.search);
 if(DEMO)(function(){
- const S={x:20,z:5,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
+ const S={x:-21,z:-2,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
   log:['Demo: a simulated machine, no H4 is connected.'],t:Date.now(),benchN:0,bench:'',program:'',steps:0,
-  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}]};
+  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}],ang:0};
  const lines=['(demo program)','G21 G90 G94 G8','G0 Z5','G0 X40 C0','G1 Z-0.5 F200','G93'];
  for(let i=0;i<=720;i+=6)lines.push('G1 X'+(40-i/24).toFixed(3)+' C'+i+' F'+(60).toFixed(1));
  lines.push('G94','G0 Z5','M2');const text={'demo_spiral.ngc':lines.join('\n'),
@@ -249,6 +289,7 @@ if(DEMO)(function(){
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
+   mode:S.running?9:4,rpm:S.running?0:820,lathe:{pitch:0.1,measure:0,starts:1,passes:8,cone:1,aux:1,setup:0,op:0,ang:(S.ang=(S.ang+29)%360),zl:40,zr:0,xl:-18,xr:-20},
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
    diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
@@ -295,17 +336,17 @@ const isApp=!!window.H4App;
 let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
 async function post(url,body){const r=await fetch(url,{method:'POST',body});const t=await r.text();if(!r.ok)throw new Error(t);return t}
 async function cmd(c,extra){try{msg(await post('/cmd?do='+c+(extra||'')))}catch(e){msg(e.message)}}
-function startSel(){if(!selected){msg('Select a file first (Program, Files).');return}
+function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
  if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
 let polls=0;async function poll(){try{const r=await fetch('/status');st=await r.json();polls++;show()}catch(e){$('cState').textContent='NO CONNECTION'}
- setTimeout(poll,350)}
+ setTimeout(poll,curTab=='lathe'?150:350)}
 function ovr(c){cmd('ovr','&code='+c)}
 let benchSeen=-1;function bench(n){cmd('bench','&name='+encodeURIComponent(n))}
 function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
  const ok=d.late==0&&(!d.rate||d.isrUs<0.7*per)&&!st.underruns;
  $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+'<br>Step interrupt, longest: '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
   '<br>Highest step rate: '+d.rate+' /s (limit '+d.limit+' /s)<br>Started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs<br>Step buffer ran empty: '+st.underruns+'<br>Steps given: '+d.steps}
-function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(st.fw)$('fwVer').textContent=st.fw;
+function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -460,18 +501,18 @@ let unlocked=false,lockT=0;
 const STEPS=[0.001,0.01,0.1,1,10];let jogAxis='X',jogStep=0.1,jogPending=0,jogBusy=false,jogPoll=-9,wheelAngle=0;
 try{const v=localStorage.getItem('h4step');jogStep=v=='cont'?'cont':(+v||0.1)}catch(e){}
 const SC0={jog:'pad',lock:'1'};let sc=Object.assign({},SC0);try{Object.assign(sc,JSON.parse(localStorage.getItem('h4screen')||'{}'))}catch(e){}
-const LOOK0={theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+const LOOK0={lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
 try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
 const AXC={X:look.X,Z:look.Z,C:look.C};
 // Appearance: theme, accent and axis colours, number size (stored in the browser)
 function lookApply(){document.body.classList.toggle('light',look.theme=='light');const r=document.documentElement.style;
  r.setProperty('--or',look.acc);r.setProperty('--dro',look.size+'px');AXC.X=look.X;AXC.Z=look.Z;AXC.C=look.C;
  document.querySelectorAll('#pad [data-a]').forEach(b=>b.style.setProperty('--c',AXC[b.dataset.a]));$('padCl').style.setProperty('--c',AXC.C);
- const a=$('axes');if(a)a.dataset.n='';if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
+ const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
-function lookForm(){$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
-lookForm();for(const [id,k] of [['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
+function lookForm(){$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
+lookForm();for(const [id,k] of [['lkLang','lang'],['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
  $(id).addEventListener('input',()=>{look[k]=$(id).value;lookSave()});
 lookApply();
 // Screen and jog settings; the orientation is kept by the app (Android), so it is offered only there.
@@ -556,7 +597,8 @@ function pagers(){requestAnimationFrame(()=>document.querySelectorAll('.pg').for
 addEventListener('resize',()=>{pagers();if(curTab=='program')drawPath()});
 // Tabs and sub-tabs: one screen each (the phone's Back key goes to the screen before); the last ones are remembered.
 const TABS=[['control','Control','<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3"/>'],
- ['program','Program','<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'],
+ ['lathe','Lathe','<path d="M3 8h4v8H3zM7 10h11v4H7z"/><path d="M18 9l3 3-3 3"/>'],
+ ['program','G-code','<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'],
  ['h4','H4 keys','<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>'],
  ['machine','Machine','<path d="M3 12h4l3-7 4 14 3-7h4"/>'],
  ['settings','Settings','<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>']];
@@ -593,6 +635,77 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
  x0=t.closest('#pad,.wheelbox,canvas,input,select,textarea,.keys,.lcd,.chips,.sheet')?null:e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
  addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
   if(Date.now()-t0<600&&Math.abs(dx)>80&&Math.abs(dx)>2*Math.abs(dy)){const i=TN.indexOf(curTab)+(dx<0?1:-1);if(i>=0&&i<TN.length)tab(TN[i])}},{passive:true})})();
+
+// ---------------------------------------------------------------- Lathe screen: the H4's own modes, read only for now.
+// It shows what the H4 is set to (mode, pitch, passes, starts, cone, stops) with a DRO and a drawing; it changes
+// nothing on the machine. Texts in English or Greek (Settings, Appearance, Language).
+const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',settings:'Settings'},rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',mode:'Mode',pitch:'Feed per turn',thpitch:'Pitch',tpi:'Threads per inch',
+  starts:'Starts',passes:'Passes',cone:'Cone ratio',side:'Side',ext:'external',int:'internal',stops:'Stops',zl:'Z left',zr:'Z right',xu:'X up',xd:'X down',
+  none:'not set',len:'length',depth:'depth',on:'Running',off:'Stopped',setup:'Setting up on the H4: step',pass:'pass',gcode:'G-code mode: see Control and Program.',
+  a1:'A1 mode (rotary axis).',ro:'As set on the H4. Changing them from here comes in the next version.',
+  speed:'Speed',legend:['stock','between the stops','Z0 and stops','tool'],
+  m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code',10:'A1'}},
+ el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',mode:'Λειτουργία',pitch:'Πρόωση ανά στροφή',thpitch:'Βήμα',tpi:'Σπείρες ανά ίντσα',
+  starts:'Αρχές',passes:'Περάσματα',cone:'Λόγος κώνου',side:'Πλευρά',ext:'εξωτερική',int:'εσωτερική',stops:'Όρια',zl:'Z αριστερά',zr:'Z δεξιά',xu:'X επάνω',xd:'X κάτω',
+  none:'—',len:'μήκος',depth:'βάθος',on:'Σε λειτουργία',off:'Σταματημένο',setup:'Ρύθμιση στο H4: βήμα',pass:'πέρασμα',gcode:'Λειτουργία G-code: δες Έλεγχο και Πρόγραμμα.',
+  a1:'Λειτουργία A1 (περιστροφικός άξονας).',ro:'Όπως είναι ρυθμισμένα στο H4. Η αλλαγή από εδώ έρχεται στην επόμενη έκδοση.',
+  speed:'Ταχύτητα',legend:['κομμάτι','ανάμεσα στα όρια','Z0 και όρια','εργαλείο'],
+  m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code',10:'A1'}}};
+const LTOPS=[[0,'<rect class="ic-s" x="2" y="8" width="24" height="9" rx="1"/><path class="ic-l" d="M25 4 L6 4 M10 1 L6 4 L10 7" stroke-width="2"/>'],
+ [4,'<rect class="ic-s" x="2" y="9" width="24" height="10" rx="1"/><rect class="ic-c" x="12" y="6" width="14" height="3"/><path class="ic-l" d="M27 3 L12 3" stroke-width="1.6"/>'],
+ [5,'<rect class="ic-s" x="2" y="4" width="20" height="16" rx="1"/><rect class="ic-c" x="22" y="4" width="4" height="16"/><path class="ic-l" d="M28 2 L28 21" stroke-width="1.6"/>'],
+ [3,'<path class="ic-s" d="M2 7 L14 7 L26 13 L26 19 L2 19 Z"/><path class="ic-c" d="M14 4 L26 4 L26 13 Z"/>'],
+ [7,'<rect class="ic-s" x="2" y="10" width="24" height="10" rx="1"/><path class="ic-c" d="M8 10 L10 6 L12 10 L14 6 L16 10 L18 6 L20 10 L22 6 L24 10 Z"/>'],
+ [6,'<rect class="ic-s" x="2" y="6" width="24" height="14" rx="1"/><rect class="ic-c" x="15" y="6" width="3" height="10"/><path class="ic-l" d="M16.5 1 L16.5 5" stroke-width="2"/>'],
+ [8,'<path class="ic-s" d="M2 7 L14 7 A10 10 0 0 1 24 15 L24 19 L2 19 Z"/><path class="ic-c" d="M14 7 A10 10 0 0 1 24 15 L24 4 L14 4 Z"/>'],
+ [2,'<rect class="ic-s" x="2" y="9" width="24" height="9" rx="1"/><path class="ic-l" d="M6 4 L24 4 M19 1 L24 4 L19 7" stroke-width="1.8"/><circle class="ic-c" cx="6" cy="4" r="2"/>']];
+const ltT=()=>LTT[look.lang=='el'?'el':'en'];
+function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
+ for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
+ $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<div class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></div>`).join('');
+ $('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;
+ const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--fg)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
+ $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);if(st.lathe)ltShow()}
+function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm',f=v=>v==null?L.none:(+v).toFixed(3);
+ document.querySelectorAll('.ltop').forEach(b=>b.classList.toggle('on',+b.dataset.m==st.mode));
+ $('ltXv').textContent=st.x.toFixed(3);$('ltXu').textContent=u;$('ltZv').textContent=st.z.toFixed(3);$('ltZu').textContent=u;
+ $('ltRpm').textContent=st.rpm;const turning=Math.abs(st.rpm)>10,ae=$('ltAng');
+ if(turning){if(!ae.firstElementChild)ae.innerHTML='<svg class="ltspin" viewBox="0 0 24 24" aria-label="turning"><circle cx="12" cy="12" r="9"/><path d="M12 3v5"/></svg>'}else ae.textContent=(+l.ang).toFixed(1);
+ const m=st.mode,rows=[[L.mode,L.m[m]||m]];
+ const pitch=l.measure==2&&l.pitch?[L.tpi,(25.4/Math.abs(l.pitch)).toFixed(1)]:[m==7?L.thpitch:L.pitch,Math.abs(l.pitch).toFixed(3)+(m==2?' '+u+'/s':' '+u)+(l.pitch<0?' ←':'')];
+ if(m!=9&&m!=10)rows.push(pitch);
+ if([4,5,6,7,8].includes(m))rows.push([L.passes,l.passes]);
+ if(m==7)rows.push([L.starts,l.starts]);
+ if([3,7,8,4,5,6].includes(m))rows.push([L.side,l.aux?L.ext:L.int]);
+ if(m==3)rows.push([L.cone,(+l.cone).toFixed(4)]);
+ rows.push([L.zl+' / '+L.zr,f(l.zl)+' / '+f(l.zr)]);rows.push([L.xu+' / '+L.xd,f(l.xl)+' / '+f(l.xr)]);
+ if(l.zl!=null&&l.zr!=null)rows.push(['Z '+L.len,(l.zl-l.zr).toFixed(3)]);if(l.xl!=null&&l.xr!=null)rows.push(['X '+L.depth,(l.xl-l.xr).toFixed(3)]);
+ let state=st.on?L.on+(l.passes&&[4,5,6,7,8].includes(m)?' · '+L.pass+' '+(l.op+1)+' / '+l.passes:''):L.off;if(!st.on&&l.setup>0)state=L.setup+' '+l.setup;
+ $('ltPanel').innerHTML=`<h3>${L.m[m]||''}</h3><div class="ltrows">${rows.map(r=>`<span>${r[0]}</span><span>${r[1]}</span>`).join('')}<span></span><span>${state}</span></div>
+  <div class="ltnote">${m==9?L.gcode:m==10?L.a1:L.ro}</div>`;
+ ltDraw()}
+// Side view, fitted to Z0, the stops and the tool. As on the H4: Z grows to the left (towards the chuck); X is
+// drawn with X0 on the spindle centre line and the outside of the part below it (zero X from a measured diameter).
+function ltDraw(){const l=st.lathe,W=600,H=300,zs=[0,st.z],xs=[0,st.x];
+ for(const k of ['zl','zr'])if(l[k]!=null)zs.push(+l[k]);for(const k of ['xl','xr'])if(l[k]!=null)xs.push(+l[k]);
+ let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
+ const zr=Math.max(10,z1-z0),xr=Math.max(5,x1-x0);z0-=zr*.15;z1+=zr*.35;x0-=xr*.25;x1+=xr*.25;
+ const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>20+(x-x0)*S,g=[];
+ const ax=py(0),chuck=px(z1);
+ for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="var(--tileb)" stroke-width="1"/>`);
+ const surf=l.xr!=null?+l.xr:Math.min(st.x,0),top=py(surf);
+ g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${px(0)-chuck}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
+ g.push(`<rect x="${chuck-40}" y="${Math.min(top,ax)-30}" width="40" height="${Math.abs(ax-top)+60}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
+ if(l.zl!=null&&l.zr!=null&&l.xl!=null&&l.xr!=null){const a=px(+l.zl),b=px(+l.zr),c=py(+l.xl),d=py(+l.xr);
+  g.push(`<rect x="${Math.min(a,b)}" y="${Math.min(c,d)}" width="${Math.abs(b-a)}" height="${Math.abs(d-c)}" fill="#ff7a2e" opacity=".5"/>`)}
+ g.push(`<line x1="10" y1="${ax}" x2="${W-10}" y2="${ax}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
+ const vl=(z,t)=>g.push(`<line x1="${px(z)}" y1="10" x2="${px(z)}" y2="${H-10}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(z)+4}" y="24" fill="${AXC.Z}" font-size="13" font-weight="700">${t}</text>`);
+ vl(0,'Z0');if(l.zl!=null)vl(+l.zl,'◂');if(l.zr!=null&&+l.zr!=0)vl(+l.zr,'▸');
+ const hl=(x)=>g.push(`<line x1="10" y1="${py(x)}" x2="${W-10}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="4 4" opacity=".8"/>`);
+ if(l.xl!=null)hl(+l.xl);if(l.xr!=null)hl(+l.xr);
+ const tx=px(st.z),ty=py(st.x);g.push(`<g transform="translate(${tx},${ty})"><path d="M0 0 L-8 26 L18 26 Z" fill="var(--fg)"/><rect x="-6" y="26" width="26" height="30" fill="var(--dim)"/></g>`);
+ $('ltSvg').innerHTML=g.join('')}
+window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
 {let t0=location.hash.slice(1);if(!TN.includes(t0))try{t0=localStorage.getItem('h4tab')}catch(e){}t0=TN.includes(t0)?t0:'control';
