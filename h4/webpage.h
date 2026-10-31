@@ -132,7 +132,8 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltop.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}
 .ltop .ic-l{stroke:var(--fg);fill:none}.ltop .ic-c{fill:#ff7a2e}.ltop .ic-s{fill:#8b95a6}
 .ltmain{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:8px;min-height:0}
-.ltview{background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ltview{position:relative;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ltsimb{position:absolute;top:8px;right:8px;z-index:2;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg);font-weight:700;padding:6px 12px}
 .ltview svg{flex:1;min-height:0;width:100%}
 .ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
 .ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
@@ -209,7 +210,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 
 <section class="scr lt" data-tab="lathe" hidden>
 <div class="ltops" id="ltOps"></div>
-<div class="ltmain"><div class="ltview"><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
+<div class="ltmain"><div class="ltview"><button type="button" class="ltsimb" id="ltSim"></button><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
 <div class="ltside"><div class="ltdro">
 <div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
 <div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
@@ -692,7 +693,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',turning:'turning',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
-  ext:'External',int:'Internal',none:'—',legend:['stock','material removed','Z0 and stops','tool'],
+  ext:'External',int:'Internal',none:'—',legend:['part','material that comes off','Z0 and lengths','tool path'],sim:'Simulate',
   step1:'1 · Zero on the part',step2:'2 · ',z0:'Z0 here',x0:'X0 here',dia:'Ø → X0',help:'How?',xin:'X in',xdia:'diameters',xdep:'depth',
   helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Z0 here</b>.<br><b>X, way 1 (diameters, recommended)</b>: take a light cut on the diameter, do not move X, measure the diameter and press <b>Ø → X0</b> with that number. The H4 then knows where the centre is and every X value is a diameter.<br><b>X, way 2 (depth)</b>: touch the diameter and press <b>X0 here</b>; X values are then how deep you cut.<br>The same as the H4 keys Z, X and A (diameter on the numpad, then A). After a tool change: zero again.',
   zx:'Z (length, along the part)',xx:'X (diameter)',xxd:'X (depth)',cx:'Cut',
@@ -712,7 +713,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',turning:'γυρίζει',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
-  ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και όρια','εργαλείο'],
+  ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και μήκη','διαδρομή κοπτικού'],sim:'Προσομοίωση',
   step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Z0 εδώ',x0:'X0 εδώ',dia:'Ø → X0',help:'Πώς;',xin:'X σε',xdia:'διαμέτρους',xdep:'βάθος',
   helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Z0 εδώ</b>.<br><b>X, τρόπος 1 (διάμετροι, προτείνεται)</b>: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Ø → X0</b> γράφοντας τον αριθμό. Το H4 ξέρει τότε πού είναι το κέντρο και κάθε τιμή X είναι διάμετρος.<br><b>X, τρόπος 2 (βάθος)</b>: άγγιξε τη διάμετρο και πάτα <b>X0 εδώ</b>· οι τιμές X είναι τότε πόσο βαθιά κόβεις.<br>Ίδιο με τα πλήκτρα Z, X και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
   zx:'Z (μήκος, κατά μήκος του κομματιού)',xx:'X (διάμετρος)',xxd:'X (βάθος)',cx:'Κοπή',
@@ -770,8 +771,8 @@ const ltFmt=(v,d)=>v===''||v==null?'':(+v).toFixed(d);
 function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
  for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
  $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<button type="button" class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></button>`).join('');
- $('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
- const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--fg)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
+ $('ltSim').textContent='▶ '+L.sim;$('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
+ const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--dim)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
  $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
 $('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;ltForm();if(st.lathe)ltShow()});
 function ltLabel(f,m){const L=ltT();if(f[0]=='dnom'&&ltV[m].side==1)return L.f.dbore;return L.f[f[0]]}
@@ -877,28 +878,87 @@ async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.m
  const go=e=>{if(st.on||t)return;e.preventDefault();t0=performance.now();t=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/800);$('ltFill').style.width=k*100+'%';if(k>=1){end();ltStartGo()}},30)};
  b.addEventListener('pointerdown',go);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,end));
  b.addEventListener('keydown',e=>{if(e.key=='Enter'||e.key==' ')go(e)});b.addEventListener('keyup',end)})();
-// Side view, fitted to Z0, the stops (or the form's plan) and the tool; X0 as the H4 has it, the outside of the
-// part at the bottom so the tool comes from below as on the lathe.
-function ltDraw(){const l=st.lathe;if(!l)return;const W=600,H=300,q=st.on?null:ltPlan(),src=st.on||!q?l:{zl:q.zl,zr:q.zr,xl:q.xl,xr:q.xr};
- const num=v=>v===''||v==null?null:+v,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),zs=[0,st.z],xs=[0,st.x];if(!ltV.xdia&&xl!=null)xs.push(xl+2);
- for(const v of [zl,zr])if(v!=null)zs.push(v);for(const v of [xl,xr])if(v!=null)xs.push(v);
+// Side view and simulation. The part is drawn from the zero: its face at Z0, its outside at the part diameter
+// (X0 on the centre) or at X0 (X0 on the surface), towards the chuck on the left; the outside is at the bottom so
+// the tool comes from below as on the lathe. ltGeo() works out, from the form (or from the H4's stops while it
+// runs), the material that comes off pass by pass and the tool's path (cuts and returns), the way the H4's mode
+// moves; ▶ runs the tool along that path and takes the material off as it goes.
+function ltGeo(){const l=st.lathe,m=st.on?st.mode:ltCur(),v=ltV[m]||{},dia=!!ltV.xdia,q=st.on?null:ltPlan(),num=x=>x===''||x==null?null:+x;
+ const src=q||l,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),passes=Math.max(1,Math.min(60,+(q?q.passes:l.passes)||1));
+ const G={m,dia,cuts:[],path:[],passes,surf:dia?null:0,label:[]},P=(z,x,cut)=>G.path.push([z,x,!!cut]);
+ const sd=v.dstock!==undefined?v.dstock:(v.dnom!==undefined?v.dnom:(v.dbig!==undefined?v.dbig:null));
+ if(dia&&sd!=null&&!st.on)G.surf=-sd/2;else if(dia)G.surf=xr!=null?xr:Math.min(st.x,0);
+ const intern=(v.side==1)&&!st.on,safe=intern?0.5:-0.5;
+ const box=(z1,z2,x1,x2,i)=>G.cuts.push({pts:[[z1,x1],[z2,x1],[z2,x2],[z1,x2]],pass:i});
+ if((m==4||m==7)&&zl!=null&&zr!=null&&xl!=null&&xr!=null){
+  const ext=intern?false:true,xa=ext?xr:xl,xb=ext?xl:xr,z1=m==7&&(q?q.pitch:l.pitch)<0?zl:zr,z2=z1==zr?zl:zr;
+  let xp=xa;P(z1,xa+safe*2,0);
+  for(let i=1;i<=passes;i++){const xi=xa+(xb-xa)*i/passes;
+   if(m==4)box(zr,zl,xp,xi,i);
+   else{const p=Math.abs(+(q?q.pitch:l.pitch))||1,n=Math.min(200,Math.ceil((zl-zr)/p)),pts=[];
+    for(let k=0;k<=n;k++){const z=Math.min(zl,zr+k*p);pts.push([z,xa],[Math.min(zl,z+p/2),xi])}
+    pts.push([zl,xa]);G.cuts.push({pts,pass:i,teeth:1})}
+   P(z1,xi,0);P(z2,xi,1);P(z2,xa+safe,0);P(z1,xa+safe,0);xp=xi}
+  G.label=[[zr,'Z '+(+zr).toFixed(1)],[zl,'Z '+(+zl).toFixed(1)]];G.xmarks=[xa,xb]}
+ if(m==5&&zl!=null&&zr!=null&&xl!=null&&xr!=null){const xa=xr,xb=xl;let zp=zr;P(zr,xa-1,0);
+  for(let i=1;i<=passes;i++){const zi=zr+(zl-zr)*i/passes;box(zp,zi,xa,xb,i);P(zi,xa-1,0);P(zi,xa,0);P(zi,xb,1);P(zr-1,xb,0);P(zr-1,xa-1,0);zp=zi}
+  G.label=[[zl,'Z '+(+zl).toFixed(1)]];G.xmarks=[xa,xb]}
+ if(m==6&&xl!=null&&xr!=null){const ext=!intern,xa=ext?xr:xl,xb=ext?xl:xr,z=st.z,w=2;P(z,xa+safe*2,0);
+  for(let i=1;i<=passes;i++){const xi=xa+(xb-xa)*i/passes;box(z+w,z,xa+(xb-xa)*(i-1)/passes,xi,i);P(z,xi,1);P(z,xa+safe,0)}
+  G.label=[[z,'Z '+(+z).toFixed(1)]];G.xmarks=[xa,xb];G.zlo=z-2;G.zhi=z+w+2}
+ if(m==8&&zl!=null&&zr!=null&&xl!=null&&xr!=null){const rz=zl-zr,rx=xl-xr,conc=(v.shape==1)&&!st.on;
+  const prof=(t,s)=>{const z=zr+rz*t,u=1-t;return[zl-(zl-z)*s,xr+rx*s*(conc?Math.sqrt(Math.max(0,1-t*t)):1-Math.sqrt(Math.max(0,1-u*u)))]};
+  let prev=null;P(zl,xr+safe*2,0);
+  for(let i=1;i<=passes;i++){const s=i/passes,arc=[];for(let k=0;k<=24;k++)arc.push(prof(k/24,s));
+   const pts=[[zl,xr],[zl-rz*s,xr]].concat(prev?prev.slice().reverse():[]);G.cuts.push({pts:arc.concat(prev?prev.slice().reverse():[[zl,xr]]),pass:i});
+   for(const [z,x] of arc)P(z,x,1);P(arc[arc.length-1][0],xr+safe,0);prev=arc}
+  G.label=[[zr,'Z '+(+zr).toFixed(1)],[zl,'Z '+(+zl).toFixed(1)]];G.xmarks=[xr,xl]}
+ if(m==3&&!st.on&&q){const z0=st.z,x0=st.x,dz=(q.pitch<0?-1:1)*v.len,dx=(q.aux?-1:1)*q.cone/2*v.len;
+  G.cuts.push({pts:[[z0,x0],[z0+dz,x0+dx],[z0+dz,x0]],pass:1});P(z0,x0,0);P(z0+dz,x0+dx,1);G.label=[[z0+dz,'Z '+(z0+dz).toFixed(1)]];G.xmarks=[x0,x0+dx]}
+ if((m==0||m==2)&&!st.on&&q){const z0=st.z,z1=q.zl!==''?+q.zl:(q.zr!==''?+q.zr:z0+(q.pitch<0?-20:20));P(z0,st.x,0);P(z1,st.x,1);G.label=[[z1,'Z '+(+z1).toFixed(1)]]}
+ return G}
+let ltAnim=null;
+function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoundingClientRect(),G=ltGeo(),A=ltAnim&&ltAnim.t>=0?ltAnim:null;
+ // the drawing fills the view whatever its shape (1 unit = 1 screen pixel)
+ const W=Math.max(300,Math.round(r.width)||600),H=Math.max(150,Math.round(r.height)||300),vb='0 0 '+W+' '+H;if(sv.getAttribute('viewBox')!=vb)sv.setAttribute('viewBox',vb);
+ const zs=[0,st.z],xs=[st.x];if(G.dia)xs.push(0);if(G.surf!=null)xs.push(G.surf);
+ for(const c of G.cuts)for(const [z,x] of c.pts){zs.push(z);xs.push(x)}for(const [z,x] of G.path){zs.push(z);xs.push(x)}
+ if(G.zlo!=null)zs.push(G.zlo,G.zhi);
  let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
- const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.15;z1+=zr_*.35;x0-=xr_*.25;x1+=xr_*.25;
- const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>H-20-(x-x0)*S,g=[];  // outside at the bottom: the tool comes from below
- const ax=ltV.xdia?py(0):12,chuck=px(z1);
- for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="var(--tileb)" stroke-width="1"/>`);
- const surf=xr!=null?xr:(ltV.xdia?Math.min(st.x,0):0),top=py(surf);
- g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
- g.push(`<rect x="${chuck-40}" y="${Math.min(top,ax)-30}" width="40" height="${Math.abs(ax-top)+60}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
- if(zl!=null&&zr!=null&&xl!=null&&xr!=null){const a=px(zl),b=px(zr),c=py(xl),d=py(xr);
-  g.push(`<rect x="${Math.min(a,b)}" y="${Math.min(c,d)}" width="${Math.abs(b-a)}" height="${Math.abs(d-c)}" fill="#ff7a2e" opacity=".55"/>`)}
- if(ltV.xdia)g.push(`<line x1="10" y1="${ax}" x2="${W-10}" y2="${ax}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
- const vl=(z,t)=>g.push(`<line x1="${px(z)}" y1="10" x2="${px(z)}" y2="${H-10}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(z)+4}" y="24" fill="${AXC.Z}" font-size="13" font-weight="700">${t}</text>`);
- vl(0,'Z0');if(zl!=null)vl(zl,'◂');if(zr!=null&&zr!=0)vl(zr,'▸');
- const hl=x=>g.push(`<line x1="10" y1="${py(x)}" x2="${W-10}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="4 4" opacity=".8"/>`);
- if(xl!=null)hl(xl);if(xr!=null)hl(xr);
- const tx=px(st.z),ty=py(st.x);g.push(`<g transform="translate(${tx},${ty})"><path d="M0 0 L-8 26 L18 26 Z" fill="var(--fg)"/><rect x="-6" y="26" width="26" height="30" fill="var(--dim)"/></g>`);
+ const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.12;z1+=zr_*.3;x0-=xr_*.3;x1+=G.dia?xr_*.12:xr_*.6;
+ const S=Math.min((W-80)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>H-20-(x-x0)*S,g=[],P=p=>p.map(([z,x])=>px(z).toFixed(1)+','+py(x).toFixed(1)).join(' ');
+ for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="6" x2="${x}" y2="${H-6}" stroke="var(--tileb)" stroke-width="1"/>`);
+ // the part: from its face (Z0) to the chuck, from its outside to the centre line (or to the top when X0 is on the surface)
+ const top=G.dia?py(0):6,surfY=py(G.surf!=null?G.surf:Math.min(st.x,0)),chuck=px(z1-zr_*.08);
+ g.push(`<rect x="${chuck}" y="${Math.min(top,surfY)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(surfY-top)}" fill="#8b95a6" opacity=".6"/>`);
+ g.push(`<rect x="${chuck-36}" y="${Math.min(top,surfY)-14}" width="36" height="${Math.abs(surfY-top)+40}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
+ // material that comes off: faint for the whole job, solid for the passes already made (simulation or the H4's own pass)
+ const done=A?A.pass:(st.on?l.op:0);
+ for(const c of G.cuts){const d=c.pass<=done,fill=d?'var(--tile)':'#ff7a2e';
+  g.push(`<polygon points="${P(c.pts)}" fill="${fill}" opacity="${d?1:.42}" stroke="${d?'none':'#ff7a2e'}" stroke-width=".6"/>`)}
+ if(G.dia)g.push(`<line x1="6" y1="${py(0)}" x2="${W-6}" y2="${py(0)}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
+ // the tool path: cuts solid, returns dashed
+ for(let i=1;i<G.path.length;i++){const a=G.path[i-1],b=G.path[i];g.push(`<line x1="${px(a[0])}" y1="${py(a[1])}" x2="${px(b[0])}" y2="${py(b[1])}" stroke="${b[2]?'#ff7a2e':'var(--dim)'}" stroke-width="${b[2]?1.6:1}" ${b[2]?'':'stroke-dasharray="3 3"'} opacity=".9"/>`)}
+ // zero and dimensions
+ g.push(`<line x1="${px(0)}" y1="6" x2="${px(0)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(0)+4}" y="18" fill="${AXC.Z}" font-size="13" font-weight="700">Z0</text>`);
+ for(const [z,t] of G.label||[])if(Math.abs(z)>1e-6)g.push(`<line x1="${px(z)}" y1="6" x2="${px(z)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="2 5" opacity=".7"/><text x="${px(z)+3}" y="${H-8}" fill="${AXC.Z}" font-size="11">${t}</text>`);
+ for(const x of G.xmarks||[]){const t=G.dia?'Ø '+(-2*x).toFixed(2):'X '+(+x).toFixed(2);g.push(`<text x="8" y="${py(x)-3}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
+ // the tool: where the simulation has it, else where the H4 has it
+ const tz=A?A.z:st.z,tx=A?A.x:st.x;g.push(`<g transform="translate(${px(tz)},${py(tx)})"><path d="M0 0 L-8 22 L16 22 Z" fill="var(--fg)"/><rect x="-6" y="22" width="22" height="26" fill="var(--dim)"/></g>`);
  ltPut('ltSvg',g.join(''))}
+// ▶: moves the tool along the path (about 10 s for the whole job), taking the material off pass by pass.
+function ltSimRun(){if(ltAnim){ltAnim=null;ltDraw();return}const G=ltGeo(),p=G.path;if(p.length<2)return;
+ const len=[0];for(let i=1;i<p.length;i++)len.push(len[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]));
+ const T=len[len.length-1]||1,t0=performance.now(),dur=Math.min(14000,Math.max(4000,p.length*120));
+ // which pass each point ends: a pass is done when its cut segment is finished
+ const passAt=[];let pass=0;for(let i=0;i<p.length;i++){if(p[i][2]&&(i+1>=p.length||!p[i+1][2]))pass++;passAt.push(pass)}
+ ltAnim={t:0,z:p[0][0],x:p[0][1],pass:0};
+ const step=now=>{if(!ltAnim)return;const d=Math.min(1,(now-t0)/dur)*T;let i=1;while(i<len.length-1&&len[i]<d)i++;
+  const k=len[i]>len[i-1]?(d-len[i-1])/(len[i]-len[i-1]):1,a=p[i-1],b=p[i];ltAnim.z=a[0]+(b[0]-a[0])*k;ltAnim.x=a[1]+(b[1]-a[1])*k;
+  ltAnim.pass=k>=1?passAt[i]:passAt[i-1];if(d>=T){ltAnim.pass=G.passes+1}ltDraw();
+  if(d<T)requestAnimationFrame(step);else setTimeout(()=>{ltAnim=null;ltDraw()},1500)};
+ requestAnimationFrame(step)}
+$('ltSim').addEventListener('click',ltSimRun);
 window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
