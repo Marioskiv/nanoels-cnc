@@ -127,17 +127,18 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .lt{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto;gap:8px}
 .ltops{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
 .ltop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0;cursor:pointer}
-.ltop.sel{border-color:var(--or);border-style:dashed}.ltop:disabled{opacity:.55;cursor:default}
+.ltop{position:relative}.ltop.sel{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}.ltop:disabled{opacity:.55;cursor:default}
 .ltop svg{width:30px;height:22px}.ltop span{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.ltop.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}
+.ltop.on::after{content:'H4';position:absolute;top:3px;right:4px;font:700 9px system-ui;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 3px}
 .ltop .ic-l{stroke:var(--fg);fill:none}.ltop .ic-c{fill:#ff7a2e}.ltop .ic-s{fill:#8b95a6}
-.ltmain{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:8px;min-height:0}
+.ltmain{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:'dro form' 'view form';gap:8px;min-height:0}
+.ltdro{grid-area:dro}.ltview{grid-area:view}.card.ltpanel{grid-area:form}  /* landscape: readouts and drawing left, the form the full height on the right */
 .ltview{position:relative;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .ltsimb{position:absolute;top:8px;right:8px;z-index:2;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg);font-weight:700;padding:6px 12px}
 .ltview svg{flex:1;min-height:0;width:100%}
 .ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
 .ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
-.ltside{display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0}
+.ltside{display:contents}
 .ltdro{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ltax{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 12px;padding:5px 10px 5px 12px;border-radius:12px;
  background:var(--tile);border:1px solid var(--tileb);border-left:7px solid var(--c);box-shadow:0 0 18px -10px var(--c)}
@@ -179,8 +180,15 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltrows span:nth-child(odd){color:var(--dim)}.ltrows span:nth-child(even){font:600 15px ui-monospace,monospace;text-align:right}
 .ltnote{margin-top:auto;font-size:12px;color:var(--dim)}
 @media (orientation:landscape) and (max-height:860px) and (min-width:761px){.ltax{grid-column:auto;padding:3px 8px}.ltax .l{font-size:clamp(26px,3vw,36px)}.ltax .v{font-size:clamp(20px,2.5vw,32px)}.ltsp{padding:3px 8px}}
-@media (orientation:portrait),(max-width:760px){.ltops{grid-template-columns:repeat(4,minmax(0,1fr))}.ltmain{grid-template-columns:1fr;grid-template-rows:minmax(80px,24%) minmax(0,1fr)}
- .ltleg{display:none}.ltax .l{font-size:28px}.ltax .v{font-size:25px}.ltpanel h3{font-size:14px}.ltmain{grid-template-rows:minmax(70px,18%) minmax(0,1fr)}
+@media (max-height:640px),(max-width:640px){.lt{gap:5px}.ltops{gap:4px}.ltop{padding:3px 2px;gap:0}.ltop svg{height:16px}.ltop span{font-size:11.5px}
+ .card.ltpanel{padding:6px 8px;gap:5px}.ltpanel h3{font-size:13.5px}.ltzero{gap:4px;font-size:12px}.ltzero>button{padding:4px 8px}
+ .ltgroups{gap:5px}.ltg{padding:4px 6px;gap:4px}.ltg h4{font-size:11.5px}.ltg label{font-size:11px}.ltg .f{gap:1px}.ltgz .ltgf,.ltgx .ltgf{gap:4px}
+ .ltg .step{grid-template-columns:30px 1fr 30px}.ltg .step .numv{font-size:15px;padding:2px 0}.ltg .step button{font-size:17px}
+ .ltgc .ltgf{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:4px}.ltg .seg button{padding:4px 3px;font-size:11.5px}.ltpanel .sel{padding:3px 6px}
+ .ltinfo{font-size:11px;line-height:1.35}.ltstart{padding:9px 12px;min-width:150px}.ltdro{gap:4px}.ltsp{padding:2px 8px}.ltsp .v{font-size:16px}
+ .ltax .l{font-size:24px}.ltax .v{font-size:22px}.ltax{padding:2px 8px}}
+@media (orientation:portrait),(max-width:760px){.ltops{grid-template-columns:repeat(4,minmax(0,1fr))}.ltmain{grid-template-columns:1fr;grid-template-rows:minmax(80px,24%) auto minmax(0,1fr);grid-template-areas:'view' 'dro' 'form'}
+ .ltleg{display:none}.ltax .l{font-size:28px}.ltax .v{font-size:25px}.ltpanel h3{font-size:14px}.ltmain{grid-template-rows:minmax(70px,18%) auto minmax(0,1fr)}
  .ltg .step .numv{font-size:15px;padding:3px 0}.ltg .step{grid-template-columns:30px 1fr 30px}.ltgroups{gap:5px}.ltg{padding:5px 6px}.ltg label{font-size:11px}
  .ltfields{gap:5px}.ltfields label{font-size:11px}.ltfields .step .numv{font-size:15px;padding:3px 0}.ltfields .step{grid-template-columns:30px 1fr 30px}
  .ltfields .seg button{padding:5px 2px;font-size:12px}.ltfields .sel{padding:4px 6px}.ltinfo{font-size:11.5px}.ltnow{font-size:11px}.ltstart{min-width:150px;padding:11px 12px}
@@ -695,9 +703,9 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
   ext:'External',int:'Internal',none:'—',legend:['part','material that comes off','Z0 and lengths','tool path'],sim:'Simulate',
-  step1:'1 · Zero on the part',step2:'2 · ',z0:'Z0 here',dia:'Ø → X0',help:'How?',
-  helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Z0 here</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Ø → X0</b> with that number. The H4 then knows where the centre is.<br>X values are diameters or radii, as chosen once in <i>Settings, Appearance, Lathe X</i>.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
-  zx:'Z (length, along the part)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
+  step1:'1 · Zero on the part',step2:'2 · ',z0:'Touch Z0',dia:'Touch Ø → X0',help:'How?',
+  helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Touch Z0</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Touch Ø → X0</b> with that number (the tool still touches that diameter). The H4 then knows where the centre is.<br>X values are diameters or radii, as chosen once in <i>Settings, Appearance, Lathe X</i>.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
+  zx:'Z (length)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
   diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',busy:'Stop the H4 first (OFF).',
   goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',fromTool:'Starts where the tool stands at START.',
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
@@ -715,9 +723,9 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
   ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και μήκη','διαδρομή κοπτικού'],sim:'Προσομοίωση',
-  step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Z0 εδώ',dia:'Ø → X0',help:'Πώς;',
-  helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Z0 εδώ</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Ø → X0</b> γράφοντας τον αριθμό. Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες, όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X</i>.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
-  zx:'Z (μήκος, κατά μήκος του κομματιού)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
+  step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Άγγιγμα Z0',dia:'Άγγιγμα Ø → X0',help:'Πώς;',
+  helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Άγγιγμα Z0</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Άγγιγμα Ø → X0</b> γράφοντας τον αριθμό (το κοπτικό ακουμπά ακόμα αυτή τη διάμετρο). Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες, όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X</i>.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
+  zx:'Z (μήκος)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
   diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',busy:'Σταμάτησε πρώτα το H4 (OFF).',
   goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
@@ -851,7 +859,7 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
  else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(q.start[0])).replace('{x}',ltXs(q.start[1])));
   if(m==6)out.push(L.cutZ.replace('{z}',f3(st.z)));
   if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len))+' k = '+(+q.cone).toFixed(5):''));
-  if(LTF[m].some(f=>f[5]=='x'))out.push(L.x0note)}
+}
  const p=Math.abs(q.pitch||0),dx=q.xb!==undefined&&q.start?Math.abs(q.xb-q.start[1]):0;let mm=0;
  if(m==4)mm=v.len*v.passes;if(m==7)mm=v.len*v.passes*v.starts;if(m==5)mm=dx*v.passes;if(m==6)mm=dx;if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
  if(mm&&p&&m!=2&&!err){if(st.rpm>2){const t=mm/(p*st.rpm)*1.15;
@@ -859,7 +867,7 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
  ltPut('ltInfo',out.join('<br>'))}
 // X readout as a diameter or radius (X0 on the centre: the outside reads X = -Ø/2)
 function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm';
- document.querySelectorAll('.ltop').forEach(b=>{b.classList.toggle('on',+b.dataset.m==st.mode);b.classList.toggle('sel',+b.dataset.m==ltCur()&&ltCur()!=st.mode);b.disabled=!!st.on});
+ document.querySelectorAll('.ltop').forEach(b=>{b.classList.toggle('on',+b.dataset.m==st.mode);b.classList.toggle('sel',+b.dataset.m==ltCur());b.disabled=!!st.on});
  $('ltXv').textContent=(ltRad()?-st.x:-2*st.x).toFixed(3);$('ltXu').textContent=(ltRad()?'R ':'Ø ')+u;$('ltZv').textContent=st.z.toFixed(3);$('ltZu').textContent=u;
  $('ltRpm').textContent=st.rpm;
  // the angle only means something while the spindle stands or creeps: no number racing past, no animation
@@ -870,7 +878,8 @@ function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm
  ltPut('ltNow',(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now));
  const sb=$('ltStart');sb.classList.toggle('run',!!st.on);$('ltStartT').textContent=st.on?L.running:L.start;
  const pm=[4,5,6,7,8].includes(m);$('ltBar').style.width=st.on&&pm&&l.passes?Math.min(100,100*l.op/l.passes)+'%':'0';
- $('ltProg').textContent=(L.m[m]||'')+(st.on&&pm?' · '+L.pass+' '+Math.min(l.op+1,l.passes)+' / '+l.passes:(pm?' · '+l.passes+' '+L.passes:'')+' · '+(st.on?'':L.ready));
+ const c=ltCur(),cp=ltV[c]&&ltV[c].passes;
+ $('ltProg').textContent=st.on?(L.m[m]||'')+(pm?' · '+L.pass+' '+Math.min(l.op+1,l.passes)+' / '+l.passes:''):(L.m[c]||'')+(cp?' · '+cp+' '+L.passes:'')+' · '+L.ready;
  ltInfo();ltDraw()}
 // START: send the form (the H4 refuses while it is ON or moving), then press ON through the H4's key queue.
 async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.measure){msg(L.inch);return}
@@ -945,7 +954,7 @@ function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoun
  // zero and dimensions
  g.push(`<line x1="${px(0)}" y1="6" x2="${px(0)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(0)+4}" y="18" fill="${AXC.Z}" font-size="13" font-weight="700">Z0</text>`);
  for(const [z,t] of G.label||[])if(Math.abs(z)>1e-6)g.push(`<line x1="${px(z)}" y1="6" x2="${px(z)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="2 5" opacity=".7"/><text x="${px(z)+3}" y="${H-8}" fill="${AXC.Z}" font-size="11">${t}</text>`);
- for(const x of G.xmarks||[]){const t=ltXs(x);g.push(`<text x="8" y="${py(x)-3}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
+ let ly=-99;for(const x of (G.xmarks||[]).slice().sort((a,b)=>py(a)-py(b))){const t=ltXs(x),y=Math.max(py(x)-3,ly+13);ly=y;g.push(`<text x="8" y="${y}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
  // the tool: where the simulation has it, else where the H4 has it
  const tz=A?A.z:st.z,tx=A?A.x:st.x;g.push(`<g transform="translate(${px(tz)},${py(tx)})"><path d="M0 0 L-8 22 L16 22 Z" fill="var(--fg)"/><rect x="-6" y="22" width="22" height="26" fill="var(--dim)"/></g>`);
  ltPut('ltSvg',g.join(''))}
