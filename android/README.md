@@ -31,6 +31,9 @@ newer first ask once to allow H4 CNC to install apps). If the installed app was 
 test versions 1.0–1.5), Android cannot update it: the app says so and offers to uninstall it; then install
 `H4CNC.apk` once by hand. Versions up to 1.10 handed the download to the browser or to a newer installer path:
 install 1.11 once by hand from the Releases page.
+Older Androids (up to 7.1) lack the root certificate of GitHub's download servers; from 1.15 the app keeps the
+needed public roots itself (ISRG Root X1 / X2, DigiCert Global Root G2, with the full chain and host name checked),
+so updates download there too. On such a device install 1.15 once by hand.
 
 ## H4 firmware updates
 

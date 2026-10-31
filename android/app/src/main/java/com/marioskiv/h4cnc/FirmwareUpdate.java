@@ -129,10 +129,7 @@ final class FirmwareUpdate {
     }
 
     private static String get(String url, int timeout) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(timeout);
-        c.setReadTimeout(timeout);
-        c.setRequestProperty("User-Agent", "H4CNC-app");
+        HttpURLConnection c = Net.get(url, timeout, timeout);
         try {
             if (c.getResponseCode() != 200) throw new Exception("HTTP " + c.getResponseCode());
             InputStream in = c.getInputStream();
@@ -146,10 +143,7 @@ final class FirmwareUpdate {
     }
 
     private static byte[] download(String url) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();  // GitHub redirects: followed
-        c.setConnectTimeout(10000);
-        c.setReadTimeout(30000);
-        c.setRequestProperty("User-Agent", "H4CNC-app");
+        HttpURLConnection c = Net.get(url, 10000, 30000);  // GitHub redirects to its download host: followed
         try {
             if (c.getResponseCode() != 200) throw new Exception("download HTTP " + c.getResponseCode());
             InputStream in = c.getInputStream();
