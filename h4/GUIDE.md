@@ -191,7 +191,15 @@ program runs.
   Updated about 7 times a second. Work is set from the part's zero, as on the H4 keys: **Z0** on the face, **X0**
   on the centre line from a measured diameter (**Ø → X0**, the H4's numpad + A); **How?** on the screen explains it.
   X values are diameters or radii, chosen once in *Settings, Appearance, Lathe X*; the lathe screen's X readout
-  follows it. Pick an operation at the top and fill its form: Z values
+  follows it.
+  **Two zeros:** the lathe modes and the G-code mode each keep their own zero (X and Z). A touch-off for turning
+  never moves the G-code (polar) zero, and a zero set in the G-code mode (keys, G10 L20) never moves the lathe one;
+  the H4 changes to the right one when the mode changes. Both are kept like the H4's own zero: no Home needed,
+  kept through a restart if the axes were not moved by hand meanwhile.
+  **Safe place:** at START the tool first goes out to a safe place, *Settings, Appearance, Lathe safe distance*
+  (10 mm by default; 0 = off) outside the part (inside a bore for internal work) and to the right of the start:
+  X first, then Z. Then the H4 runs the operation, and after a normal end the tool goes back there. STOP stops these
+  moves too, and after a STOP nothing moves by itself. Feed, constant feed and taper start where the tool stands. Pick an operation at the top and fill its form: Z values
   (green: start, length) and X values (orange: part Ø and final Ø, or the depth) side by side, or a preset.
   The side view draws the part from its zero (face at Z0, its diameter), the material that comes off and the
   tool's path pass by pass; **▶ Simulate** runs the tool along it. Presets: metric and UNC threads, Morse and other tapers, spheres; every value stays editable, with the

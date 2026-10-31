@@ -280,6 +280,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="spage" data-sp="look"><div class="pg">
 <div class="fr"><label for="lkLang">Language / Γλώσσα</label><select id="lkLang"><option value="en">English</option><option value="el">Ελληνικά</option></select></div>
 <div class="fr"><label for="lkXr">Lathe X / Τόρνος X</label><select id="lkXr"><option value="d">Diameter Ø / Διάμετρος Ø</option><option value="r">Radius R / Ακτίνα R</option></select></div>
+<div class="fr"><label for="lkClr">Lathe safe distance mm / Τόρνος: απόσταση ασφαλείας mm</label><input type="number" id="lkClr" min="0" max="50" step="1"></div>
 <div class="fr"><label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select></div>
 <div class="fr"><label for="lkAcc">Accent colour</label><input type="color" id="lkAcc"></div>
 <div class="fr"><label for="lkX">X colour</label><input type="color" id="lkX"></div><div class="fr"><label for="lkZ">Z colour</label><input type="color" id="lkZ"></div>
@@ -329,7 +330,7 @@ if(DEMO)(function(){
   if(S.running&&!S.paused){S.progress=Math.min(1,S.progress+dt/40*S.fo/100);const p=pts[Math.min(pts.length-1,Math.floor(S.progress*pts.length))];
    S.x=p[0];S.c=p[1];S.z=-0.5;S.steps+=Math.round(400*dt*S.fo/100);
    if(S.progress>=1){S.running=false;S.state='Idle';S.z=5;add('Demo: program end')}}
-  if(S.on){const L=S.lt;S.lp=(S.lp||0)+dt/3;if(S.lp>=1){S.lp=0;L.op++;if(L.op>=L.passes){S.on=false;L.op=0;add('Demo: lathe passes done')}}
+  if(S.on){const L=S.lt;S.lp=(S.lp||0)+dt/3;if(S.lp>=1){S.lp=0;L.op++;if(L.op>=L.passes){S.on=false;if(L.xr!=null)S.x=L.xr;if(L.zr!=null)S.z=L.zr;add('Demo: lathe passes done')}}
    if(L.zl!=null&&L.zr!=null)S.z=L.zr+(L.zl-L.zr)*(S.lp||0)}}
  function status(){tick();const st=S.running?(S.paused?'Hold':'Run'):'Idle';
   return {state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
@@ -357,6 +358,7 @@ if(DEMO)(function(){
   if(p=='/jog'){S.jog={x:+arg('x')||0,z:+arg('z')||0,c:+arg('c')||0,t:Date.now()};return ok('ok')}
   if(p=='/key')return ok('ok');
   if(p=='/lathe'){if(S.on||S.running)return no('The machine is ON or moving: stop it (OFF) first.');
+   if(arg('do')=='goto'){S[arg('axis')]=+arg('v');return ok('Moving')}if(arg('do')=='halt')return ok('Stopped');
    if(arg('do')=='z0'){S.z=0;add('Demo: Z0');return ok('Z0')}if(arg('do')=='x0'){S.x=0;add('Demo: X0');return ok('X0')}
    if(arg('do')=='dia'){S.x=-(+arg('d'))/2;add('Demo: X0 from Ø '+arg('d'));return ok('X0')}
    if(arg('do')=='start'){if(S.mode==9)return no('G-code mode: use the G-code tab.');S.on=true;S.lp=0;S.lt.op=0;add('Demo: lathe ON');return ok('ON')}
@@ -555,7 +557,7 @@ let unlocked=false,lockT=0;
 const STEPS=[0.001,0.01,0.1,1,10];let jogAxis='X',jogStep=0.1,jogPending=0,jogBusy=false,jogPoll=-9,wheelAngle=0;
 try{const v=localStorage.getItem('h4step');jogStep=v=='cont'?'cont':(+v||0.1)}catch(e){}
 const SC0={jog:'pad',lock:'1'};let sc=Object.assign({},SC0);try{Object.assign(sc,JSON.parse(localStorage.getItem('h4screen')||'{}'))}catch(e){}
-const LOOK0={xr:'d',lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+const LOOK0={xr:'d',clr:'10',lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
 try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
 const AXC={X:look.X,Z:look.Z,C:look.C};
 // Appearance: theme, accent and axis colours, number size (stored in the browser)
@@ -565,8 +567,8 @@ function lookApply(){document.body.classList.toggle('light',look.theme=='light')
  const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
-function lookForm(){$('lkXr').value=look.xr;$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
-lookForm();for(const [id,k] of [['lkXr','xr'],['lkLang','lang'],['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
+function lookForm(){$('lkXr').value=look.xr;$('lkClr').value=look.clr;$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
+lookForm();for(const [id,k] of [['lkXr','xr'],['lkClr','clr'],['lkLang','lang'],['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
  $(id).addEventListener('input',()=>{look[k]=$(id).value;lookSave()});
 lookApply();
 // Screen and jog settings; the orientation is kept by the app (Android), so it is offered only there.
@@ -707,7 +709,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Touch Z0</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Touch Ø → X0</b> with that number (the tool still touches that diameter). The H4 then knows where the centre is.<br>X values are diameters or radii, as chosen once in <i>Settings, Appearance, Lathe X</i>.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
   zx:'Z (length)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
   diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',busy:'Stop the H4 first (OFF).',
-  goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',fromTool:'Starts where the tool stands at START.',
+  goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',safe:'First the tool goes out to the safe place Z {z}, {x} ({c} mm from the part: X first, then Z); at the end it goes back there.',approach:'TO THE SAFE PLACE',safeStop:'Stopped before the end: move the tool away with the keys.',fromTool:'Starts where the tool stands at START.',
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.'},
   ok:'OK',cancel:'Cancel',clear:'Empty',
@@ -727,7 +729,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Άγγιγμα Z0</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Άγγιγμα Ø → X0</b> γράφοντας τον αριθμό (το κοπτικό ακουμπά ακόμα αυτή τη διάμετρο). Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες, όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X</i>.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
   zx:'Z (μήκος)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
   diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',busy:'Σταμάτησε πρώτα το H4 (OFF).',
-  goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
+  goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',safe:'Πρώτα το κοπτικό βγαίνει στη θέση ασφαλείας Z {z}, {x} ({c} mm από το κομμάτι: πρώτα X, μετά Z)· στο τέλος γυρίζει εκεί.',approach:'ΣΤΗ ΘΕΣΗ ΑΣΦΑΛΕΙΑΣ',safeStop:'Σταμάτησε πριν το τέλος: απομάκρυνε το κοπτικό με τα πλήκτρα.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.'},
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
@@ -857,6 +859,7 @@ let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;cons
 function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
  if(err)out.push('<b class="bad">'+err+'</b>');
  else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(q.start[0])).replace('{x}',ltXs(q.start[1])));
+  const sp=ltSafe(q);if(sp)out.push(L.safe.replace('{z}',f3(sp.z==null?st.z:sp.z)).replace('{x}',ltXs(sp.x)).replace('{c}',look.clr));
   if(m==6)out.push(L.cutZ.replace('{z}',f3(st.z)));
   if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len))+' k = '+(+q.cone).toFixed(5):''));
 }
@@ -876,16 +879,37 @@ function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm
  const now=[L.m[m]||m,(m==7?'P ':'')+Math.abs(l.pitch).toFixed(3)+(l.pitch<0?' ←':''),[4,5,6,7,8].includes(m)?l.passes+' '+L.passes:'',m==7&&l.starts>1?l.starts+'×':'',m==3?'k '+(+l.cone).toFixed(5):'',
   'Z '+f(l.zr)+'…'+f(l.zl),'X '+f(l.xr)+'…'+f(l.xl)].filter(Boolean).join(' · ');
  ltPut('ltNow',(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now));
+ if(st.on&&l.op>ltOpSeen)ltOpSeen=l.op;
+ if(ltWasOn&&!st.on&&ltJob){const j=ltJob;ltJob=null;
+  if(j.sp&&!ltAbort){if(Math.max(ltOpSeen,+l.op||0)>=j.passes&&Math.abs(st.x-j.start[1])<0.05)ltRetract(j.sp);else msg(L.safeStop)}}
+ ltWasOn=!!st.on;
  const sb=$('ltStart');sb.classList.toggle('run',!!st.on);$('ltStartT').textContent=st.on?L.running:L.start;
  const pm=[4,5,6,7,8].includes(m);$('ltBar').style.width=st.on&&pm&&l.passes?Math.min(100,100*l.op/l.passes)+'%':'0';
  const c=ltCur(),cp=ltV[c]&&ltV[c].passes;
  $('ltProg').textContent=st.on?(L.m[m]||'')+(pm?' · '+L.pass+' '+Math.min(l.op+1,l.passes)+' / '+l.passes:''):(L.m[c]||'')+(cp?' · '+cp+' '+L.passes:'')+' · '+L.ready;
  ltInfo();ltDraw()}
 // START: send the form (the H4 refuses while it is ON or moving), then press ON through the H4's key queue.
+// The safe place (as a CAM's clearance): the set distance outside the part (inside a bore for internal work) and
+// to the right of the start in Z (at the start Z for a left-hand thread, which starts at the chuck end).
+// Operations that start where the tool stands (feed, constant feed, taper) have none.
+function ltSafe(q){const m=q.mode,c=+look.clr||0,v=ltV[m]||{};if(!(c>0)||!q.start||![4,5,6,7,8].includes(m))return null;
+ const [zs,xs]=q.start,inner=[4,6,7].includes(m)&&v.side==1;
+ return {x:inner?Math.min(xs+c,xs/2):xs-c,z:zs==null?null:(m==7&&v.hand?zs:zs-c)}}
+let ltAbort=false,ltJob=null,ltWasOn=false,ltOpSeen=0;
+document.addEventListener('click',e=>{if(e.target.closest('.hstop'))ltAbort=true},true);
+const ltSleep=ms=>new Promise(r=>setTimeout(r,ms));
+// one axis to a place (displayed units), then wait until it is there; STOP ends it
+async function ltGoto(ax,v){await post('/lathe?do=goto&axis='+ax+'&v='+(+v).toFixed(4));const t0=Date.now();
+ for(;;){await ltSleep(150);if(ltAbort){post('/lathe?do=halt').catch(()=>{});throw new Error('STOP')}
+  if(Math.abs((ax=='x'?st.x:st.z)-v)<0.005)return;if(Date.now()-t0>120000)throw new Error('timeout')}}
+async function ltRetract(sp){try{await ltGoto('x',sp.x);if(sp.z!=null)await ltGoto('z',sp.z)}catch(e){msg(e.message)}}
 async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.measure){msg(L.inch);return}
  const err=ltCheck();if(err){msg(err);return}
  const q=ltPlan(),p=new URLSearchParams();for(const [k,v] of Object.entries(q))if(k!='start'&&k!='xb')p.set(k,v===''?'':(typeof v=='number'?+v.toFixed(5):v));
- try{await post('/lathe?'+p.toString());await new Promise(r=>setTimeout(r,300));await post('/lathe?do=start')}catch(e){msg(e.message)}}
+ ltAbort=false;ltJob=null;
+ try{await post('/lathe?'+p.toString());await ltSleep(300);
+  const sp=ltSafe(q);if(sp){$('ltStartT').textContent=L.approach;await ltGoto('x',sp.x);if(sp.z!=null)await ltGoto('z',sp.z)}
+  await post('/lathe?do=start');ltJob={sp,start:q.start,passes:(q.passes||1)*(q.starts||1)};ltOpSeen=0}catch(e){msg(e.message)}}
 (function(){const b=$('ltStart');let t=null,t0=0;const end=()=>{clearInterval(t);t=null;$('ltFill').style.width='0'};
  const go=e=>{if(st.on||t)return;e.preventDefault();t0=performance.now();t=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/800);$('ltFill').style.width=k*100+'%';if(k>=1){end();ltStartGo()}},30)};
  b.addEventListener('pointerdown',go);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,end));
@@ -928,6 +952,8 @@ function ltGeo(){const l=st.lathe,m=st.on?st.mode:ltCur(),v=ltV[m]||{},dia=true,
  if(m==3&&!st.on&&q){const z0=st.z,x0=st.x,dz=(q.pitch<0?-1:1)*v.len,dx=(q.aux?-1:1)*q.cone/2*v.len;
   G.cuts.push({pts:[[z0,x0],[z0+dz,x0+dx],[z0+dz,x0]],pass:1});P(z0,x0,0);P(z0+dz,x0+dx,1);G.label=[[z0+dz,'Z '+(z0+dz).toFixed(1)]];G.xmarks=[x0,x0+dx]}
  if((m==0||m==2)&&!st.on&&q){const z0=st.z,z1=q.zl!==''?+q.zl:(q.zr!==''?+q.zr:z0+(q.pitch<0?-20:20));P(z0,st.x,0);P(z1,st.x,1);G.label=[[z1,'Z '+(+z1).toFixed(1)]]}
+ if(q&&!st.on){const sp=ltSafe(q);if(sp&&G.path.length){const sz=sp.z==null?st.z:sp.z,e=G.path[G.path.length-1];
+  G.path.unshift([st.z,st.x,0],[st.z,sp.x,0],[sz,sp.x,0]);G.path.push([e[0],sp.x,0],[sz,sp.x,0]);G.safe=[sz,sp.x]}}
  return G}
 let ltAnim=null;
 function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoundingClientRect(),G=ltGeo(),A=ltAnim&&ltAnim.t>=0?ltAnim:null;
@@ -955,6 +981,7 @@ function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoun
  g.push(`<line x1="${px(0)}" y1="6" x2="${px(0)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(0)+4}" y="18" fill="${AXC.Z}" font-size="13" font-weight="700">Z0</text>`);
  for(const [z,t] of G.label||[])if(Math.abs(z)>1e-6)g.push(`<line x1="${px(z)}" y1="6" x2="${px(z)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="2 5" opacity=".7"/><text x="${px(z)+3}" y="${H-8}" fill="${AXC.Z}" font-size="11">${t}</text>`);
  let ly=-99;for(const x of (G.xmarks||[]).slice().sort((a,b)=>py(a)-py(b))){const t=ltXs(x),y=Math.max(py(x)-3,ly+13);ly=y;g.push(`<text x="8" y="${y}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
+ if(G.safe)g.push(`<circle cx="${px(G.safe[0])}" cy="${py(G.safe[1])}" r="5" fill="none" stroke="${AXC.Z}" stroke-width="2"/>`);
  // the tool: where the simulation has it, else where the H4 has it
  const tz=A?A.z:st.z,tx=A?A.x:st.x;g.push(`<g transform="translate(${px(tz)},${py(tx)})"><path d="M0 0 L-8 22 L16 22 Z" fill="var(--fg)"/><rect x="-6" y="22" width="22" height="26" fill="var(--dim)"/></g>`);
  ltPut('ltSvg',g.join(''))}
