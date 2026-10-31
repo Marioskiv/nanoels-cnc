@@ -188,13 +188,15 @@ program runs.
 - **Lathe** (*Τόρνος*): the H4's own lathe modes (feed, turning, facing, taper, thread, parting, sphere, constant
   feed): large X / Z readout, spindle speed and angle, a side view with Z0, the stops and the tool, and what the
   H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
-  Updated about 7 times a second. Pick an operation at the top and fill its form (or a preset: metric and UNC
-  threads, Morse and other tapers, spheres; every value stays editable). The start point is where the tool is now:
-  the form gives the length to the left in Z and the depth in X from there. The form shows the highest spindle
-  speed Z can follow for that pitch and an estimate of the time. **Hold START** for a moment: the page sends the
-  values with the same functions the H4 keys use (only while the H4 is OFF and nothing moves) and then presses ON
-  as many times as the H4's own setup steps need, as on the keypad; the H4 refuses as it does from the keys
-  (missing stops, wrong mode). **STOP** turns it OFF. Inch measure: set the values on the H4 keys.
+  Updated about 7 times a second. Work is set from the part's zero, as on the H4 keys: **Z0** on the face, **X0**
+  either on the surface (X values are depths) or on the centre line from a measured diameter (**Ø → X0**, X values
+  are diameters). Pick an operation at the top and fill its form in those coordinates (Z from / to, X from / to),
+  or a preset (metric and UNC threads, Morse and other tapers, spheres); every value stays editable, with the
+  page's own number pad. Filling the form moves nothing and sends nothing. **Hold START**: the page sends the values
+  with the same functions the H4 keys use (only while the H4 is OFF and nothing moves) and presses ON as many times
+  as the H4's own setup steps need; the H4 then moves the tool to the start point by itself and cuts, and refuses
+  as it does from the keys. Taper, feed and parting start where the tool stands. **STOP** turns it OFF. Inch
+  measure: set the values on the H4 keys.
 - **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
 - **H4 keys**: the H4 display and keys, and the gamepad.

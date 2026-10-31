@@ -567,7 +567,30 @@ long latheDisplayToPos(Axis* a, float v) {
 // the H4 is ON. "do=start" presses ON exactly as many times as the H4's setup steps need, through the same key
 // queue as a real key, so the mode starts as it does from the keypad (and refuses as it does: missing stops).
 void handleLathe() {
-  if (server.arg("do") == "start") {
+  String what = server.arg("do");
+  // Zero on the part, as the H4's keys do: Z0 / X0 here (keys Z / X), or X0 on the centre line from a measured
+  // diameter (numpad + key A: the outside then reads -Ø/2). Only while the H4 is OFF and nothing moves.
+  if (what == "z0" || what == "x0" || what == "dia") {
+    if (isOn || cncBusy() || homingActive || mode == MODE_GCODE) {
+      server.send(409, "text/plain", "The H4 is ON, moving or in GCODE mode.");
+      return;
+    }
+    if (what == "z0") markAxis0(&z);
+    else if (what == "x0") markAxis0(&x);
+    else {
+      float d = server.arg("d").toFloat();
+      if (!(d > 0 && d < 10000)) {
+        server.send(400, "text/plain", "Bad diameter");
+        return;
+      }
+      long du = lround(d * (measure == MEASURE_METRIC ? 10000.0 : 254000.0));
+      long pos = x.pos + du / x.screwPitch * x.motorSteps;
+      x.originPos = -(x.pos + pos) / 2;
+    }
+    server.send(200, "text/plain", "Zero set");
+    return;
+  }
+  if (what == "start") {
     if (isOn || cncBusy() || homingActive || mode == MODE_GCODE || emergencyStop != ESTOP_NONE) {
       server.send(409, "text/plain", "The H4 is ON, moving or in GCODE mode.");
       return;
