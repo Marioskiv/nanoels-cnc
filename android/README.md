@@ -35,6 +35,10 @@ Older Androids (up to 7.1) lack the root certificate of GitHub's download server
 needed public roots itself (ISRG Root X1 / X2, DigiCert Global Root G2, with the full chain and host name checked),
 so updates download there too. On such a device install 1.15 once by hand.
 
+**Huawei tablets with Android 7 (EMUI 5):** hold the tablet **upright (portrait)** while Android installs the app,
+the first time and at every update. Held sideways (landscape), Huawei's installer stays at "Installing..." and
+never finishes (found on a MediaPad T3 7 and a MediaPad M3 Lite 10).
+
 ## H4 firmware updates
 
 When the app opens the H4 page it compares the H4's firmware with the newest `firmware-v...` release here (at most

@@ -106,7 +106,9 @@ final class UpdateCheck {
                 .setTitle("Update available")
                 .setMessage("H4 CNC " + version + " is available (this one is " + current + ").\n\n"
                         + "Install downloads it and Android asks you to confirm. If Android says it cannot "
-                        + "(an older app signed differently), uninstall H4 CNC first and install again.")
+                        + "(an older app signed differently), uninstall H4 CNC first and install again.\n\n"
+                        + "Huawei tablets (Android 7): hold the tablet upright (portrait) while Android installs; "
+                        + "held sideways, its installer stays at \"Installing...\".")
                 .setPositiveButton("Install", (d, w) -> install(activity, url))
                 .setNegativeButton("Later", null)
                 .show();
