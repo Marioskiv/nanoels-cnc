@@ -23,7 +23,7 @@ header{grid-area:h;display:flex;gap:8px;align-items:center;padding:6px 10px;bord
 .grow{flex:1}.hstop{padding:7px 16px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
 main{grid-area:m;position:relative;min-height:0;overflow:hidden}
 .scr{position:absolute;inset:0;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:0}.scr[hidden],[hidden]{display:none!important}
-.tabs{grid-area:t;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabs{grid-area:t;display:grid;grid-template-columns:repeat(6,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .tabs button{position:relative;border:0;border-radius:0;background:none;padding:6px 2px 5px;font-size:11px;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:2px}
 .tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.on{color:var(--or)}.tabs button.on::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--or)}
@@ -122,6 +122,63 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .toast{position:fixed;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:9;background:#222;color:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;box-shadow:0 6px 20px #0008;transition:opacity .3s;max-width:560px;margin:auto}
 @media (orientation:landscape){.toast{bottom:12px;left:88px}}
 .toast.off{opacity:0;pointer-events:none}
+
+/* Lathe screen (the H4's own modes): operations on top, drawing beside or above the DRO and the settings */
+.lt{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto;gap:8px}
+.ltops{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.ltop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);min-width:0;cursor:pointer}
+.ltop.sel{border-color:var(--or);border-style:dashed}.ltop:disabled{opacity:.55;cursor:default}
+.ltop svg{width:30px;height:22px}.ltop span{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ltop.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}
+.ltop .ic-l{stroke:var(--fg);fill:none}.ltop .ic-c{fill:#ff7a2e}.ltop .ic-s{fill:#8b95a6}
+.ltmain{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:8px;min-height:0}
+.ltview{background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ltview svg{flex:1;min-height:0;width:100%}
+.ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
+.ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.ltside{display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0}
+.ltdro{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ltax{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 12px;padding:5px 10px 5px 12px;border-radius:12px;
+ background:var(--tile);border:1px solid var(--tileb);border-left:7px solid var(--c);box-shadow:0 0 18px -10px var(--c)}
+.ltax .l{font:900 clamp(32px,4.6vw,50px)/1 system-ui;color:var(--c)}
+.ltax .v{font:600 clamp(28px,4.3vw,46px)/1.05 ui-monospace,monospace;text-align:right;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.ltax .v small,.ltsp .v small{font:500 12px system-ui;color:var(--dim);margin-left:5px}
+.ltsp{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:6px;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;padding:5px 10px}
+.ltsp b{font-size:12px;color:var(--dim);font-weight:600}.ltsp .v{font:600 clamp(18px,2.4vw,24px) ui-monospace,monospace;text-align:right;white-space:nowrap}
+.ltpanel h3{margin:0;font-size:16px}
+.card.ltpanel{overflow-y:auto;min-height:0}
+.ltfields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.ltfields .f{display:flex;flex-direction:column;gap:3px;min-width:0}.ltfields .wide{grid-column:1/-1}
+.ltfields label{font-size:12px;color:var(--dim)}
+.ltfields .step{display:grid;grid-template-columns:36px 1fr 36px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--tile)}
+.ltfields .step button{border:0;background:transparent;font-size:20px;padding:0;color:var(--fg)}
+.ltfields .step .numv{border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0;background:transparent;color:var(--fg);text-align:center;font:600 18px ui-monospace,monospace;width:100%;min-width:0;padding:6px 0;cursor:text}
+.ltzero{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.ltzero>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:6px 10px;font-weight:700}
+.ltzero .ltxin{margin-left:auto;color:var(--dim)}.ltzero .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ltzero .seg button{border:0;border-radius:0;background:var(--tile);color:var(--fg);padding:6px 8px;font-size:12px}
+.ltzero .seg button.on{background:var(--or);color:#111;font-weight:700}.ltturn{font-size:14px;color:var(--dim);font-weight:600}
+.ltpad{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.ltpadb{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;width:min(340px,100%);display:flex;flex-direction:column;gap:10px}
+.ltpadt{font-weight:700;font-size:15px}.ltpadv{font:700 30px ui-monospace,monospace;text-align:right;background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-height:1.3em}
+.ltpadk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ltpadk button{border:1px solid var(--line);border-radius:10px;background:var(--tile);color:var(--fg);font:700 22px system-ui;padding:12px 0}
+.ltpadk button.ok{background:var(--ok);color:#fff;border:0;grid-column:1/-1}
+.ltfields .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.ltfields .seg button{flex:1;border:0;border-radius:0;background:var(--tile);padding:7px 4px;font-size:13px;color:var(--fg)}
+.ltfields .seg button.on{background:var(--or);color:#111;font-weight:700}
+.ltfields .sel{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:7px 8px;font:600 14px system-ui;width:100%}
+.ltinfo{font-size:12.5px;color:var(--dim);line-height:1.45}.ltinfo .bad{color:var(--bad)}
+.ltnow{font:11.5px/1.35 ui-monospace,monospace;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ltbot{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+.ltstart{position:relative;overflow:hidden;border:0;border-radius:12px;background:var(--ok);color:#fff;font-weight:800;letter-spacing:.04em;padding:13px 22px;min-width:190px}
+.ltstart .fill{position:absolute;inset:0;width:0;background:rgba(255,255,255,.3)}.ltstart span{position:relative}.ltstart.run{background:var(--acc)}
+.ltprog{display:flex;flex-direction:column;gap:4px;min-width:0}.ltprog .bar{height:8px;border-radius:99px;background:var(--tile);border:1px solid var(--line);overflow:hidden}
+.ltprog .bar div{height:100%;width:0;background:var(--or)}.ltprog small{color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ltrows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.ltrows span:nth-child(odd){color:var(--dim)}.ltrows span:nth-child(even){font:600 15px ui-monospace,monospace;text-align:right}
+.ltnote{margin-top:auto;font-size:12px;color:var(--dim)}
+@media (orientation:landscape) and (max-height:860px) and (min-width:761px){.ltax{grid-column:auto;padding:3px 8px}.ltax .l{font-size:clamp(26px,3vw,36px)}.ltax .v{font-size:clamp(20px,2.5vw,32px)}.ltsp{padding:3px 8px}}
+@media (orientation:portrait),(max-width:760px){.ltops{grid-template-columns:repeat(4,minmax(0,1fr))}.ltmain{grid-template-columns:1fr;grid-template-rows:minmax(80px,24%) minmax(0,1fr)}
+ .ltleg{display:none}.ltax .l{font-size:28px}.ltax .v{font-size:25px}.ltpanel h3{font-size:14px}.ltmain{grid-template-rows:minmax(70px,18%) minmax(0,1fr)}
+ .ltfields{gap:5px}.ltfields label{font-size:11px}.ltfields .step .numv{font-size:15px;padding:3px 0}.ltfields .step{grid-template-columns:30px 1fr 30px}
+ .ltfields .seg button{padding:5px 2px;font-size:12px}.ltfields .sel{padding:4px 6px}.ltinfo{font-size:11.5px}.ltnow{font-size:11px}.ltstart{min-width:150px;padding:11px 12px}
+ .ltdro{gap:4px}.ltsp{padding:3px 8px}.ltsp .v{font-size:17px}.ltside{gap:6px}.card.ltpanel{padding:8px;gap:6px}}
 </style></head><body>
 <div id="app">
 <header><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
@@ -145,6 +202,18 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="small"><span id="cpPct">0 %</span> &middot; <code id="cpLine"></code></div><h2>Messages</h2><div class="pg" id="cpLog"></div></div>
 </section>
 
+<section class="scr lt" data-tab="lathe" hidden>
+<div class="ltops" id="ltOps"></div>
+<div class="ltmain"><div class="ltview"><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
+<div class="ltside"><div class="ltdro">
+<div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
+<div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
+<div class="ltsp"><b id="ltRpmL"></b><span class="v"><span id="ltRpm">-</span><small id="ltRpmU"></small></span></div>
+<div class="ltsp"><b id="ltAngL"></b><span class="v" id="ltAng">-</span></div></div>
+<div class="card ltpanel" id="ltForm"></div></div></div>
+<div class="ltbot"><button type="button" class="ltstart" id="ltStart"><span class="fill" id="ltFill"></span><span id="ltStartT"></span></button>
+<div class="ltprog"><div class="bar"><div id="ltBar"></div></div><small id="ltProg"></small><small class="ltnow" id="ltNow"></small></div></div>
+</section>
 <section class="scr" data-tab="program" hidden>
 <div class="subtabs" data-s="program"><button data-p="run">Run</button><button data-p="files">Files</button><button data-p="path">Path</button></div>
 <div class="panes">
@@ -195,6 +264,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="slist"><div class="pg" id="slist"></div><div class="pgc"></div></div>
 <div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="sTitle"></span></h2>
 <div class="spage" data-sp="look"><div class="pg">
+<div class="fr"><label for="lkLang">Language / Γλώσσα</label><select id="lkLang"><option value="en">English</option><option value="el">Ελληνικά</option></select></div>
 <div class="fr"><label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select></div>
 <div class="fr"><label for="lkAcc">Accent colour</label><input type="color" id="lkAcc"></div>
 <div class="fr"><label for="lkX">X colour</label><input type="color" id="lkX"></div><div class="fr"><label for="lkZ">Z colour</label><input type="color" id="lkZ"></div>
@@ -229,9 +299,9 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 // of the controller, so the page can be seen and tried. Nothing here runs when the page comes from an H4.
 const DEMO=/[?&]demo\b/.test(location.search);
 if(DEMO)(function(){
- const S={x:20,z:5,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
+ const S={x:-21,z:-2,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
   log:['Demo: a simulated machine, no H4 is connected.'],t:Date.now(),benchN:0,bench:'',program:'',steps:0,
-  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}]};
+  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}],ang:0,mode:4,on:false,lt:{pitch:0.1,measure:0,starts:1,passes:8,cone:1,aux:1,setup:0,op:0,zl:40,zr:0,xl:-18,xr:-20}};
  const lines=['(demo program)','G21 G90 G94 G8','G0 Z5','G0 X40 C0','G1 Z-0.5 F200','G93'];
  for(let i=0;i<=720;i+=6)lines.push('G1 X'+(40-i/24).toFixed(3)+' C'+i+' F'+(60).toFixed(1));
  lines.push('G94','G0 Z5','M2');const text={'demo_spiral.ngc':lines.join('\n'),
@@ -243,12 +313,15 @@ if(DEMO)(function(){
   if(now-S.jog.t<300&&!S.running){S.x+=S.jog.x/60*dt;S.z+=S.jog.z/60*dt;S.c+=S.jog.c/60*dt;S.steps+=Math.round((Math.abs(S.jog.x)+Math.abs(S.jog.z))*20*dt)}
   if(S.running&&!S.paused){S.progress=Math.min(1,S.progress+dt/40*S.fo/100);const p=pts[Math.min(pts.length-1,Math.floor(S.progress*pts.length))];
    S.x=p[0];S.c=p[1];S.z=-0.5;S.steps+=Math.round(400*dt*S.fo/100);
-   if(S.progress>=1){S.running=false;S.state='Idle';S.z=5;add('Demo: program end')}}}
+   if(S.progress>=1){S.running=false;S.state='Idle';S.z=5;add('Demo: program end')}}
+  if(S.on){const L=S.lt;S.lp=(S.lp||0)+dt/3;if(S.lp>=1){S.lp=0;L.op++;if(L.op>=L.passes){S.on=false;L.op=0;add('Demo: lathe passes done')}}
+   if(L.zl!=null&&L.zr!=null)S.z=L.zr+(L.zl-L.zr)*(S.lp||0)}}
  function status(){tick();const st=S.running?(S.paused?'Hold':'Run'):'Idle';
-  return {state:st,gcodeMode:1,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
+  return {state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
+   mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360)}),
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
    diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
@@ -268,6 +341,13 @@ if(DEMO)(function(){
   if(p=='/wifi')return opt&&opt.method=='POST'?ok('Demo: not saved.'):ok({ssid:'demo',passwordSet:0,setupAp:0,ip:'demo',apName:'NanoEls-H4-Setup'});
   if(p=='/jog'){S.jog={x:+arg('x')||0,z:+arg('z')||0,c:+arg('c')||0,t:Date.now()};return ok('ok')}
   if(p=='/key')return ok('ok');
+  if(p=='/lathe'){if(S.on||S.running)return no('The machine is ON or moving: stop it (OFF) first.');
+   if(arg('do')=='z0'){S.z=0;add('Demo: Z0');return ok('Z0')}if(arg('do')=='x0'){S.x=0;add('Demo: X0');return ok('X0')}
+   if(arg('do')=='dia'){S.x=-(+arg('d'))/2;add('Demo: X0 from Ø '+arg('d'));return ok('X0')}
+   if(arg('do')=='start'){if(S.mode==9)return no('G-code mode: use the G-code tab.');S.on=true;S.lp=0;S.lt.op=0;add('Demo: lathe ON');return ok('ON')}
+   const L=S.lt,n=k=>arg(k)===null?undefined:(arg(k)===''?null:+arg(k));
+   if(n('mode')!==undefined)S.mode=n('mode');if(n('pitch')!==undefined)L.pitch=n('pitch');for(const k of ['starts','passes','cone','aux'])if(n(k)!==undefined)L[k]=n(k);
+   for(const k of ['zl','zr','xl','xr'])if(n(k)!==undefined)L[k]=n(k);add('Demo: lathe set '+u.search);return ok('Set')}
   if(p=='/delete'){S.files=S.files.filter(f=>f.name!=arg('name'));return ok('Deleted')}
   if(p=='/mdi'){const l=(arg('line')||'').trim();if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');
    if(/^\$H$/i.test(l)){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
@@ -275,7 +355,7 @@ if(DEMO)(function(){
    add('Demo: '+l);return ok('Running: '+l)}
   if(p=='/cmd'){const d=arg('do');
    if(d=='start'){if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);return ok('Started '+S.program)}
-   if(d=='stop'){S.running=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
+   if(d=='stop'){S.running=false;S.on=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
    if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
    if(d=='resume'){S.paused=false;return ok('Resuming')}
    if(d=='home'){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
@@ -295,17 +375,17 @@ const isApp=!!window.H4App;
 let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
 async function post(url,body){const r=await fetch(url,{method:'POST',body});const t=await r.text();if(!r.ok)throw new Error(t);return t}
 async function cmd(c,extra){try{msg(await post('/cmd?do='+c+(extra||'')))}catch(e){msg(e.message)}}
-function startSel(){if(!selected){msg('Select a file first (Program, Files).');return}
+function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
  if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
 let polls=0;async function poll(){try{const r=await fetch('/status');st=await r.json();polls++;show()}catch(e){$('cState').textContent='NO CONNECTION'}
- setTimeout(poll,350)}
+ setTimeout(poll,curTab=='lathe'?150:350)}
 function ovr(c){cmd('ovr','&code='+c)}
 let benchSeen=-1;function bench(n){cmd('bench','&name='+encodeURIComponent(n))}
 function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
  const ok=d.late==0&&(!d.rate||d.isrUs<0.7*per)&&!st.underruns;
  $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+'<br>Step interrupt, longest: '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
   '<br>Highest step rate: '+d.rate+' /s (limit '+d.limit+' /s)<br>Started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs<br>Step buffer ran empty: '+st.underruns+'<br>Steps given: '+d.steps}
-function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(st.fw)$('fwVer').textContent=st.fw;
+function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -460,18 +540,18 @@ let unlocked=false,lockT=0;
 const STEPS=[0.001,0.01,0.1,1,10];let jogAxis='X',jogStep=0.1,jogPending=0,jogBusy=false,jogPoll=-9,wheelAngle=0;
 try{const v=localStorage.getItem('h4step');jogStep=v=='cont'?'cont':(+v||0.1)}catch(e){}
 const SC0={jog:'pad',lock:'1'};let sc=Object.assign({},SC0);try{Object.assign(sc,JSON.parse(localStorage.getItem('h4screen')||'{}'))}catch(e){}
-const LOOK0={theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+const LOOK0={lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
 try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
 const AXC={X:look.X,Z:look.Z,C:look.C};
 // Appearance: theme, accent and axis colours, number size (stored in the browser)
 function lookApply(){document.body.classList.toggle('light',look.theme=='light');const r=document.documentElement.style;
  r.setProperty('--or',look.acc);r.setProperty('--dro',look.size+'px');AXC.X=look.X;AXC.Z=look.Z;AXC.C=look.C;
  document.querySelectorAll('#pad [data-a]').forEach(b=>b.style.setProperty('--c',AXC[b.dataset.a]));$('padCl').style.setProperty('--c',AXC.C);
- const a=$('axes');if(a)a.dataset.n='';if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
+ const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
-function lookForm(){$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
-lookForm();for(const [id,k] of [['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
+function lookForm(){$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
+lookForm();for(const [id,k] of [['lkLang','lang'],['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
  $(id).addEventListener('input',()=>{look[k]=$(id).value;lookSave()});
 lookApply();
 // Screen and jog settings; the orientation is kept by the app (Android), so it is offered only there.
@@ -556,7 +636,8 @@ function pagers(){requestAnimationFrame(()=>document.querySelectorAll('.pg').for
 addEventListener('resize',()=>{pagers();if(curTab=='program')drawPath()});
 // Tabs and sub-tabs: one screen each (the phone's Back key goes to the screen before); the last ones are remembered.
 const TABS=[['control','Control','<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3"/>'],
- ['program','Program','<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'],
+ ['lathe','Lathe','<path d="M3 8h4v8H3zM7 10h11v4H7z"/><path d="M18 9l3 3-3 3"/>'],
+ ['program','G-code','<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'],
  ['h4','H4 keys','<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>'],
  ['machine','Machine','<path d="M3 12h4l3-7 4 14 3-7h4"/>'],
  ['settings','Settings','<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>']];
@@ -593,6 +674,213 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
  x0=t.closest('#pad,.wheelbox,canvas,input,select,textarea,.keys,.lcd,.chips,.sheet')?null:e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
  addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
   if(Date.now()-t0<600&&Math.abs(dx)>80&&Math.abs(dx)>2*Math.abs(dy)){const i=TN.indexOf(curTab)+(dx<0?1:-1);if(i>=0&&i<TN.length)tab(TN[i])}},{passive:true})})();
+
+// ---------------------------------------------------------------- Lathe screen: the H4's own modes.
+// As on the H4 keypad, work is set from the part's zero: Z0 on the face, X0 on the surface (values are depths) or
+// on the centre line (values are diameters, X0 set from a measured diameter). The form is only a plan: typing
+// moves nothing and sends nothing. HOLD TO START sends it as the H4's own values (pitch, starts, passes, cone
+// ratio, external / internal, the four stops) through /lathe, which uses the same functions as the H4's keys,
+// then presses ON through the H4's key queue: the H4 itself moves the tool to the start and runs the mode.
+// H4 conventions (as its display): Z grows to the left (towards the chuck); X grows towards the centre, so with
+// X0 on the centre line the outside of the part is negative (X = -Ø/2).
+const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',settings:'Settings'},
+  rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',turning:'turning',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
+  inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
+  pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
+  ext:'External',int:'Internal',none:'—',legend:['stock','material removed','Z0 and stops','tool'],
+  zero:'Zero',z0:'Z0 here',x0:'X0 here',dia:'Ø → X0',xin:'X as',xdia:'Ø diameter',xdep:'depth',
+  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',busy:'Stop the H4 first (OFF).',
+  goTo:'At START the H4 moves the tool to Z {z}, X {x} by itself, then cuts.',fromTool:'Starts where the tool stands at START.',
+  coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands.',sideIs:'Side',x0note:'X in Ø: X0 must be on the centre (button Ø → X0).',
+  err:{same:'From and to are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'X goes the other way for this side: check from / to.',val:'Fill every value.'},
+  ok:'OK',cancel:'Cancel',clear:'Empty',
+  m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code'},
+  t:{0:'Feed per turn',2:'Constant feed (without the spindle)',3:'Taper',4:'Turning in passes',5:'Facing in passes',6:'Parting / grooving',7:'Threading',8:'Half sphere / ellipse'},
+  f:{feed:'Feed mm/turn',pitch:'Pitch mm',speed:'Speed mm/s',zstop:'Stop at Z (empty: none)',za:'Z from',zb:'Z to',xa:'X from',xb:'X to',len:'Length Z mm',
+   passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',rz:'Radius Z mm',rx:'Radius X mm',dbig:'Ø large mm',dsmall:'Ø small mm',
+   preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex',concave:'Concave',ext:'External',int:'Internal'}},
+ el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},
+  rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',turning:'γυρίζει',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
+  inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
+  pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
+  ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και όρια','εργαλείο'],
+  zero:'Μηδέν',z0:'Z0 εδώ',x0:'X0 εδώ',dia:'Ø → X0',xin:'X σε',xdia:'Ø διάμετρο',xdep:'βάθος',
+  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',busy:'Σταμάτησε πρώτα το H4 (OFF).',
+  goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, X {x} και κόβει.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
+  coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου βρίσκεται το εργαλείο.',sideIs:'Πλευρά',x0note:'X σε Ø: το X0 πρέπει να είναι στο κέντρο (κουμπί Ø → X0).',
+  err:{same:'Το «από» και το «έως» είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Ο X πάει ανάποδα για αυτή την πλευρά: έλεγξε από / έως.',val:'Συμπλήρωσε όλες τις τιμές.'},
+  ok:'OK',cancel:'Άκυρο',clear:'Κενό',
+  m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code'},
+  t:{0:'Πρόωση ανά στροφή',2:'Σταθερή πρόωση (χωρίς άτρακτο)',3:'Κώνος',4:'Τόρνευση σε περάσματα',5:'Τόρνευση προσώπου',6:'Αποκοπή / αυλάκι',7:'Σπείρωμα',8:'Ημισφαίριο / έλλειψη'},
+  f:{feed:'Πρόωση mm/στροφή',pitch:'Βήμα mm',speed:'Ταχύτητα mm/s',zstop:'Στάση στο Z (κενό: καμία)',za:'Z από',zb:'Z έως',xa:'X από',xb:'X έως',len:'Μήκος Z mm',
+   passes:'Περάσματα',starts:'Αρχές',dir:'Φορά',hand:'Σπείρωμα',side:'Πλευρά',shape:'Μορφή',rz:'Ακτίνα Z mm',rx:'Ακτίνα X mm',dbig:'Ø μεγάλη mm',dsmall:'Ø μικρή mm',
+   preset:'Τυποποιημένο',left:'← προς το τσοκ',right:'→ από το τσοκ',rh:'Δεξιό',lh:'Αριστερό',convex:'Κυρτό',concave:'Κοίλο',ext:'Εξωτερικό',int:'Εσωτερικό'}}};
+const LTOPS=[[0,'<rect class="ic-s" x="2" y="8" width="24" height="9" rx="1"/><path class="ic-l" d="M25 4 L6 4 M10 1 L6 4 L10 7" stroke-width="2"/>'],
+ [4,'<rect class="ic-s" x="2" y="9" width="24" height="10" rx="1"/><rect class="ic-c" x="12" y="6" width="14" height="3"/><path class="ic-l" d="M27 3 L12 3" stroke-width="1.6"/>'],
+ [5,'<rect class="ic-s" x="2" y="4" width="20" height="16" rx="1"/><rect class="ic-c" x="22" y="4" width="4" height="16"/><path class="ic-l" d="M28 2 L28 21" stroke-width="1.6"/>'],
+ [3,'<path class="ic-s" d="M2 7 L14 7 L26 13 L26 19 L2 19 Z"/><path class="ic-c" d="M14 4 L26 4 L26 13 Z"/>'],
+ [7,'<rect class="ic-s" x="2" y="10" width="24" height="10" rx="1"/><path class="ic-c" d="M8 10 L10 6 L12 10 L14 6 L16 10 L18 6 L20 10 L22 6 L24 10 Z"/>'],
+ [6,'<rect class="ic-s" x="2" y="6" width="24" height="14" rx="1"/><rect class="ic-c" x="15" y="6" width="3" height="10"/><path class="ic-l" d="M16.5 1 L16.5 5" stroke-width="2"/>'],
+ [8,'<path class="ic-s" d="M2 7 L14 7 A10 10 0 0 1 24 15 L24 19 L2 19 Z"/><path class="ic-c" d="M14 7 A10 10 0 0 1 24 15 L24 4 L14 4 Z"/>'],
+ [2,'<rect class="ic-s" x="2" y="9" width="24" height="9" rx="1"/><path class="ic-l" d="M6 4 L24 4 M19 1 L24 4 L19 7" stroke-width="1.8"/><circle class="ic-c" cx="6" cy="4" r="2"/>']];
+// Ready-made values; every field stays free to change. Threads: ISO metric coarse / fine and UNC as
+// [name, nominal Ø, pitch]; external depth 0.6134 P, internal 0.5413 P from the minor Ø D - 1.0825 P.
+// Tapers: diameter change per mm of length (Morse, metric 1:20, 7:24, 1:10, taper pins 1:50). Spheres: Ø.
+const LTPRE={7:[['M3 × 0.5',3,0.5],['M4 × 0.7',4,0.7],['M5 × 0.8',5,0.8],['M6 × 1',6,1],['M8 × 1.25',8,1.25],['M8 × 1',8,1],['M10 × 1.5',10,1.5],['M10 × 1.25',10,1.25],
+  ['M12 × 1.75',12,1.75],['M12 × 1.5',12,1.5],['M12 × 1.25',12,1.25],['M14 × 2',14,2],['M14 × 1.5',14,1.5],['M16 × 2',16,2],['M16 × 1.5',16,1.5],['M20 × 2.5',20,2.5],['M20 × 1.5',20,1.5],
+  ['M24 × 3',24,3],['M24 × 2',24,2],['1/4-20 UNC',6.35,1.27],['5/16-18 UNC',7.9375,25.4/18],['3/8-16 UNC',9.525,25.4/16],['1/2-13 UNC',12.7,25.4/13],['5/8-11 UNC',15.875,25.4/11],['3/4-10 UNC',19.05,2.54]],
+ 3:[['MT0',0.05205],['MT1',0.04988],['MT2',0.04995],['MT3',0.05020],['MT4',0.05194],['MT5',0.05263],['1:20',0.05],['1:10',0.1],['7:24',7/24],['1:50',0.02]],
+ 8:[['Ø 10',10],['Ø 12',12],['Ø 16',16],['Ø 20',20],['Ø 25',25],['Ø 30',30],['Ø 40',40]]};
+// Fields: [key, kind, default (X fields: [Ø value, depth value]), decimals, step]. Kinds: n number, x X coordinate
+// (Ø or depth), o optional number, s choice (default = option index, options in the 4th place).
+const LTF={0:[['feed','n',0.1,3,0.01],['dir','s',0,['left','right']],['zstop','o','',3,1]],
+ 2:[['speed','n',0.5,2,0.1],['dir','s',0,['left','right']],['zstop','o','',3,1]],
+ 4:[['za','n',0,3,1],['zb','n',30,3,1],['xa','x',[25,0],3,0.5],['xb','x',[20,2],3,0.5],['passes','n',8,0,1],['feed','n',0.1,3,0.01]],
+ 5:[['za','n',0,3,0.1],['zb','n',1,3,0.1],['xa','x',[30,0],3,1],['xb','x',[0,15],3,1],['passes','n',4,0,1],['feed','n',0.08,3,0.01]],
+ 3:[['dbig','n',40,3,0.5],['dsmall','n',30,3,0.5],['len','n',30,3,1],['feed','n',0.08,3,0.01],['side','s',0,['ext','int']],['dir','s',0,['left','right']]],
+ 7:[['pitch','n',1.5,3,0.05],['starts','n',1,0,1],['hand','s',0,['rh','lh']],['side','s',0,['ext','int']],['za','n',-2,3,1],['zb','n',20,3,1],
+   ['xa','x',[10,0],3,0.1],['xb','x',[8.16,0.92],3,0.01],['passes','n',10,0,1]],
+ 6:[['xa','x',[25,0],3,0.5],['xb','x',[0,12.5],3,0.5],['passes','n',1,0,1],['feed','n',0.04,3,0.01]],
+ 8:[['za','n',0,3,0.5],['xa','x',[24,0],3,0.5],['rz','n',12,3,0.5],['rx','n',12,3,0.5],['passes','n',12,0,1],['feed','n',0.07,3,0.01],['shape','s',0,['convex','concave']]]};
+let ltOp=-1,ltPre={},ltV={};try{ltV=JSON.parse(localStorage.getItem('h4lathe2')||'{}')}catch(e){}
+if(ltV.xdia===undefined)ltV.xdia=1;
+const ltDef=(f,m)=>f[1]=='x'?f[2][ltV.xdia?0:1]:(f[1]=='s'?f[2]:f[2]);
+function ltFill(reset){for(const m in LTF){ltV[m]=ltV[m]||{};for(const f of LTF[m])if(ltV[m][f[0]]===undefined||(reset&&f[1]=='x'))ltV[m][f[0]]=ltDef(f,m)}}
+ltFill(false);
+const ltT=()=>LTT[look.lang=='el'?'el':'en'];
+const ltSave=()=>{try{localStorage.setItem('h4lathe2',JSON.stringify(ltV))}catch(e){}};
+const ltCur=()=>ltOp<0?(st.mode in LTF?st.mode:4):ltOp;
+const ltX=v=>ltV.xdia?-v/2:v;  // a form X value (Ø or depth) as the H4's X
+const ltFmt=(v,d)=>v===''||v==null?'':(+v).toFixed(d);
+function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
+ for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
+ $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<button type="button" class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></button>`).join('');
+ $('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
+ const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--fg)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
+ $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
+$('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;ltForm();if(st.lathe)ltShow()});
+function ltLabel(f){const L=ltT();if(f[1]!='x')return L.f[f[0]];return L.f[f[0]]+' '+(ltV.xdia?'Ø mm':'mm')}
+// The form is built once per mode, language or X kind; a change of a value only rewrites that value.
+function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
+ const zero=`<div class="ltzero"><b>${L.zero}</b><button type="button" data-z="z0">${L.z0}</button><button type="button" data-z="x0">${L.x0}</button><button type="button" data-z="dia">${L.dia}</button>
+  <span class="ltxin">${L.xin}</span><div class="seg" data-xk="1"><button type="button" data-i="1" class="${ltV.xdia?'on':''}">${L.xdia}</button><button type="button" data-i="0" class="${ltV.xdia?'':'on'}">${L.xdep}</button></div></div>`;
+ const pre=LTPRE[m]?`<div class="f wide"><label for="ltPre">${L.f.preset}</label><select id="ltPre" class="sel"><option value="">—</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${ltPre[m]===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select></div>`:'';
+ const fl=F.map(f=>f[1]=='s'
+  ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[o]}</button>`).join('')}</div></div>`
+  :`<div class="f"><label>${ltLabel(f)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(v[f[0]],f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`).join('');
+ $('ltForm').innerHTML=`<h3>${L.t[m]}</h3>${zero}<div class="ltfields">${pre}${fl}</div><div class="ltinfo" id="ltInfo"></div>`;
+ ltLast={};ltInfo();ltDraw()}
+function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;ltPre[m]='';ltSave();
+ const b=document.querySelector('#ltForm .numv[data-k="'+k+'"]');if(b)b.textContent=ltFmt(val,f[3]);
+ const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw()}
+$('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const L=ltT(),m=ltCur(),v=ltV[m];
+ if(b.dataset.z){if(st.on){msg(L.busy);return}
+  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltV.xdia=1;ltFill(true);ltSave();ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
+  try{await post('/lathe?do='+b.dataset.z);if(b.dataset.z=='x0'&&ltV.xdia){ltV.xdia=0;ltFill(true);ltSave();ltForm()}msg(L.zeroDone)}catch(err){msg(err.message)}return}
+ if(st.on)return;
+ const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;if(sg.dataset.xk){if(ltV.xdia!=i){ltV.xdia=i;ltFill(true);ltSave();ltForm()}return}
+  v[sg.dataset.k]=i;ltPre[m]='';ltSave();sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x==b));const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw();return}
+ const k=b.dataset.k;if(!k)return;const f=LTF[m].find(f=>f[0]==k);
+ if(b.classList.contains('numv')){ltPad(ltLabel(f),v[k],f[1]=='o',n=>{if(n===''&&f[1]!='o')return;if(f[1]=='n'&&f[3]==0)n=Math.max(1,Math.round(n));ltSet(m,k,n)});return}
+ let n=(v[k]===''?(k=='zstop'?+(st.z||0).toFixed(1):0):+v[k])+f[4]*b.dataset.d;n=+n.toFixed(5);if(f[3]==0||k=='feed'||k=='pitch'||k=='speed')n=Math.max(f[3]==0?1:f[4],n);ltSet(m,k,n)});
+$('ltForm').addEventListener('change',e=>{const m=ltCur(),v=ltV[m],t=e.target;if(t.id!='ltPre')return;ltPre[m]=t.value;
+ if(t.value!==''){const p=LTPRE[m][+t.value];
+  if(m==7){const D=p[1],P=p[2],int=v.side==1;v.pitch=+P.toFixed(4);
+   if(ltV.xdia){v.xa=+(int?D-1.0825*P:D).toFixed(3);v.xb=+(int?D:D-2*0.6134*P).toFixed(3)}else{v.xa=0;v.xb=+((int?-0.5413:0.6134)*P).toFixed(3)}}
+  if(m==3)v.dsmall=+(v.dbig-p[1]*v.len).toFixed(3);
+  if(m==8){v.rz=v.rx=p[1]/2;if(ltV.xdia)v.xa=p[1]}}
+ ltSave();const keep=t.value;ltForm();if($('ltPre'))$('ltPre').value=keep;ltPre[m]=keep;if(st.lathe)ltShow()});
+// A numeric keypad of the page itself: the tablet's own keyboard would cover the form.
+function ltPad(title,val,optional,done){const L=ltT();let s=val===''||val==null?'':String(+val);
+ const o=document.createElement('div');o.className='ltpad';
+ o.innerHTML=`<div class="ltpadb"><div class="ltpadt">${title}</div><div class="ltpadv" id="ltPadV"></div><div class="ltpadk">${['7','8','9','4','5','6','1','2','3','±','0','.'].map(k=>`<button type="button" data-p="${k}">${k}</button>`).join('')}
+  <button type="button" data-p="b">⌫</button>${optional?`<button type="button" data-p="e">${L.clear}</button>`:'<span></span>'}<button type="button" data-p="c">${L.cancel}</button><button type="button" class="ok" data-p="o">${L.ok}</button></div></div>`;
+ const show=()=>{o.querySelector('#ltPadV').textContent=s===''?'—':s};let first=true;
+ o.addEventListener('click',e=>{const b=e.target.closest('button');if(!b){if(e.target==o)o.remove();return}const k=b.dataset.p;
+  if(k=='c'){o.remove();return}if(k=='o'){o.remove();if(s===''){if(optional)done('');return}const n=parseFloat(s);if(isFinite(n))done(n);return}
+  if(k=='e'){o.remove();done('');return}
+  if(first&&/[0-9.]/.test(k))s='';first=false;
+  if(k=='b')s=s.slice(0,-1);else if(k=='±')s=s.startsWith('-')?s.slice(1):'-'+s;else if(k=='.'){if(!s.includes('.'))s+=(s===''||s=='-'?'0':'')+'.'}else if(s.replace(/[-.]/g,'').length<8)s+=k;show()});
+ document.body.appendChild(o);show()}
+// What the form becomes on the H4: work coordinates (the part's zero), as the H4 displays them.
+function ltPlan(){const m=ltCur(),v=ltV[m],q={mode:m},lo=Math.min,hi=Math.max;
+ if(m==0||m==2){const p=m==0?v.feed:v.speed;q.pitch=(v.dir?-1:1)*p;q.zl=q.zr='';if(v.zstop!==''){if(v.dir)q.zr=v.zstop;else q.zl=v.zstop}}
+ if(m==4){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(v.zb>=v.za?1:-1)*v.feed;q.passes=v.passes;q.aux=xb>xa?1:0;q.zr=lo(v.za,v.zb);q.zl=hi(v.za,v.zb);q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.za,xa]}
+ if(m==5){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(xb>=xa?1:-1)*v.feed;q.passes=v.passes;q.aux=v.zb>v.za?1:0;q.zr=lo(v.za,v.zb);q.zl=hi(v.za,v.zb);q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.za,xa]}
+ if(m==3){q.pitch=(v.dir?-1:1)*v.feed;q.cone=Math.abs(v.dbig-v.dsmall)/v.len;q.aux=v.side?0:1;q.xl=q.xr='';const z=st.z||0;if(v.dir){q.zr=z-v.len;q.zl=''}else{q.zl=z+v.len;q.zr=''}}
+ if(m==7){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(v.hand?-1:1)*v.pitch;q.starts=v.starts;q.passes=v.passes;q.aux=xb>xa?1:0;q.zr=lo(v.za,v.zb);q.zl=hi(v.za,v.zb);q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.hand?q.zl:q.zr,xa]}
+ if(m==6){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(xb>=xa?1:-1)*v.feed;q.passes=v.passes;q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[null,xa]}
+ if(m==8){const xa=ltX(v.xa);q.pitch=v.feed;q.passes=v.passes;q.aux=v.shape?0:1;q.zr=v.za;q.zl=v.za+v.rz;q.xr=xa;q.xl=xa+v.rx;q.start=[v.za,xa]}
+ return q}
+function ltCheck(){const L=ltT(),m=ltCur(),v=ltV[m],E=L.err;
+ for(const f of LTF[m])if(f[1]!='o'&&f[1]!='s'&&!isFinite(+v[f[0]]))return E.val;
+ if(ltV.xdia)for(const f of LTF[m])if(f[1]=='x'&&v[f[0]]<0)return E.dia;
+ if([4,5,7].includes(m)&&v.za==v.zb)return E.same;
+ if([4,5,6,7].includes(m)&&v.xa==v.xb)return E.same;
+ if(m==3&&!(v.dbig>v.dsmall))return E.cone;
+ if(m==8&&!(v.rz>0&&v.rx>0))return E.val;
+ if(m==7&&(ltX(v.xb)>ltX(v.xa))!=(v.side==0))return E.side;
+ return ''}
+let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;const e=$(id);if(e)e.innerHTML=html}};
+function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
+ if(err)out.push('<b class="bad">'+err+'</b>');
+ else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(q.start[0])).replace('{x}',f3(q.start[1])+(ltV.xdia?' (Ø '+f3(-2*q.start[1])+')':'')));
+  if(m==6)out.push(L.goTo.split('Z')[0].trim()+' X '+f3(q.start[1])+'. '+L.cutZ);
+  if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len)):''));
+  if([4,6,7].includes(m))out.push(L.sideIs+': '+(q.aux||(m==6&&q.pitch>0)?L.ext:L.int)+(m==3?'':''));
+  if(m==3)out.push('k = '+(+q.cone).toFixed(5));
+  if(ltV.xdia&&LTF[m].some(f=>f[1]=='x'))out.push(L.x0note)}
+ const p=Math.abs(q.pitch||0);let mm=0;
+ if(m==4)mm=Math.abs(v.zb-v.za)*v.passes;if(m==7)mm=Math.abs(v.zb-v.za)*v.passes*v.starts;if(m==5)mm=Math.abs(ltX(v.xb)-ltX(v.xa))*v.passes;
+ if(m==6)mm=Math.abs(ltX(v.xb)-ltX(v.xa));if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
+ if(mm&&p&&m!=2&&!err){if(st.rpm>2){const t=mm/(p*st.rpm)*1.15;
+   out.push('≈ '+(t<1?Math.max(1,Math.round(t*60))+(look.lang=='el'?' δευτ.':' s'):t.toFixed(1)+(look.lang=='el'?' λεπτά':' min'))+' '+L.estimate+' '+st.rpm+' '+L.rpmu)}else out.push(L.stopped)}
+ ltPut('ltInfo',out.join('<br>'))}
+function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm';
+ document.querySelectorAll('.ltop').forEach(b=>{b.classList.toggle('on',+b.dataset.m==st.mode);b.classList.toggle('sel',+b.dataset.m==ltCur()&&ltCur()!=st.mode);b.disabled=!!st.on});
+ $('ltXv').textContent=st.x.toFixed(3);$('ltXu').textContent=u;$('ltZv').textContent=st.z.toFixed(3);$('ltZu').textContent=u;
+ $('ltRpm').textContent=st.rpm;
+ // the angle only means something while the spindle stands or creeps: no number racing past, no animation
+ ltPut('ltAng',Math.abs(st.rpm)>10?'<span class="ltturn">'+L.turning+'</span>':(+l.ang).toFixed(1)+'<small>°</small>');
+ const f=v=>v==null?L.none:(+v).toFixed(3),m=st.mode;
+ const now=[L.m[m]||m,(m==7?'P ':'')+Math.abs(l.pitch).toFixed(3)+(l.pitch<0?' ←':''),[4,5,6,7,8].includes(m)?l.passes+' '+L.passes:'',m==7&&l.starts>1?l.starts+'×':'',m==3?'k '+(+l.cone).toFixed(5):'',
+  'Z '+f(l.zr)+'…'+f(l.zl),'X '+f(l.xr)+'…'+f(l.xl)].filter(Boolean).join(' · ');
+ ltPut('ltNow',(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now));
+ const sb=$('ltStart');sb.classList.toggle('run',!!st.on);$('ltStartT').textContent=st.on?L.running:L.start;
+ const pm=[4,5,6,7,8].includes(m);$('ltBar').style.width=st.on&&pm&&l.passes?Math.min(100,100*l.op/l.passes)+'%':'0';
+ $('ltProg').textContent=(L.m[m]||'')+(st.on&&pm?' · '+L.pass+' '+Math.min(l.op+1,l.passes)+' / '+l.passes:(pm?' · '+l.passes+' '+L.passes:'')+' · '+(st.on?'':L.ready));
+ ltInfo();ltDraw()}
+// START: send the form (the H4 refuses while it is ON or moving), then press ON through the H4's key queue.
+async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.measure){msg(L.inch);return}
+ const err=ltCheck();if(err){msg(err);return}
+ const q=ltPlan(),p=new URLSearchParams();for(const [k,v] of Object.entries(q))if(k!='start')p.set(k,v===''?'':(typeof v=='number'?+v.toFixed(5):v));
+ try{await post('/lathe?'+p.toString());await new Promise(r=>setTimeout(r,300));await post('/lathe?do=start')}catch(e){msg(e.message)}}
+(function(){const b=$('ltStart');let t=null,t0=0;const end=()=>{clearInterval(t);t=null;$('ltFill').style.width='0'};
+ const go=e=>{if(st.on||t)return;e.preventDefault();t0=performance.now();t=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/800);$('ltFill').style.width=k*100+'%';if(k>=1){end();ltStartGo()}},30)};
+ b.addEventListener('pointerdown',go);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,end));
+ b.addEventListener('keydown',e=>{if(e.key=='Enter'||e.key==' ')go(e)});b.addEventListener('keyup',end)})();
+// Side view, fitted to Z0, the stops (or the form's plan) and the tool; X0 as the H4 has it.
+function ltDraw(){const l=st.lathe;if(!l)return;const W=600,H=300,q=st.on?null:ltPlan(),src=st.on||!q?l:{zl:q.zl,zr:q.zr,xl:q.xl,xr:q.xr};
+ const num=v=>v===''||v==null?null:+v,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),zs=[0,st.z],xs=[0,st.x];if(!ltV.xdia&&xl!=null)xs.push(xl+2);
+ for(const v of [zl,zr])if(v!=null)zs.push(v);for(const v of [xl,xr])if(v!=null)xs.push(v);
+ let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
+ const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.15;z1+=zr_*.35;x0-=xr_*.25;x1+=xr_*.25;
+ const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>20+(x-x0)*S,g=[];
+ const ax=ltV.xdia?py(0):H-12,chuck=px(z1);
+ for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="var(--tileb)" stroke-width="1"/>`);
+ const surf=xr!=null?xr:(ltV.xdia?Math.min(st.x,0):0),top=py(surf);
+ g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
+ g.push(`<rect x="${chuck-40}" y="${Math.min(top,ax)-30}" width="40" height="${Math.abs(ax-top)+60}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
+ if(zl!=null&&zr!=null&&xl!=null&&xr!=null){const a=px(zl),b=px(zr),c=py(xl),d=py(xr);
+  g.push(`<rect x="${Math.min(a,b)}" y="${Math.min(c,d)}" width="${Math.abs(b-a)}" height="${Math.abs(d-c)}" fill="#ff7a2e" opacity=".55"/>`)}
+ if(ltV.xdia)g.push(`<line x1="10" y1="${ax}" x2="${W-10}" y2="${ax}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
+ const vl=(z,t)=>g.push(`<line x1="${px(z)}" y1="10" x2="${px(z)}" y2="${H-10}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(z)+4}" y="24" fill="${AXC.Z}" font-size="13" font-weight="700">${t}</text>`);
+ vl(0,'Z0');if(zl!=null)vl(zl,'◂');if(zr!=null&&zr!=0)vl(zr,'▸');
+ const hl=x=>g.push(`<line x1="10" y1="${py(x)}" x2="${W-10}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="4 4" opacity=".8"/>`);
+ if(xl!=null)hl(xl);if(xr!=null)hl(xr);
+ const tx=px(st.z),ty=py(st.x);g.push(`<g transform="translate(${tx},${ty})"><path d="M0 0 L-8 26 L18 26 Z" fill="var(--fg)"/><rect x="-6" y="26" width="26" height="30" fill="var(--dim)"/></g>`);
+ ltPut('ltSvg',g.join(''))}
+window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
 {let t0=location.hash.slice(1);if(!TN.includes(t0))try{t0=localStorage.getItem('h4tab')}catch(e){}t0=TN.includes(t0)?t0:'control';
