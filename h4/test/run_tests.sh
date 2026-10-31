@@ -90,6 +90,9 @@ echo "corners: $jfail failure(s)"
 # simulated machine (switch bounce, noise, NC broken wire, disconnected switch, alarm and STOP during homing)
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/homing_test" homing_test.cpp
 "$OUT/homing_test" || fail=$((fail + 1))
+# the lathe modes' zero and the GCODE mode's zero stay apart (zeros.ino)
+g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/zeros_test" zeros_test.cpp
+"$OUT/zeros_test" || fail=$((fail + 1))
 fail=$((fail + jfail))
 # real CAM programs (test/cam): as written, and through the polar converter
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp

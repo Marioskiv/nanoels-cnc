@@ -457,6 +457,7 @@ void handleCommand() {
   if (what == "stop") {
     homingAbort = true;
     homingRequest = false;
+    if (!isOn && !cncBusy()) haltManualMoves(); // a move of the H4 keys or of the page's safe approach
     setIsOnFromTask(false); // decelerates along the path, then drops the rest (GCODE mode)
     cncUserHold = false;
     server.send(200, "text/plain", "Stopping");
@@ -566,6 +567,12 @@ long latheDisplayToPos(Axis* a, float v) {
 // setStarts, setTurnPasses, setConeRatio, the stops, external / internal), and never while anything moves or
 // the H4 is ON. "do=start" presses ON exactly as many times as the H4's setup steps need, through the same key
 // queue as a real key, so the mode starts as it does from the keypad (and refuses as it does: missing stops).
+// Ends the remaining manual move of X and Z where they are (only while the H4 is OFF).
+void haltManualMoves() {
+  stepToFinal(&x, x.pos);
+  stepToFinal(&z, z.pos);
+}
+
 void handleLathe() {
   String what = server.arg("do");
   // Zero on the part, as the H4's keys do: Z0 / X0 here (keys Z / X), or X0 on the centre line from a measured
@@ -588,6 +595,43 @@ void handleLathe() {
       x.originPos = -(x.pos + pos) / 2;
     }
     server.send(200, "text/plain", "Zero set");
+    return;
+  }
+  // The page's safe approach and retract (a clearance away from the part, as a CAM's retract height): one axis
+  // moves to a place in displayed units at the manual-move speed, as a numpad move of the H4 keys does, but not
+  // held back by the lathe stops (they belong to the operation) - only by the machine's soft limits once homed.
+  // The page waits for it to arrive before the next one; STOP (or "halt") stops it at once.
+  if (what == "goto") {
+    if (isOn || cncBusy() || homingActive || mode == MODE_GCODE || emergencyStop != ESTOP_NONE) {
+      server.send(409, "text/plain", "The H4 is ON, moving or in GCODE mode.");
+      return;
+    }
+    Axis* a = server.arg("axis") == "x" ? &x : (server.arg("axis") == "z" ? &z : NULL);
+    if (a == NULL || !server.hasArg("v")) {
+      server.send(400, "text/plain", "axis x or z and v");
+      return;
+    }
+    long target = latheDisplayToPos(a, server.arg("v").toFloat());
+    long lo, hi;
+    if (softLimitSteps(a, &lo, &hi) && (target < lo || target > hi)) { // homing.ino
+      server.send(409, "text/plain", "Outside the machine's limits.");
+      return;
+    }
+    if (labs(target - a->pos) > a->estopSteps) {
+      server.send(409, "text/plain", "Too far for one move.");
+      return;
+    }
+    a->speedMax = a->speedManualMove;
+    if (!stepToFinal(a, target)) {
+      server.send(503, "text/plain", "Busy");
+      return;
+    }
+    server.send(200, "text/plain", "Moving");
+    return;
+  }
+  if (what == "halt") {
+    if (!isOn) haltManualMoves();
+    server.send(200, "text/plain", "Stopped");
     return;
   }
   if (what == "start") {

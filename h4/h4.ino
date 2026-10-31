@@ -151,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.12"
+#define FW_VERSION "1.13"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -236,6 +236,9 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define PREF_LEFT_STOP_A1 "a1ls"
 #define PREF_RIGHT_STOP_A1 "a1rs"
 #define PREF_ORIGIN_POS_A1 "a1po"
+#define PREF_CNC_ORIGIN_POS_Z "zpc" // the GCODE mode's own zero (see cncZeroActive)
+#define PREF_CNC_ORIGIN_POS_X "xpc"
+#define PREF_CNC_ORIGIN_POS_A1 "a1pc"
 #define PREF_POS_GLOBAL_A1 "a1pg"
 #define PREF_MOTOR_POS_A1 "a1pm"
 #define PREF_DISABLED_A1 "a1d"
@@ -405,7 +408,9 @@ struct Axis {
   long savedPos; // value saved in Preferences
   float fractionalPos; // fractional distance in steps that we meant to travel but couldn't
   long originPos; // relative position of the stepper motor to origin, in steps
-  long savedOriginPos; // originPos saved in Preferences
+  long savedOriginPos; // the lathe modes' originPos saved in Preferences
+  long otherOriginPos; // the zero of the other family of modes (lathe or GCODE), kept like originPos
+  long savedCncOriginPos; // the GCODE mode's originPos saved in Preferences
   long posGlobal; // global position of the motor in steps
   long savedPosGlobal; // posGlobal saved in Preferences
   int pendingPos; // steps of the stepper motor that we should make as soon as possible
@@ -468,6 +473,8 @@ void initAxis(Axis* a, char name, bool active, bool rotational, float motorSteps
   a->fractionalPos = 0.0;
   a->originPos = 0;
   a->savedOriginPos = 0;
+  a->otherOriginPos = 0;
+  a->savedCncOriginPos = 0;
   a->posGlobal = 0;
   a->savedPosGlobal = 0;
   a->pendingPos = 0;
@@ -547,6 +554,12 @@ long moveStep = 0; // thousandth of a mm
 long savedMoveStep = 0; // moveStep saved in Preferences
 
 volatile int mode = -1; // mode of operation (ELS, multi-start ELS, asynchronous)
+// Two zeros: the lathe modes' (the H4's own, touched off on the part with a lathe tool) and the GCODE mode's
+// (G54, e.g. the router on the chuck centre). A touch-off in one family never moves the other's zero. Both are
+// kept like the H4 keeps its zero (originPos, relative to the motor steps, no homing needed); originPos is the
+// active one and otherOriginPos the other, swapped when the mode changes between the two families.
+volatile bool cncZeroActive = false; // originPos is the GCODE mode's zero
+// latheOriginOf(), cncOriginOf(), swapZeros(): zeros.ino
 int nextMode = 0; // mode value that should be applied asap
 bool nextModeFlag = false; // whether nextMode needs attention
 int savedMode = -1; // mode saved in Preferences
@@ -2701,6 +2714,7 @@ void setup() {
   z.savedPos = z.pos = pref.getLong(PREF_POS_Z);
   z.savedPosGlobal = z.posGlobal = pref.getLong(PREF_POS_GLOBAL_Z);
   z.savedOriginPos = z.originPos = pref.getLong(PREF_ORIGIN_POS_Z);
+  z.savedCncOriginPos = z.otherOriginPos = pref.getLong(PREF_CNC_ORIGIN_POS_Z, z.originPos);
   z.savedMotorPos = z.motorPos = pref.getLong(PREF_MOTOR_POS_Z);
   z.savedLeftStop = z.leftStop = pref.getLong(PREF_LEFT_STOP_Z, LONG_MAX);
   z.savedRightStop = z.rightStop = pref.getLong(PREF_RIGHT_STOP_Z, LONG_MIN);
@@ -2708,6 +2722,7 @@ void setup() {
   x.savedPos = x.pos = pref.getLong(PREF_POS_X);
   x.savedPosGlobal = x.posGlobal = pref.getLong(PREF_POS_GLOBAL_X);
   x.savedOriginPos = x.originPos = pref.getLong(PREF_ORIGIN_POS_X);
+  x.savedCncOriginPos = x.otherOriginPos = pref.getLong(PREF_CNC_ORIGIN_POS_X, x.originPos);
   x.savedMotorPos = x.motorPos = pref.getLong(PREF_MOTOR_POS_X);
   x.savedLeftStop = x.leftStop = pref.getLong(PREF_LEFT_STOP_X, LONG_MAX);
   x.savedRightStop = x.rightStop = pref.getLong(PREF_RIGHT_STOP_X, LONG_MIN);
@@ -2715,6 +2730,7 @@ void setup() {
   a1.savedPos = a1.pos = pref.getLong(PREF_POS_A1);
   a1.savedPosGlobal = a1.posGlobal = pref.getLong(PREF_POS_GLOBAL_A1);
   a1.savedOriginPos = a1.originPos = pref.getLong(PREF_ORIGIN_POS_A1);
+  a1.savedCncOriginPos = a1.otherOriginPos = pref.getLong(PREF_CNC_ORIGIN_POS_A1, a1.originPos);
   a1.savedMotorPos = a1.motorPos = pref.getLong(PREF_MOTOR_POS_A1);
   a1.savedLeftStop = a1.leftStop = pref.getLong(PREF_LEFT_STOP_A1, LONG_MAX);
   a1.savedRightStop = a1.rightStop = pref.getLong(PREF_RIGHT_STOP_A1, LONG_MIN);
@@ -2801,10 +2817,10 @@ void setup() {
 
 bool saveIfChanged() {
   // Should avoid calling Preferences whenever possible to reduce memory wear and avoid ~20ms write delay that blocks interrupts.
-  if (dupr == savedDupr && starts == savedStarts && z.pos == z.savedPos && z.originPos == z.savedOriginPos && z.posGlobal == z.savedPosGlobal && z.motorPos == z.savedMotorPos && z.leftStop == z.savedLeftStop && z.rightStop == z.savedRightStop && z.disabled == z.savedDisabled &&
+  if (dupr == savedDupr && starts == savedStarts && z.pos == z.savedPos && latheOriginOf(&z) == z.savedOriginPos && cncOriginOf(&z) == z.savedCncOriginPos && z.posGlobal == z.savedPosGlobal && z.motorPos == z.savedMotorPos && z.leftStop == z.savedLeftStop && z.rightStop == z.savedRightStop && z.disabled == z.savedDisabled &&
       spindlePos == savedSpindlePos && spindlePosAvg == savedSpindlePosAvg && spindlePosSync == savedSpindlePosSync && savedSpindlePosGlobal == spindlePosGlobal && showAngle == savedShowAngle && showTacho == savedShowTacho && moveStep == savedMoveStep &&
-      mode == savedMode && measure == savedMeasure && x.pos == x.savedPos && x.originPos == x.savedOriginPos && x.posGlobal == x.savedPosGlobal && x.motorPos == x.savedMotorPos && x.leftStop == x.savedLeftStop && x.rightStop == x.savedRightStop && x.disabled == x.savedDisabled &&
-      a1.pos == a1.savedPos && a1.originPos == a1.savedOriginPos && a1.posGlobal == a1.savedPosGlobal && a1.motorPos == a1.savedMotorPos && a1.leftStop == a1.savedLeftStop && a1.rightStop == a1.savedRightStop && a1.disabled == a1.savedDisabled &&
+      mode == savedMode && measure == savedMeasure && x.pos == x.savedPos && latheOriginOf(&x) == x.savedOriginPos && cncOriginOf(&x) == x.savedCncOriginPos && x.posGlobal == x.savedPosGlobal && x.motorPos == x.savedMotorPos && x.leftStop == x.savedLeftStop && x.rightStop == x.savedRightStop && x.disabled == x.savedDisabled &&
+      a1.pos == a1.savedPos && latheOriginOf(&a1) == a1.savedOriginPos && cncOriginOf(&a1) == a1.savedCncOriginPos && a1.posGlobal == a1.savedPosGlobal && a1.motorPos == a1.savedMotorPos && a1.leftStop == a1.savedLeftStop && a1.rightStop == a1.savedRightStop && a1.disabled == a1.savedDisabled &&
       coneRatio == savedConeRatio && turnPasses == savedTurnPasses && savedAuxForward == auxForward) return false;
 
   Preferences pref;
@@ -2813,7 +2829,8 @@ bool saveIfChanged() {
   if (starts != savedStarts) pref.putInt(PREF_STARTS, savedStarts = starts);
   if (z.pos != z.savedPos) pref.putLong(PREF_POS_Z, z.savedPos = z.pos);
   if (z.posGlobal != z.savedPosGlobal) pref.putLong(PREF_POS_GLOBAL_Z, z.savedPosGlobal = z.posGlobal);
-  if (z.originPos != z.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_Z, z.savedOriginPos = z.originPos);
+  if (latheOriginOf(&z) != z.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_Z, z.savedOriginPos = latheOriginOf(&z));
+  if (cncOriginOf(&z) != z.savedCncOriginPos) pref.putLong(PREF_CNC_ORIGIN_POS_Z, z.savedCncOriginPos = cncOriginOf(&z));
   if (z.motorPos != z.savedMotorPos) pref.putLong(PREF_MOTOR_POS_Z, z.savedMotorPos = z.motorPos);
   if (z.leftStop != z.savedLeftStop) pref.putLong(PREF_LEFT_STOP_Z, z.savedLeftStop = z.leftStop);
   if (z.rightStop != z.savedRightStop) pref.putLong(PREF_RIGHT_STOP_Z, z.savedRightStop = z.rightStop);
@@ -2829,14 +2846,16 @@ bool saveIfChanged() {
   if (measure != savedMeasure) pref.putInt(PREF_MEASURE, savedMeasure = measure);
   if (x.pos != x.savedPos) pref.putLong(PREF_POS_X, x.savedPos = x.pos);
   if (x.posGlobal != x.savedPosGlobal) pref.putLong(PREF_POS_GLOBAL_X, x.savedPosGlobal = x.posGlobal);
-  if (x.originPos != x.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_X, x.savedOriginPos = x.originPos);
+  if (latheOriginOf(&x) != x.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_X, x.savedOriginPos = latheOriginOf(&x));
+  if (cncOriginOf(&x) != x.savedCncOriginPos) pref.putLong(PREF_CNC_ORIGIN_POS_X, x.savedCncOriginPos = cncOriginOf(&x));
   if (x.motorPos != x.savedMotorPos) pref.putLong(PREF_MOTOR_POS_X, x.savedMotorPos = x.motorPos);
   if (x.leftStop != x.savedLeftStop) pref.putLong(PREF_LEFT_STOP_X, x.savedLeftStop = x.leftStop);
   if (x.rightStop != x.savedRightStop) pref.putLong(PREF_RIGHT_STOP_X, x.savedRightStop = x.rightStop);
   if (x.disabled != x.savedDisabled) pref.putBool(PREF_DISABLED_X, x.savedDisabled = x.disabled);
   if (a1.pos != a1.savedPos) pref.putLong(PREF_POS_A1, a1.savedPos = a1.pos);
   if (a1.posGlobal != a1.savedPosGlobal) pref.putLong(PREF_POS_GLOBAL_A1, a1.savedPosGlobal = a1.posGlobal);
-  if (a1.originPos != a1.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_A1, a1.savedOriginPos = a1.originPos);
+  if (latheOriginOf(&a1) != a1.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_A1, a1.savedOriginPos = latheOriginOf(&a1));
+  if (cncOriginOf(&a1) != a1.savedCncOriginPos) pref.putLong(PREF_CNC_ORIGIN_POS_A1, a1.savedCncOriginPos = cncOriginOf(&a1));
   if (a1.motorPos != a1.savedMotorPos) pref.putLong(PREF_MOTOR_POS_A1, a1.savedMotorPos = a1.motorPos);
   if (a1.leftStop != a1.savedLeftStop) pref.putLong(PREF_LEFT_STOP_A1, a1.savedLeftStop = a1.leftStop);
   if (a1.rightStop != a1.savedRightStop) pref.putLong(PREF_RIGHT_STOP_A1, a1.savedRightStop = a1.rightStop);
@@ -2861,6 +2880,7 @@ void markAxisOrigin(Axis* a) {
   }
   a->motorPos -= a->pos;
   a->originPos += a->pos;
+  a->otherOriginPos += a->pos; // the other family's zero stays at the same place too
   a->machineOffset += a->pos;
   a->pos = 0;
   a->fractionalPos = 0;
@@ -3001,6 +3021,7 @@ void setModeFromLoop(int value) {
   }
   mode = value;
   setupIndex = 0;
+  if ((mode == MODE_GCODE) != cncZeroActive) swapZeros(mode == MODE_GCODE);
   if (mode == MODE_ASYNC || mode == MODE_A1) {
     if (!timerAttached) {
       timerAttached = true;
@@ -3040,6 +3061,7 @@ void reset() {
   z.rightStop = LONG_MIN;
   z.nextRightStopFlag = false;
   z.originPos = 0;
+  z.otherOriginPos = 0;
   z.posGlobal = 0;
   z.motorPos = 0;
   z.pendingPos = 0;
@@ -3049,6 +3071,7 @@ void reset() {
   x.rightStop = LONG_MIN;
   x.nextRightStopFlag = false;
   x.originPos = 0;
+  x.otherOriginPos = 0;
   x.posGlobal = 0;
   x.motorPos = 0;
   x.pendingPos = 0;
@@ -3058,6 +3081,7 @@ void reset() {
   a1.rightStop = LONG_MIN;
   a1.nextRightStopFlag = false;
   a1.originPos = 0;
+  a1.otherOriginPos = 0;
   a1.posGlobal = 0;
   a1.motorPos = 0;
   a1.pendingPos = 0;
