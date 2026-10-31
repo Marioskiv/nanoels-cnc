@@ -38,13 +38,6 @@ public class MainActivity extends Activity {
     private AlertDialog addressDialog;
     private boolean demo;
 
-    // Android's installer answers an app update here (UpdateCheck.install).
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        if (intent != null && UpdateCheck.ACTION_INSTALLED.equals(intent.getAction())) UpdateCheck.installResult(this, intent);
-    }
-
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -176,6 +169,10 @@ public class MainActivity extends Activity {
         if (request == PICK_FILE && fileCallback != null) {
             fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data));
             fileCallback = null;
+            return;
+        }
+        if (request == UpdateCheck.INSTALL_REQUEST) {  // Android's installer answers an app update
+            UpdateCheck.installResult(this, result, data);
             return;
         }
         super.onActivityResult(request, result, data);
