@@ -25,7 +25,12 @@ browser with `?demo` after the page address.
 ## Updates
 
 Each time it opens (never while it is in use), and with *Settings, App update, Check for an app update*, the app looks at this repository's Releases (public, no account or key needed). When a
-newer *H4 CNC* is there, it says so and offers **Download**; Android then installs it.
+newer *H4 CNC* is there, it says so and offers **Install**: the app downloads it (with progress), checks that it is
+this app, newer and signed with the same key, and opens Android's installer, which asks to confirm (Android 8 and
+newer first ask once to allow H4 CNC to install apps). If the installed app was signed with another key (the early
+test versions 1.0–1.5), Android cannot update it: the app says so and offers to uninstall it; then install
+`H4CNC.apk` once by hand. Versions up to 1.10 handed the download to the browser or to a newer installer path:
+install 1.11 once by hand from the Releases page.
 
 ## H4 firmware updates
 
