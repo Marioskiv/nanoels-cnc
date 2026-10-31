@@ -190,8 +190,8 @@ program runs.
   H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
   Updated about 7 times a second. Work is set from the part's zero, as on the H4 keys: **Z0** on the face, **X0**
   either on the surface (X values are depths) or on the centre line from a measured diameter (**Ø → X0**, X values
-  are diameters). Pick an operation at the top and fill its form in those coordinates (Z from / to, X from / to),
-  or a preset (metric and UNC threads, Morse and other tapers, spheres); every value stays editable, with the
+  are diameters); **How?** on the screen explains it. Pick an operation at the top and fill its form: Z values
+  (green: start, length) and X values (orange: part Ø and final Ø, or the depth) side by side, or a preset (metric and UNC threads, Morse and other tapers, spheres); every value stays editable, with the
   page's own number pad. Filling the form moves nothing and sends nothing. **Hold START**: the page sends the values
   with the same functions the H4 keys use (only while the H4 is OFF and nothing moves) and presses ON as many times
   as the H4's own setup steps need; the H4 then moves the tool to the start point by itself and cuts, and refuses
