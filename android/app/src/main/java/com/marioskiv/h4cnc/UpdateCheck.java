@@ -52,11 +52,7 @@ final class UpdateCheck {
         final String current = BuildInfo.version(activity);
         new Thread(() -> {
             try {
-                HttpURLConnection c = (HttpURLConnection) new URL(RELEASES).openConnection();
-                c.setConnectTimeout(5000);
-                c.setReadTimeout(8000);
-                c.setRequestProperty("Accept", "application/vnd.github+json");
-                c.setRequestProperty("User-Agent", "H4CNC-app");
+                HttpURLConnection c = Net.get(RELEASES, 5000, 8000, "Accept", "application/vnd.github+json");
                 if (c.getResponseCode() != 200) throw new Exception("GitHub answered " + c.getResponseCode());
                 InputStream in = c.getInputStream();
                 Scanner sc = new Scanner(in, "UTF-8").useDelimiter("\\A");
@@ -142,10 +138,7 @@ final class UpdateCheck {
         new Thread(() -> {
             try {
                 final File apk = ApkProvider.file(activity);
-                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection(); // follows GitHub's redirect
-                c.setConnectTimeout(8000);
-                c.setReadTimeout(20000);
-                c.setRequestProperty("User-Agent", "H4CNC-app");
+                HttpURLConnection c = Net.get(url, 8000, 20000);  // follows GitHub's redirect to its download host
                 if (c.getResponseCode() != 200) throw new Exception("GitHub answered " + c.getResponseCode());
                 final long total = c.getContentLength();
                 try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(apk)) {
