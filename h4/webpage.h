@@ -132,7 +132,8 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltop.on{border-color:var(--or);box-shadow:inset 0 -3px 0 var(--or);background:var(--tile)}
 .ltop .ic-l{stroke:var(--fg);fill:none}.ltop .ic-c{fill:#ff7a2e}.ltop .ic-s{fill:#8b95a6}
 .ltmain{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:8px;min-height:0}
-.ltview{background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ltview{position:relative;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ltsimb{position:absolute;top:8px;right:8px;z-index:2;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg);font-weight:700;padding:6px 12px}
 .ltview svg{flex:1;min-height:0;width:100%}
 .ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
 .ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
@@ -209,7 +210,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 
 <section class="scr lt" data-tab="lathe" hidden>
 <div class="ltops" id="ltOps"></div>
-<div class="ltmain"><div class="ltview"><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
+<div class="ltmain"><div class="ltview"><button type="button" class="ltsimb" id="ltSim"></button><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
 <div class="ltside"><div class="ltdro">
 <div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
 <div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
@@ -270,6 +271,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="sTitle"></span></h2>
 <div class="spage" data-sp="look"><div class="pg">
 <div class="fr"><label for="lkLang">Language / Γλώσσα</label><select id="lkLang"><option value="en">English</option><option value="el">Ελληνικά</option></select></div>
+<div class="fr"><label for="lkXr">Lathe X / Τόρνος X</label><select id="lkXr"><option value="d">Diameter Ø / Διάμετρος Ø</option><option value="r">Radius R / Ακτίνα R</option></select></div>
 <div class="fr"><label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select></div>
 <div class="fr"><label for="lkAcc">Accent colour</label><input type="color" id="lkAcc"></div>
 <div class="fr"><label for="lkX">X colour</label><input type="color" id="lkX"></div><div class="fr"><label for="lkZ">Z colour</label><input type="color" id="lkZ"></div>
@@ -545,7 +547,7 @@ let unlocked=false,lockT=0;
 const STEPS=[0.001,0.01,0.1,1,10];let jogAxis='X',jogStep=0.1,jogPending=0,jogBusy=false,jogPoll=-9,wheelAngle=0;
 try{const v=localStorage.getItem('h4step');jogStep=v=='cont'?'cont':(+v||0.1)}catch(e){}
 const SC0={jog:'pad',lock:'1'};let sc=Object.assign({},SC0);try{Object.assign(sc,JSON.parse(localStorage.getItem('h4screen')||'{}'))}catch(e){}
-const LOOK0={lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+const LOOK0={xr:'d',lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
 try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
 const AXC={X:look.X,Z:look.Z,C:look.C};
 // Appearance: theme, accent and axis colours, number size (stored in the browser)
@@ -555,8 +557,8 @@ function lookApply(){document.body.classList.toggle('light',look.theme=='light')
  const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
-function lookForm(){$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
-lookForm();for(const [id,k] of [['lkLang','lang'],['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
+function lookForm(){$('lkXr').value=look.xr;$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
+lookForm();for(const [id,k] of [['lkXr','xr'],['lkLang','lang'],['lkTheme','theme'],['lkAcc','acc'],['lkX','X'],['lkZ','Z'],['lkC','C'],['lkSize','size']])
  $(id).addEventListener('input',()=>{look[k]=$(id).value;lookSave()});
 lookApply();
 // Screen and jog settings; the orientation is kept by the app (Android), so it is offered only there.
@@ -692,13 +694,13 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',turning:'turning',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
-  ext:'External',int:'Internal',none:'—',legend:['stock','material removed','Z0 and stops','tool'],
-  step1:'1 · Zero on the part',step2:'2 · ',z0:'Z0 here',x0:'X0 here',dia:'Ø → X0',help:'How?',xin:'X in',xdia:'diameters',xdep:'depth',
-  helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Z0 here</b>.<br><b>X, way 1 (diameters, recommended)</b>: take a light cut on the diameter, do not move X, measure the diameter and press <b>Ø → X0</b> with that number. The H4 then knows where the centre is and every X value is a diameter.<br><b>X, way 2 (depth)</b>: touch the diameter and press <b>X0 here</b>; X values are then how deep you cut.<br>The same as the H4 keys Z, X and A (diameter on the numpad, then A). After a tool change: zero again.',
-  zx:'Z (length, along the part)',xx:'X (diameter)',xxd:'X (depth)',cx:'Cut',
+  ext:'External',int:'Internal',none:'—',legend:['part','material that comes off','Z0 and lengths','tool path'],sim:'Simulate',
+  step1:'1 · Zero on the part',step2:'2 · ',z0:'Z0 here',dia:'Ø → X0',help:'How?',
+  helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Z0 here</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Ø → X0</b> with that number. The H4 then knows where the centre is.<br>X values are diameters or radii, as chosen once in <i>Settings, Appearance, Lathe X</i>.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
+  zx:'Z (length, along the part)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
   diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',busy:'Stop the H4 first (OFF).',
-  goTo:'At START the H4 moves the tool to Z {z}, X {x} by itself, then cuts.',fromTool:'Starts where the tool stands at START.',
-  coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X in diameters: X0 must be on the centre (Ø → X0).',
+  goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',fromTool:'Starts where the tool stands at START.',
+  coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.'},
   ok:'OK',cancel:'Cancel',clear:'Empty',
   m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code'},
@@ -712,13 +714,13 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',turning:'γυρίζει',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
-  ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και όρια','εργαλείο'],
-  step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Z0 εδώ',x0:'X0 εδώ',dia:'Ø → X0',help:'Πώς;',xin:'X σε',xdia:'διαμέτρους',xdep:'βάθος',
-  helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Z0 εδώ</b>.<br><b>X, τρόπος 1 (διάμετροι, προτείνεται)</b>: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Ø → X0</b> γράφοντας τον αριθμό. Το H4 ξέρει τότε πού είναι το κέντρο και κάθε τιμή X είναι διάμετρος.<br><b>X, τρόπος 2 (βάθος)</b>: άγγιξε τη διάμετρο και πάτα <b>X0 εδώ</b>· οι τιμές X είναι τότε πόσο βαθιά κόβεις.<br>Ίδιο με τα πλήκτρα Z, X και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
-  zx:'Z (μήκος, κατά μήκος του κομματιού)',xx:'X (διάμετρος)',xxd:'X (βάθος)',cx:'Κοπή',
+  ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και μήκη','διαδρομή κοπτικού'],sim:'Προσομοίωση',
+  step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Z0 εδώ',dia:'Ø → X0',help:'Πώς;',
+  helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Z0 εδώ</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Ø → X0</b> γράφοντας τον αριθμό. Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες, όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X</i>.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
+  zx:'Z (μήκος, κατά μήκος του κομματιού)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
   diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',busy:'Σταμάτησε πρώτα το H4 (OFF).',
-  goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, X {x} και κόβει.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
-  coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'X σε διαμέτρους: το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
+  goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
+  coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.'},
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
   m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code'},
@@ -744,65 +746,66 @@ const LTPRE={7:[['M3 × 0.5',3,0.5],['M4 × 0.7',4,0.7],['M5 × 0.8',5,0.8],['M6
   ['M24 × 3',24,3],['M24 × 2',24,2],['1/4-20 UNC',6.35,1.27],['5/16-18 UNC',7.9375,25.4/18],['3/8-16 UNC',9.525,25.4/16],['1/2-13 UNC',12.7,25.4/13],['5/8-11 UNC',15.875,25.4/11],['3/4-10 UNC',19.05,2.54]],
  3:[['MT0',0.05205],['MT1',0.04988],['MT2',0.04995],['MT3',0.05020],['MT4',0.05194],['MT5',0.05263],['1:20',0.05],['1:10',0.1],['7:24',7/24],['1:50',0.02]],
  8:[['Ø 10',10],['Ø 12',12],['Ø 16',16],['Ø 20',20],['Ø 25',25],['Ø 30',30],['Ø 40',40]]};
-// Fields: [key, kind, default, decimals, step, group, shown]. Kinds: n number, o optional number, s choice
-// (options in place 4). Group z (green, along the part), x (orange, diameter or depth) or c (the cut). Shown:
-// D only with X in diameters, P only with X as depth. A default [a, b] is a for diameters, b for depth.
+// Fields: [key, kind, default, decimals, step, group]. Kinds: n number, o optional number, s choice (options in
+// place 4). Group z (green, along the part), x (orange) or c (the cut). Keys starting with d are diameters: they are
+// kept as diameters and shown as diameters or radii (Settings, Appearance, Lathe X); X0 is on the centre line.
 const LTF={0:[['feed','n',0.1,3,0.01,'c'],['dir','s',0,['left','right'],0,'c'],['zstop','o','',3,1,'z']],
  2:[['speed','n',0.5,2,0.1,'c'],['dir','s',0,['left','right'],0,'c'],['zstop','o','',3,1,'z']],
- 4:[['za','n',0,3,1,'z'],['len','n',30,3,1,'z'],['dstock','n',25,3,0.5,'x','D'],['dfin','n',20,3,0.5,'x','D'],['depth','n',2,3,0.1,'x','P'],
+ 4:[['za','n',0,3,1,'z'],['len','n',30,3,1,'z'],['dstock','n',25,3,0.5,'x'],['dfin','n',20,3,0.5,'x'],
    ['side','s',0,['ext','int'],0,'c'],['passes','n',8,0,1,'c'],['feed','n',0.1,3,0.01,'c']],
- 5:[['za','n',0,3,0.1,'z'],['zdep','n',1,3,0.1,'z'],['dstock','n',30,3,1,'x','D'],['dfinf','n',0,3,1,'x','D'],['xin','n',15,3,1,'x','P'],
+ 5:[['za','n',0,3,0.1,'z'],['zdep','n',1,3,0.1,'z'],['dstock','n',30,3,1,'x'],['dfinf','n',0,3,1,'x'],
    ['passes','n',4,0,1,'c'],['feed','n',0.08,3,0.01,'c']],
  3:[['len','n',30,3,1,'z'],['dbig','n',40,3,0.5,'x'],['dsmall','n',30,3,0.5,'x'],['side','s',0,['ext','int'],0,'c'],['dir','s',0,['left','right'],0,'c'],['feed','n',0.08,3,0.01,'c']],
- 7:[['za','n',-2,3,1,'z'],['len','n',20,3,1,'z'],['dnom','n',10,3,0.1,'x','D'],['tdep','n',0.92,3,0.01,'x'],
+ 7:[['za','n',-2,3,1,'z'],['len','n',20,3,1,'z'],['dnom','n',10,3,0.1,'x'],['tdep','n',0.92,3,0.01,'x'],
    ['pitch','n',1.5,3,0.05,'c'],['side','s',0,['ext','int'],0,'c'],['hand','s',0,['rh','lh'],0,'c'],['starts','n',1,0,1,'c'],['passes','n',10,0,1,'c']],
- 6:[['dstock','n',25,3,0.5,'x','D'],['dfinp','n',0,3,0.5,'x','D'],['depth','n',12.5,3,0.5,'x','P'],['side','s',0,['ext','int'],0,'c'],['passes','n',1,0,1,'c'],['feed','n',0.04,3,0.01,'c']],
- 8:[['za','n',0,3,0.5,'z'],['rz','n',12,3,0.5,'z'],['dstock','n',24,3,0.5,'x','D'],['rx','n',12,3,0.5,'x'],['shape','s',0,['convex','concave'],0,'c'],['passes','n',12,0,1,'c'],['feed','n',0.07,3,0.01,'c']]};
+ 6:[['dstock','n',25,3,0.5,'x'],['dfinp','n',0,3,0.5,'x'],['side','s',0,['ext','int'],0,'c'],['passes','n',1,0,1,'c'],['feed','n',0.04,3,0.01,'c']],
+ 8:[['za','n',0,3,0.5,'z'],['rz','n',12,3,0.5,'z'],['dstock','n',24,3,0.5,'x'],['rx','n',12,3,0.5,'x'],['shape','s',0,['convex','concave'],0,'c'],['passes','n',12,0,1,'c'],['feed','n',0.07,3,0.01,'c']]};
 let ltOp=-1,ltPre={},ltV={},ltHelp=false;try{ltV=JSON.parse(localStorage.getItem('h4lathe3')||'{}')}catch(e){}
-if(ltV.xdia===undefined)ltV.xdia=1;
 function ltFill(){for(const m in LTF){ltV[m]=ltV[m]||{};for(const f of LTF[m])if(ltV[m][f[0]]===undefined)ltV[m][f[0]]=f[2]}}
 ltFill();
 const ltT=()=>LTT[look.lang=='el'?'el':'en'];
 const ltSave=()=>{try{localStorage.setItem('h4lathe3',JSON.stringify(ltV))}catch(e){}};
 const ltCur=()=>ltOp<0?(st.mode in LTF?st.mode:4):ltOp;
-const ltShown=f=>!f[6]||(f[6]=='D')==!!ltV.xdia;
+const ltShown=f=>true,ltRad=()=>look.xr=='r',ltIsD=k=>/^d/.test(k),ltDisp=(k,v)=>v===''||!ltIsD(k)||!ltRad()?v:v/2;
 const ltFmt=(v,d)=>v===''||v==null?'':(+v).toFixed(d);
+const ltXs=x=>ltRad()?'R '+(-x).toFixed(2):'Ø '+(-2*x).toFixed(2);
 function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
  for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
  $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<button type="button" class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></button>`).join('');
- $('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
- const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--fg)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
+ $('ltSim').textContent='▶ '+L.sim;$('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
+ const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--dim)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
  $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
 $('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;ltForm();if(st.lathe)ltShow()});
-function ltLabel(f,m){const L=ltT();if(f[0]=='dnom'&&ltV[m].side==1)return L.f.dbore;return L.f[f[0]]}
+function ltLabel(f,m){const L=ltT(),t=f[0]=='dnom'&&ltV[m].side==1?L.f.dbore:L.f[f[0]];return ltIsD(f[0])&&ltRad()?t.replace(/Ø/g,'R'):t}
 // The form is built once per mode, language or X kind; a change of a value only rewrites that value.
 function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
- const zero=`<div class="ltzero"><b>${L.step1}</b><button type="button" data-z="z0">${L.z0}</button><button type="button" data-z="x0">${L.x0}</button><button type="button" data-z="dia">${L.dia}</button><button type="button" class="lthelpb" data-h="1">${L.help}</button>
-  <span class="ltxin">${L.xin}</span><div class="seg" data-xk="1"><button type="button" data-i="1" class="${ltV.xdia?'on':''}">${L.xdia}</button><button type="button" data-i="0" class="${ltV.xdia?'':'on'}">${L.xdep}</button></div></div>
+ const zero=`<div class="ltzero"><b>${L.step1}</b><button type="button" data-z="z0">${L.z0}</button><button type="button" data-z="dia">${L.dia}</button><button type="button" class="lthelpb" data-h="1">${L.help}</button>
+</div>
   <div class="lthelp"${ltHelp?'':' hidden'}>${L.helpText}</div>`;
  const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[o]}</button>`).join('')}</div></div>`
-  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(v[f[0]],f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`;
+  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`;
  const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
  const pre=LTPRE[m]?`<div class="f wide"><label for="ltPre">${L.f.preset}</label><select id="ltPre" class="sel"><option value="">—</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${ltPre[m]===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select></div>`:'';
- $('ltForm').innerHTML=`${zero}<h3>${L.step2}${L.t[m]}</h3>${pre}<div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltV.xdia?L.xx:L.xxd,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
+ $('ltForm').innerHTML=`${zero}<h3>${L.step2}${L.t[m]}</h3>${pre}<div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
  $('ltForm').querySelectorAll('.ltgz').forEach(e=>e.style.setProperty('--c',AXC.Z));$('ltForm').querySelectorAll('.ltgx').forEach(e=>e.style.setProperty('--c',AXC.X));
  ltLast={};ltInfo();ltDraw()}
 function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;ltPre[m]='';ltSave();
- const b=document.querySelector('#ltForm .numv[data-k="'+k+'"]');if(b)b.textContent=ltFmt(val,f[3]);
+ const b=document.querySelector('#ltForm .numv[data-k="'+k+'"]');if(b)b.textContent=ltFmt(ltDisp(k,val),f[3]);
  const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw()}
 $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const L=ltT(),m=ltCur(),v=ltV[m];
  if(b.dataset.h){ltHelp=!ltHelp;const h=$('ltForm').querySelector('.lthelp');if(h)h.hidden=!ltHelp;return}
  if(b.dataset.z){if(st.on){msg(L.busy);return}
-  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltV.xdia=1;ltSave();ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
-  try{await post('/lathe?do='+b.dataset.z);if(b.dataset.z=='x0'&&ltV.xdia){ltV.xdia=0;ltSave();ltForm()}msg(L.zeroDone)}catch(err){msg(err.message)}return}
+  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltSave();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
+  try{await post('/lathe?do='+b.dataset.z);msg(L.zeroDone)}catch(err){msg(err.message)}return}
  if(st.on)return;
- const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;if(sg.dataset.xk){if(ltV.xdia!=i){ltV.xdia=i;ltSave();ltForm()}return}
+ const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;
   v[sg.dataset.k]=i;ltPre[m]='';ltSave();if(sg.dataset.k=='side'&&m==7){ltForm();return}
   sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x==b));const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw();return}
  const k=b.dataset.k;if(!k)return;const f=LTF[m].find(f=>f[0]==k);
- if(b.classList.contains('numv')){ltPad(ltLabel(f,m),v[k],f[1]=='o',n=>{if(n===''&&f[1]!='o')return;if(f[3]==0)n=Math.max(1,Math.round(n));ltSet(m,k,n)});return}
- let n=(v[k]===''?(k=='zstop'?+(st.z||0).toFixed(1):0):+v[k])+f[4]*b.dataset.d;n=+n.toFixed(5);if(f[3]==0||k=='feed'||k=='pitch'||k=='speed')n=Math.max(f[3]==0?1:f[4],n);ltSet(m,k,n)});
+ const toV=n=>n!==''&&ltIsD(k)&&ltRad()?n*2:n;  // shown as a radius, kept as a diameter
+ if(b.classList.contains('numv')){ltPad(ltLabel(f,m),ltDisp(k,v[k]),f[1]=='o',n=>{if(n===''&&f[1]!='o')return;if(f[3]==0)n=Math.max(1,Math.round(n));ltSet(m,k,toV(n))});return}
+ let n=(v[k]===''?(k=='zstop'?+(st.z||0).toFixed(1):0):+ltDisp(k,v[k]))+f[4]*b.dataset.d;n=+n.toFixed(5);if(f[3]==0||k=='feed'||k=='pitch'||k=='speed')n=Math.max(f[3]==0?1:f[4],n);ltSet(m,k,toV(n))});
 $('ltForm').addEventListener('change',e=>{const m=ltCur(),v=ltV[m],t=e.target;if(t.id!='ltPre')return;ltPre[m]=t.value;
  if(t.value!==''){const p=LTPRE[m][+t.value];
   if(m==7){const D=p[1],P=p[2],int=v.side==1;v.pitch=+P.toFixed(4);v.dnom=+(int?D-1.0825*P:D).toFixed(3);v.tdep=+((int?0.5413:0.6134)*P).toFixed(3)}
@@ -823,7 +826,7 @@ function ltPad(title,val,optional,done){const L=ltT();let s=val===''||val==null?
  document.body.appendChild(o);show()}
 // What the form becomes on the H4: work coordinates (the part's zero), as the H4 displays them. X grows towards the
 // centre: with X0 on the centre a diameter D is X = -D/2; with X0 on the surface the depth d is X = +d outside.
-function ltPlan(){const m=ltCur(),v=ltV[m],q={mode:m},lo=Math.min,hi=Math.max,dia=!!ltV.xdia,R=d=>-d/2,in_=v.side==1;
+function ltPlan(){const m=ltCur(),v=ltV[m],q={mode:m},lo=Math.min,hi=Math.max,dia=true,R=d=>-d/2,in_=v.side==1;
  const X0=dia?R(v.dstock!==undefined?v.dstock:v.dnom):0;
  if(m==0||m==2){const p=m==0?v.feed:v.speed;q.pitch=(v.dir?-1:1)*p;q.zl=q.zr='';if(v.zstop!==''){if(v.dir)q.zr=v.zstop;else q.zl=v.zstop}}
  if(m==4){const xb=dia?R(v.dfin):(in_?-v.depth:v.depth);q.pitch=v.feed;q.passes=v.passes;q.aux=in_?0:1;q.zr=v.za;q.zl=v.za+v.len;q.xr=lo(X0,xb);q.xl=hi(X0,xb);q.start=[v.za,X0];q.xb=xb}
@@ -838,25 +841,26 @@ function ltCheck(){const L=ltT(),m=ltCur(),v=ltV[m],E=L.err,F=LTF[m].filter(ltSh
  for(const f of F)if(f[1]=='n'&&/^d/.test(f[0])&&v[f[0]]<0)return E.dia;
  for(const k of ['len','zdep','rz','rx','tdep','depth','xin'])if(F.some(f=>f[0]==k)&&!(v[k]>0))return E.len;
  if(m==3&&!(v.dbig>v.dsmall))return E.cone;
- if(ltV.xdia&&(m==4||m==6)){const fin=m==4?v.dfin:v.dfinp;if(fin==v.dstock)return E.same;
+ if(m==4||m==6){const fin=m==4?v.dfin:v.dfinp;if(fin==v.dstock)return E.same;
   if((fin>v.dstock)!=(v.side==1))return E.side.replace('{w}',v.side==1?E.larger:E.smaller)}
- if(ltV.xdia&&m==5&&v.dfinf==v.dstock)return E.same;
+ if(m==5&&v.dfinf==v.dstock)return E.same;
  return ''}
 let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;const e=$(id);if(e)e.innerHTML=html}};
 function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
  if(err)out.push('<b class="bad">'+err+'</b>');
- else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(q.start[0])).replace('{x}',f3(q.start[1])+(ltV.xdia?' (Ø '+f3(-2*q.start[1])+')':'')));
+ else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(q.start[0])).replace('{x}',ltXs(q.start[1])));
   if(m==6)out.push(L.cutZ.replace('{z}',f3(st.z)));
   if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len))+' k = '+(+q.cone).toFixed(5):''));
-  if(ltV.xdia&&LTF[m].some(f=>f[5]=='x'&&f[6]=='D'))out.push(L.x0note)}
+  if(LTF[m].some(f=>f[5]=='x'))out.push(L.x0note)}
  const p=Math.abs(q.pitch||0),dx=q.xb!==undefined&&q.start?Math.abs(q.xb-q.start[1]):0;let mm=0;
  if(m==4)mm=v.len*v.passes;if(m==7)mm=v.len*v.passes*v.starts;if(m==5)mm=dx*v.passes;if(m==6)mm=dx;if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
  if(mm&&p&&m!=2&&!err){if(st.rpm>2){const t=mm/(p*st.rpm)*1.15;
    out.push('≈ '+(t<1?Math.max(1,Math.round(t*60))+(look.lang=='el'?' δευτ.':' s'):t.toFixed(1)+(look.lang=='el'?' λεπτά':' min'))+' '+L.estimate+' '+st.rpm+' '+L.rpmu)}else out.push(L.stopped)}
  ltPut('ltInfo',out.join('<br>'))}
+// X readout as a diameter or radius (X0 on the centre: the outside reads X = -Ø/2)
 function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm';
  document.querySelectorAll('.ltop').forEach(b=>{b.classList.toggle('on',+b.dataset.m==st.mode);b.classList.toggle('sel',+b.dataset.m==ltCur()&&ltCur()!=st.mode);b.disabled=!!st.on});
- $('ltXv').textContent=st.x.toFixed(3);$('ltXu').textContent=u;$('ltZv').textContent=st.z.toFixed(3);$('ltZu').textContent=u;
+ $('ltXv').textContent=(ltRad()?-st.x:-2*st.x).toFixed(3);$('ltXu').textContent=(ltRad()?'R ':'Ø ')+u;$('ltZv').textContent=st.z.toFixed(3);$('ltZu').textContent=u;
  $('ltRpm').textContent=st.rpm;
  // the angle only means something while the spindle stands or creeps: no number racing past, no animation
  ltPut('ltAng',Math.abs(st.rpm)>10?'<span class="ltturn">'+L.turning+'</span>':(+l.ang).toFixed(1)+'<small>°</small>');
@@ -877,28 +881,87 @@ async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.m
  const go=e=>{if(st.on||t)return;e.preventDefault();t0=performance.now();t=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/800);$('ltFill').style.width=k*100+'%';if(k>=1){end();ltStartGo()}},30)};
  b.addEventListener('pointerdown',go);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,end));
  b.addEventListener('keydown',e=>{if(e.key=='Enter'||e.key==' ')go(e)});b.addEventListener('keyup',end)})();
-// Side view, fitted to Z0, the stops (or the form's plan) and the tool; X0 as the H4 has it, the outside of the
-// part at the bottom so the tool comes from below as on the lathe.
-function ltDraw(){const l=st.lathe;if(!l)return;const W=600,H=300,q=st.on?null:ltPlan(),src=st.on||!q?l:{zl:q.zl,zr:q.zr,xl:q.xl,xr:q.xr};
- const num=v=>v===''||v==null?null:+v,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),zs=[0,st.z],xs=[0,st.x];if(!ltV.xdia&&xl!=null)xs.push(xl+2);
- for(const v of [zl,zr])if(v!=null)zs.push(v);for(const v of [xl,xr])if(v!=null)xs.push(v);
+// Side view and simulation. The part is drawn from the zero: its face at Z0, its outside at the part diameter
+// (X0 on the centre) or at X0 (X0 on the surface), towards the chuck on the left; the outside is at the bottom so
+// the tool comes from below as on the lathe. ltGeo() works out, from the form (or from the H4's stops while it
+// runs), the material that comes off pass by pass and the tool's path (cuts and returns), the way the H4's mode
+// moves; ▶ runs the tool along that path and takes the material off as it goes.
+function ltGeo(){const l=st.lathe,m=st.on?st.mode:ltCur(),v=ltV[m]||{},dia=true,q=st.on?null:ltPlan(),num=x=>x===''||x==null?null:+x;
+ const src=q||l,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),passes=Math.max(1,Math.min(60,+(q?q.passes:l.passes)||1));
+ const G={m,dia,cuts:[],path:[],passes,surf:dia?null:0,label:[]},P=(z,x,cut)=>G.path.push([z,x,!!cut]);
+ const sd=v.dstock!==undefined?v.dstock:(v.dnom!==undefined?v.dnom:(v.dbig!==undefined?v.dbig:null));
+ if(dia&&sd!=null&&!st.on)G.surf=-sd/2;else if(dia)G.surf=xr!=null?xr:Math.min(st.x,0);
+ const intern=(v.side==1)&&!st.on,safe=intern?0.5:-0.5;
+ const box=(z1,z2,x1,x2,i)=>G.cuts.push({pts:[[z1,x1],[z2,x1],[z2,x2],[z1,x2]],pass:i});
+ if((m==4||m==7)&&zl!=null&&zr!=null&&xl!=null&&xr!=null){
+  const ext=intern?false:true,xa=ext?xr:xl,xb=ext?xl:xr,z1=m==7&&(q?q.pitch:l.pitch)<0?zl:zr,z2=z1==zr?zl:zr;
+  let xp=xa;P(z1,xa+safe*2,0);
+  for(let i=1;i<=passes;i++){const xi=xa+(xb-xa)*i/passes;
+   if(m==4)box(zr,zl,xp,xi,i);
+   else{const p=Math.abs(+(q?q.pitch:l.pitch))||1,n=Math.min(200,Math.ceil((zl-zr)/p)),pts=[];
+    for(let k=0;k<=n;k++){const z=Math.min(zl,zr+k*p);pts.push([z,xa],[Math.min(zl,z+p/2),xi])}
+    pts.push([zl,xa]);G.cuts.push({pts,pass:i,teeth:1})}
+   P(z1,xi,0);P(z2,xi,1);P(z2,xa+safe,0);P(z1,xa+safe,0);xp=xi}
+  G.label=[[zr,'Z '+(+zr).toFixed(1)],[zl,'Z '+(+zl).toFixed(1)]];G.xmarks=[xa,xb]}
+ if(m==5&&zl!=null&&zr!=null&&xl!=null&&xr!=null){const xa=xr,xb=xl;let zp=zr;P(zr,xa-1,0);
+  for(let i=1;i<=passes;i++){const zi=zr+(zl-zr)*i/passes;box(zp,zi,xa,xb,i);P(zi,xa-1,0);P(zi,xa,0);P(zi,xb,1);P(zr-1,xb,0);P(zr-1,xa-1,0);zp=zi}
+  G.label=[[zl,'Z '+(+zl).toFixed(1)]];G.xmarks=[xa,xb]}
+ if(m==6&&xl!=null&&xr!=null){const ext=!intern,xa=ext?xr:xl,xb=ext?xl:xr,z=st.z,w=2;P(z,xa+safe*2,0);
+  for(let i=1;i<=passes;i++){const xi=xa+(xb-xa)*i/passes;box(z+w,z,xa+(xb-xa)*(i-1)/passes,xi,i);P(z,xi,1);P(z,xa+safe,0)}
+  G.label=[[z,'Z '+(+z).toFixed(1)]];G.xmarks=[xa,xb];G.zlo=z-2;G.zhi=z+w+2}
+ if(m==8&&zl!=null&&zr!=null&&xl!=null&&xr!=null){const rz=zl-zr,rx=xl-xr,conc=(v.shape==1)&&!st.on;
+  const prof=(t,s)=>{const z=zr+rz*t,u=1-t;return[zl-(zl-z)*s,xr+rx*s*(conc?Math.sqrt(Math.max(0,1-t*t)):1-Math.sqrt(Math.max(0,1-u*u)))]};
+  let prev=null;P(zl,xr+safe*2,0);
+  for(let i=1;i<=passes;i++){const s=i/passes,arc=[];for(let k=0;k<=24;k++)arc.push(prof(k/24,s));
+   const pts=[[zl,xr],[zl-rz*s,xr]].concat(prev?prev.slice().reverse():[]);G.cuts.push({pts:arc.concat(prev?prev.slice().reverse():[[zl,xr]]),pass:i});
+   for(const [z,x] of arc)P(z,x,1);P(arc[arc.length-1][0],xr+safe,0);prev=arc}
+  G.label=[[zr,'Z '+(+zr).toFixed(1)],[zl,'Z '+(+zl).toFixed(1)]];G.xmarks=[xr,xl]}
+ if(m==3&&!st.on&&q){const z0=st.z,x0=st.x,dz=(q.pitch<0?-1:1)*v.len,dx=(q.aux?-1:1)*q.cone/2*v.len;
+  G.cuts.push({pts:[[z0,x0],[z0+dz,x0+dx],[z0+dz,x0]],pass:1});P(z0,x0,0);P(z0+dz,x0+dx,1);G.label=[[z0+dz,'Z '+(z0+dz).toFixed(1)]];G.xmarks=[x0,x0+dx]}
+ if((m==0||m==2)&&!st.on&&q){const z0=st.z,z1=q.zl!==''?+q.zl:(q.zr!==''?+q.zr:z0+(q.pitch<0?-20:20));P(z0,st.x,0);P(z1,st.x,1);G.label=[[z1,'Z '+(+z1).toFixed(1)]]}
+ return G}
+let ltAnim=null;
+function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoundingClientRect(),G=ltGeo(),A=ltAnim&&ltAnim.t>=0?ltAnim:null;
+ // the drawing fills the view whatever its shape (1 unit = 1 screen pixel)
+ const W=Math.max(300,Math.round(r.width)||600),H=Math.max(150,Math.round(r.height)||300),vb='0 0 '+W+' '+H;if(sv.getAttribute('viewBox')!=vb)sv.setAttribute('viewBox',vb);
+ const zs=[0,st.z],xs=[st.x];if(G.dia)xs.push(0);if(G.surf!=null)xs.push(G.surf);
+ for(const c of G.cuts)for(const [z,x] of c.pts){zs.push(z);xs.push(x)}for(const [z,x] of G.path){zs.push(z);xs.push(x)}
+ if(G.zlo!=null)zs.push(G.zlo,G.zhi);
  let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
- const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.15;z1+=zr_*.35;x0-=xr_*.25;x1+=xr_*.25;
- const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>H-20-(x-x0)*S,g=[];  // outside at the bottom: the tool comes from below
- const ax=ltV.xdia?py(0):12,chuck=px(z1);
- for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="var(--tileb)" stroke-width="1"/>`);
- const surf=xr!=null?xr:(ltV.xdia?Math.min(st.x,0):0),top=py(surf);
- g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
- g.push(`<rect x="${chuck-40}" y="${Math.min(top,ax)-30}" width="40" height="${Math.abs(ax-top)+60}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
- if(zl!=null&&zr!=null&&xl!=null&&xr!=null){const a=px(zl),b=px(zr),c=py(xl),d=py(xr);
-  g.push(`<rect x="${Math.min(a,b)}" y="${Math.min(c,d)}" width="${Math.abs(b-a)}" height="${Math.abs(d-c)}" fill="#ff7a2e" opacity=".55"/>`)}
- if(ltV.xdia)g.push(`<line x1="10" y1="${ax}" x2="${W-10}" y2="${ax}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
- const vl=(z,t)=>g.push(`<line x1="${px(z)}" y1="10" x2="${px(z)}" y2="${H-10}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(z)+4}" y="24" fill="${AXC.Z}" font-size="13" font-weight="700">${t}</text>`);
- vl(0,'Z0');if(zl!=null)vl(zl,'◂');if(zr!=null&&zr!=0)vl(zr,'▸');
- const hl=x=>g.push(`<line x1="10" y1="${py(x)}" x2="${W-10}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="4 4" opacity=".8"/>`);
- if(xl!=null)hl(xl);if(xr!=null)hl(xr);
- const tx=px(st.z),ty=py(st.x);g.push(`<g transform="translate(${tx},${ty})"><path d="M0 0 L-8 26 L18 26 Z" fill="var(--fg)"/><rect x="-6" y="26" width="26" height="30" fill="var(--dim)"/></g>`);
+ const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.12;z1+=zr_*.3;x0-=xr_*.3;x1+=G.dia?xr_*.12:xr_*.6;
+ const S=Math.min((W-80)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>H-20-(x-x0)*S,g=[],P=p=>p.map(([z,x])=>px(z).toFixed(1)+','+py(x).toFixed(1)).join(' ');
+ for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="6" x2="${x}" y2="${H-6}" stroke="var(--tileb)" stroke-width="1"/>`);
+ // the part: from its face (Z0) to the chuck, from its outside to the centre line (or to the top when X0 is on the surface)
+ const top=G.dia?py(0):6,surfY=py(G.surf!=null?G.surf:Math.min(st.x,0)),chuck=px(z1-zr_*.08);
+ g.push(`<rect x="${chuck}" y="${Math.min(top,surfY)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(surfY-top)}" fill="#8b95a6" opacity=".6"/>`);
+ g.push(`<rect x="${chuck-36}" y="${Math.min(top,surfY)-14}" width="36" height="${Math.abs(surfY-top)+40}" rx="5" fill="var(--btn)" stroke="var(--tileb)"/>`);
+ // material that comes off: faint for the whole job, solid for the passes already made (simulation or the H4's own pass)
+ const done=A?A.pass:(st.on?l.op:0);
+ for(const c of G.cuts){const d=c.pass<=done,fill=d?'var(--tile)':'#ff7a2e';
+  g.push(`<polygon points="${P(c.pts)}" fill="${fill}" opacity="${d?1:.42}" stroke="${d?'none':'#ff7a2e'}" stroke-width=".6"/>`)}
+ if(G.dia)g.push(`<line x1="6" y1="${py(0)}" x2="${W-6}" y2="${py(0)}" stroke="var(--dim)" stroke-dasharray="10 4 2 4"/>`);
+ // the tool path: cuts solid, returns dashed
+ for(let i=1;i<G.path.length;i++){const a=G.path[i-1],b=G.path[i];g.push(`<line x1="${px(a[0])}" y1="${py(a[1])}" x2="${px(b[0])}" y2="${py(b[1])}" stroke="${b[2]?'#ff7a2e':'var(--dim)'}" stroke-width="${b[2]?1.6:1}" ${b[2]?'':'stroke-dasharray="3 3"'} opacity=".9"/>`)}
+ // zero and dimensions
+ g.push(`<line x1="${px(0)}" y1="6" x2="${px(0)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="4 4"/><text x="${px(0)+4}" y="18" fill="${AXC.Z}" font-size="13" font-weight="700">Z0</text>`);
+ for(const [z,t] of G.label||[])if(Math.abs(z)>1e-6)g.push(`<line x1="${px(z)}" y1="6" x2="${px(z)}" y2="${H-6}" stroke="${AXC.Z}" stroke-dasharray="2 5" opacity=".7"/><text x="${px(z)+3}" y="${H-8}" fill="${AXC.Z}" font-size="11">${t}</text>`);
+ for(const x of G.xmarks||[]){const t=ltXs(x);g.push(`<text x="8" y="${py(x)-3}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
+ // the tool: where the simulation has it, else where the H4 has it
+ const tz=A?A.z:st.z,tx=A?A.x:st.x;g.push(`<g transform="translate(${px(tz)},${py(tx)})"><path d="M0 0 L-8 22 L16 22 Z" fill="var(--fg)"/><rect x="-6" y="22" width="22" height="26" fill="var(--dim)"/></g>`);
  ltPut('ltSvg',g.join(''))}
+// ▶: moves the tool along the path (about 10 s for the whole job), taking the material off pass by pass.
+function ltSimRun(){if(ltAnim){ltAnim=null;ltDraw();return}const G=ltGeo(),p=G.path;if(p.length<2)return;
+ const len=[0];for(let i=1;i<p.length;i++)len.push(len[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]));
+ const T=len[len.length-1]||1,t0=performance.now(),dur=Math.min(14000,Math.max(4000,p.length*120));
+ // which pass each point ends: a pass is done when its cut segment is finished
+ const passAt=[];let pass=0;for(let i=0;i<p.length;i++){if(p[i][2]&&(i+1>=p.length||!p[i+1][2]))pass++;passAt.push(pass)}
+ ltAnim={t:0,z:p[0][0],x:p[0][1],pass:0};
+ const step=now=>{if(!ltAnim)return;const d=Math.min(1,(now-t0)/dur)*T;let i=1;while(i<len.length-1&&len[i]<d)i++;
+  const k=len[i]>len[i-1]?(d-len[i-1])/(len[i]-len[i-1]):1,a=p[i-1],b=p[i];ltAnim.z=a[0]+(b[0]-a[0])*k;ltAnim.x=a[1]+(b[1]-a[1])*k;
+  ltAnim.pass=k>=1?passAt[i]:passAt[i-1];if(d>=T){ltAnim.pass=G.passes+1}ltDraw();
+  if(d<T)requestAnimationFrame(step);else setTimeout(()=>{ltAnim=null;ltDraw()},1500)};
+ requestAnimationFrame(step)}
+$('ltSim').addEventListener('click',ltSimRun);
 window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
