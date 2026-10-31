@@ -190,8 +190,12 @@ program runs.
   H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
   Updated about 7 times a second. Work is set from the part's zero, as on the H4 keys: **Z0** on the face, **X0**
   on the centre line from a measured diameter (**Ø → X0**, the H4's numpad + A); **How?** on the screen explains it.
-  X values are diameters or radii, chosen once in *Settings, Appearance, Lathe X*; the lathe screen's X readout
-  follows it.
+  X values are diameters or radii, chosen once in *Settings, Appearance, Lathe X* (the **Ø / R ⚙** button in the
+  form's X group opens it); the lathe screen's X readout follows it.
+  **Signs:** Ø and R are shown positive, as on any lathe readout, and get smaller as the tool goes towards the
+  centre, in the readout and in the form alike. Z keeps the H4's own direction (it grows towards the chuck, as on
+  the H4's display), so the readout and the form agree with the H4 itself. (The H4's own display shows X as a
+  radius from X0; with X0 on the centre line the outside is negative there, e.g. -10 for Ø 20.)
   **Two zeros:** the lathe modes and the G-code mode each keep their own zero (X and Z). A touch-off for turning
   never moves the G-code (polar) zero, and a zero set in the G-code mode (keys, G10 L20) never moves the lathe one;
   the H4 changes to the right one when the mode changes. Both are kept like the H4's own zero: no Home needed,
