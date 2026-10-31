@@ -189,8 +189,9 @@ program runs.
   feed): large X / Z readout, spindle speed and angle, a side view with Z0, the stops and the tool, and what the
   H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
   Updated about 7 times a second. Work is set from the part's zero, as on the H4 keys: **Z0** on the face, **X0**
-  either on the surface (X values are depths) or on the centre line from a measured diameter (**Ø → X0**, X values
-  are diameters); **How?** on the screen explains it. Pick an operation at the top and fill its form: Z values
+  on the centre line from a measured diameter (**Ø → X0**, the H4's numpad + A); **How?** on the screen explains it.
+  X values are diameters or radii, chosen once in *Settings, Appearance, Lathe X*; the lathe screen's X readout
+  follows it. Pick an operation at the top and fill its form: Z values
   (green: start, length) and X values (orange: part Ø and final Ø, or the depth) side by side, or a preset.
   The side view draws the part from its zero (face at Z0, its diameter), the material that comes off and the
   tool's path pass by pass; **▶ Simulate** runs the tool along it. Presets: metric and UNC threads, Morse and other tapers, spheres; every value stays editable, with the
