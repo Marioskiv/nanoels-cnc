@@ -149,20 +149,24 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .card.ltpanel{overflow-y:auto;min-height:0}
 .ltfields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.ltfields .f{display:flex;flex-direction:column;gap:3px;min-width:0}.ltfields .wide{grid-column:1/-1}
 .ltfields label{font-size:12px;color:var(--dim)}
-.ltfields .step{display:grid;grid-template-columns:36px 1fr 36px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--tile)}
-.ltfields .step button{border:0;background:transparent;font-size:20px;padding:0;color:var(--fg)}
-.ltfields .step .numv{border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0;background:transparent;color:var(--fg);text-align:center;font:600 18px ui-monospace,monospace;width:100%;min-width:0;padding:6px 0;cursor:text}
+.ltfields .step,.ltg .step{display:grid;grid-template-columns:36px 1fr 36px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--tile)}
+.ltfields .step button,.ltg .step button{border:0;background:transparent;font-size:20px;padding:0;color:var(--fg)}
+.ltfields .step .numv,.ltg .step .numv{border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0;background:transparent;color:var(--fg);text-align:center;font:600 18px ui-monospace,monospace;width:100%;min-width:0;padding:6px 0;cursor:text}
 .ltzero{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.ltzero>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:6px 10px;font-weight:700}
 .ltzero .ltxin{margin-left:auto;color:var(--dim)}.ltzero .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ltzero .seg button{border:0;border-radius:0;background:var(--tile);color:var(--fg);padding:6px 8px;font-size:12px}
 .ltzero .seg button.on{background:var(--or);color:#111;font-weight:700}.ltturn{font-size:14px;color:var(--dim);font-weight:600}
+.lthelpb{margin-left:2px}.lthelp{font-size:12.5px;line-height:1.5;color:var(--fg);background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.ltgroups{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ltg{border:1px solid var(--line);border-left:4px solid var(--c,var(--dim));border-radius:10px;padding:6px 8px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.ltg h4{margin:0;font-size:12.5px;color:var(--c,var(--dim));font-weight:800}.ltgz .ltgf,.ltgx .ltgf{display:flex;flex-direction:column;gap:6px}
+.ltgc .ltgf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}.ltg .f{display:flex;flex-direction:column;gap:3px;min-width:0}.ltg label{font-size:12px;color:var(--dim)}
 .ltpad{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
 .ltpadb{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;width:min(340px,100%);display:flex;flex-direction:column;gap:10px}
 .ltpadt{font-weight:700;font-size:15px}.ltpadv{font:700 30px ui-monospace,monospace;text-align:right;background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-height:1.3em}
 .ltpadk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ltpadk button{border:1px solid var(--line);border-radius:10px;background:var(--tile);color:var(--fg);font:700 22px system-ui;padding:12px 0}
 .ltpadk button.ok{background:var(--ok);color:#fff;border:0;grid-column:1/-1}
-.ltfields .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
-.ltfields .seg button{flex:1;border:0;border-radius:0;background:var(--tile);padding:7px 4px;font-size:13px;color:var(--fg)}
-.ltfields .seg button.on{background:var(--or);color:#111;font-weight:700}
+.ltfields .seg,.ltg .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.ltfields .seg button,.ltg .seg button{flex:1;border:0;border-radius:0;background:var(--tile);padding:7px 4px;font-size:13px;color:var(--fg)}
+.ltfields .seg button.on,.ltg .seg button.on{background:var(--or);color:#111;font-weight:700}
 .ltfields .sel{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:7px 8px;font:600 14px system-ui;width:100%}
 .ltinfo{font-size:12.5px;color:var(--dim);line-height:1.45}.ltinfo .bad{color:var(--bad)}
 .ltnow{font:11.5px/1.35 ui-monospace,monospace;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -176,6 +180,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 @media (orientation:landscape) and (max-height:860px) and (min-width:761px){.ltax{grid-column:auto;padding:3px 8px}.ltax .l{font-size:clamp(26px,3vw,36px)}.ltax .v{font-size:clamp(20px,2.5vw,32px)}.ltsp{padding:3px 8px}}
 @media (orientation:portrait),(max-width:760px){.ltops{grid-template-columns:repeat(4,minmax(0,1fr))}.ltmain{grid-template-columns:1fr;grid-template-rows:minmax(80px,24%) minmax(0,1fr)}
  .ltleg{display:none}.ltax .l{font-size:28px}.ltax .v{font-size:25px}.ltpanel h3{font-size:14px}.ltmain{grid-template-rows:minmax(70px,18%) minmax(0,1fr)}
+ .ltg .step .numv{font-size:15px;padding:3px 0}.ltg .step{grid-template-columns:30px 1fr 30px}.ltgroups{gap:5px}.ltg{padding:5px 6px}.ltg label{font-size:11px}
  .ltfields{gap:5px}.ltfields label{font-size:11px}.ltfields .step .numv{font-size:15px;padding:3px 0}.ltfields .step{grid-template-columns:30px 1fr 30px}
  .ltfields .seg button{padding:5px 2px;font-size:12px}.ltfields .sel{padding:4px 6px}.ltinfo{font-size:11.5px}.ltnow{font-size:11px}.ltstart{min-width:150px;padding:11px 12px}
  .ltdro{gap:4px}.ltsp{padding:3px 8px}.ltsp .v{font-size:17px}.ltside{gap:6px}.card.ltpanel{padding:8px;gap:6px}}
@@ -688,32 +693,40 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
   ext:'External',int:'Internal',none:'—',legend:['stock','material removed','Z0 and stops','tool'],
-  zero:'Zero',z0:'Z0 here',x0:'X0 here',dia:'Ø → X0',xin:'X as',xdia:'Ø diameter',xdep:'depth',
+  step1:'1 · Zero on the part',step2:'2 · ',z0:'Z0 here',x0:'X0 here',dia:'Ø → X0',help:'How?',xin:'X in',xdia:'diameters',xdep:'depth',
+  helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Z0 here</b>.<br><b>X, way 1 (diameters, recommended)</b>: take a light cut on the diameter, do not move X, measure the diameter and press <b>Ø → X0</b> with that number. The H4 then knows where the centre is and every X value is a diameter.<br><b>X, way 2 (depth)</b>: touch the diameter and press <b>X0 here</b>; X values are then how deep you cut.<br>The same as the H4 keys Z, X and A (diameter on the numpad, then A). After a tool change: zero again.',
+  zx:'Z (length, along the part)',xx:'X (diameter)',xxd:'X (depth)',cx:'Cut',
   diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',busy:'Stop the H4 first (OFF).',
   goTo:'At START the H4 moves the tool to Z {z}, X {x} by itself, then cuts.',fromTool:'Starts where the tool stands at START.',
-  coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands.',sideIs:'Side',x0note:'X in Ø: X0 must be on the centre (button Ø → X0).',
-  err:{same:'From and to are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'X goes the other way for this side: check from / to.',val:'Fill every value.'},
+  coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X in diameters: X0 must be on the centre (Ø → X0).',
+  err:{same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.'},
   ok:'OK',cancel:'Cancel',clear:'Empty',
   m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code'},
   t:{0:'Feed per turn',2:'Constant feed (without the spindle)',3:'Taper',4:'Turning in passes',5:'Facing in passes',6:'Parting / grooving',7:'Threading',8:'Half sphere / ellipse'},
-  f:{feed:'Feed mm/turn',pitch:'Pitch mm',speed:'Speed mm/s',zstop:'Stop at Z (empty: none)',za:'Z from',zb:'Z to',xa:'X from',xb:'X to',len:'Length Z mm',
-   passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',rz:'Radius Z mm',rx:'Radius X mm',dbig:'Ø large mm',dsmall:'Ø small mm',
+  f:{feed:'Feed mm/turn',pitch:'Pitch mm',speed:'Speed mm/s',zstop:'Stop at Z (empty: none)',za:'Start Z (0 = face)',len:'Length mm',zdep:'Depth into the face mm',rz:'Radius Z mm',
+   dstock:'Part Ø mm',dfin:'Final Ø mm',depth:'Depth mm',xin:'How far in mm',dfinf:'To Ø mm (0 = centre)',dfinp:'To Ø mm (0 = cut off)',dbig:'Ø large mm',dsmall:'Ø small mm',
+   dnom:'Thread Ø mm',dbore:'Hole Ø mm',tdep:'Thread depth mm',rx:'Radius X mm',
+   passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',
    preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex',concave:'Concave',ext:'External',int:'Internal'}},
  el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},
   rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',turning:'γυρίζει',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
   ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και όρια','εργαλείο'],
-  zero:'Μηδέν',z0:'Z0 εδώ',x0:'X0 εδώ',dia:'Ø → X0',xin:'X σε',xdia:'Ø διάμετρο',xdep:'βάθος',
+  step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Z0 εδώ',x0:'X0 εδώ',dia:'Ø → X0',help:'Πώς;',xin:'X σε',xdia:'διαμέτρους',xdep:'βάθος',
+  helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Z0 εδώ</b>.<br><b>X, τρόπος 1 (διάμετροι, προτείνεται)</b>: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Ø → X0</b> γράφοντας τον αριθμό. Το H4 ξέρει τότε πού είναι το κέντρο και κάθε τιμή X είναι διάμετρος.<br><b>X, τρόπος 2 (βάθος)</b>: άγγιξε τη διάμετρο και πάτα <b>X0 εδώ</b>· οι τιμές X είναι τότε πόσο βαθιά κόβεις.<br>Ίδιο με τα πλήκτρα Z, X και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
+  zx:'Z (μήκος, κατά μήκος του κομματιού)',xx:'X (διάμετρος)',xxd:'X (βάθος)',cx:'Κοπή',
   diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',busy:'Σταμάτησε πρώτα το H4 (OFF).',
   goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, X {x} και κόβει.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
-  coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου βρίσκεται το εργαλείο.',sideIs:'Πλευρά',x0note:'X σε Ø: το X0 πρέπει να είναι στο κέντρο (κουμπί Ø → X0).',
-  err:{same:'Το «από» και το «έως» είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Ο X πάει ανάποδα για αυτή την πλευρά: έλεγξε από / έως.',val:'Συμπλήρωσε όλες τις τιμές.'},
+  coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'X σε διαμέτρους: το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
+  err:{same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.'},
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
   m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code'},
   t:{0:'Πρόωση ανά στροφή',2:'Σταθερή πρόωση (χωρίς άτρακτο)',3:'Κώνος',4:'Τόρνευση σε περάσματα',5:'Τόρνευση προσώπου',6:'Αποκοπή / αυλάκι',7:'Σπείρωμα',8:'Ημισφαίριο / έλλειψη'},
-  f:{feed:'Πρόωση mm/στροφή',pitch:'Βήμα mm',speed:'Ταχύτητα mm/s',zstop:'Στάση στο Z (κενό: καμία)',za:'Z από',zb:'Z έως',xa:'X από',xb:'X έως',len:'Μήκος Z mm',
-   passes:'Περάσματα',starts:'Αρχές',dir:'Φορά',hand:'Σπείρωμα',side:'Πλευρά',shape:'Μορφή',rz:'Ακτίνα Z mm',rx:'Ακτίνα X mm',dbig:'Ø μεγάλη mm',dsmall:'Ø μικρή mm',
+  f:{feed:'Πρόωση mm/στροφή',pitch:'Βήμα mm',speed:'Ταχύτητα mm/s',zstop:'Στάση στο Z (κενό: καμία)',za:'Αρχή Z (0 = πρόσωπο)',len:'Μήκος mm',zdep:'Βάθος στο πρόσωπο mm',rz:'Ακτίνα Z mm',
+   dstock:'Ø κομματιού mm',dfin:'Τελική Ø mm',depth:'Βάθος mm',xin:'Πόσο μέσα mm',dfinf:'Έως Ø mm (0 = κέντρο)',dfinp:'Έως Ø mm (0 = αποκοπή)',dbig:'Ø μεγάλη mm',dsmall:'Ø μικρή mm',
+   dnom:'Ø σπειρώματος mm',dbore:'Ø τρύπας mm',tdep:'Βάθος σπειρώματος mm',rx:'Ακτίνα X mm',
+   passes:'Περάσματα',starts:'Αρχές',dir:'Φορά',hand:'Σπείρωμα',side:'Πλευρά',shape:'Μορφή',
    preset:'Τυποποιημένο',left:'← προς το τσοκ',right:'→ από το τσοκ',rh:'Δεξιό',lh:'Αριστερό',convex:'Κυρτό',concave:'Κοίλο',ext:'Εξωτερικό',int:'Εσωτερικό'}}};
 const LTOPS=[[0,'<rect class="ic-s" x="2" y="8" width="24" height="9" rx="1"/><path class="ic-l" d="M25 4 L6 4 M10 1 L6 4 L10 7" stroke-width="2"/>'],
  [4,'<rect class="ic-s" x="2" y="9" width="24" height="10" rx="1"/><rect class="ic-c" x="12" y="6" width="14" height="3"/><path class="ic-l" d="M27 3 L12 3" stroke-width="1.6"/>'],
@@ -731,26 +744,28 @@ const LTPRE={7:[['M3 × 0.5',3,0.5],['M4 × 0.7',4,0.7],['M5 × 0.8',5,0.8],['M6
   ['M24 × 3',24,3],['M24 × 2',24,2],['1/4-20 UNC',6.35,1.27],['5/16-18 UNC',7.9375,25.4/18],['3/8-16 UNC',9.525,25.4/16],['1/2-13 UNC',12.7,25.4/13],['5/8-11 UNC',15.875,25.4/11],['3/4-10 UNC',19.05,2.54]],
  3:[['MT0',0.05205],['MT1',0.04988],['MT2',0.04995],['MT3',0.05020],['MT4',0.05194],['MT5',0.05263],['1:20',0.05],['1:10',0.1],['7:24',7/24],['1:50',0.02]],
  8:[['Ø 10',10],['Ø 12',12],['Ø 16',16],['Ø 20',20],['Ø 25',25],['Ø 30',30],['Ø 40',40]]};
-// Fields: [key, kind, default (X fields: [Ø value, depth value]), decimals, step]. Kinds: n number, x X coordinate
-// (Ø or depth), o optional number, s choice (default = option index, options in the 4th place).
-const LTF={0:[['feed','n',0.1,3,0.01],['dir','s',0,['left','right']],['zstop','o','',3,1]],
- 2:[['speed','n',0.5,2,0.1],['dir','s',0,['left','right']],['zstop','o','',3,1]],
- 4:[['za','n',0,3,1],['zb','n',30,3,1],['xa','x',[25,0],3,0.5],['xb','x',[20,2],3,0.5],['passes','n',8,0,1],['feed','n',0.1,3,0.01]],
- 5:[['za','n',0,3,0.1],['zb','n',1,3,0.1],['xa','x',[30,0],3,1],['xb','x',[0,15],3,1],['passes','n',4,0,1],['feed','n',0.08,3,0.01]],
- 3:[['dbig','n',40,3,0.5],['dsmall','n',30,3,0.5],['len','n',30,3,1],['feed','n',0.08,3,0.01],['side','s',0,['ext','int']],['dir','s',0,['left','right']]],
- 7:[['pitch','n',1.5,3,0.05],['starts','n',1,0,1],['hand','s',0,['rh','lh']],['side','s',0,['ext','int']],['za','n',-2,3,1],['zb','n',20,3,1],
-   ['xa','x',[10,0],3,0.1],['xb','x',[8.16,0.92],3,0.01],['passes','n',10,0,1]],
- 6:[['xa','x',[25,0],3,0.5],['xb','x',[0,12.5],3,0.5],['passes','n',1,0,1],['feed','n',0.04,3,0.01]],
- 8:[['za','n',0,3,0.5],['xa','x',[24,0],3,0.5],['rz','n',12,3,0.5],['rx','n',12,3,0.5],['passes','n',12,0,1],['feed','n',0.07,3,0.01],['shape','s',0,['convex','concave']]]};
-let ltOp=-1,ltPre={},ltV={};try{ltV=JSON.parse(localStorage.getItem('h4lathe2')||'{}')}catch(e){}
+// Fields: [key, kind, default, decimals, step, group, shown]. Kinds: n number, o optional number, s choice
+// (options in place 4). Group z (green, along the part), x (orange, diameter or depth) or c (the cut). Shown:
+// D only with X in diameters, P only with X as depth. A default [a, b] is a for diameters, b for depth.
+const LTF={0:[['feed','n',0.1,3,0.01,'c'],['dir','s',0,['left','right'],0,'c'],['zstop','o','',3,1,'z']],
+ 2:[['speed','n',0.5,2,0.1,'c'],['dir','s',0,['left','right'],0,'c'],['zstop','o','',3,1,'z']],
+ 4:[['za','n',0,3,1,'z'],['len','n',30,3,1,'z'],['dstock','n',25,3,0.5,'x','D'],['dfin','n',20,3,0.5,'x','D'],['depth','n',2,3,0.1,'x','P'],
+   ['side','s',0,['ext','int'],0,'c'],['passes','n',8,0,1,'c'],['feed','n',0.1,3,0.01,'c']],
+ 5:[['za','n',0,3,0.1,'z'],['zdep','n',1,3,0.1,'z'],['dstock','n',30,3,1,'x','D'],['dfinf','n',0,3,1,'x','D'],['xin','n',15,3,1,'x','P'],
+   ['passes','n',4,0,1,'c'],['feed','n',0.08,3,0.01,'c']],
+ 3:[['len','n',30,3,1,'z'],['dbig','n',40,3,0.5,'x'],['dsmall','n',30,3,0.5,'x'],['side','s',0,['ext','int'],0,'c'],['dir','s',0,['left','right'],0,'c'],['feed','n',0.08,3,0.01,'c']],
+ 7:[['za','n',-2,3,1,'z'],['len','n',20,3,1,'z'],['dnom','n',10,3,0.1,'x','D'],['tdep','n',0.92,3,0.01,'x'],
+   ['pitch','n',1.5,3,0.05,'c'],['side','s',0,['ext','int'],0,'c'],['hand','s',0,['rh','lh'],0,'c'],['starts','n',1,0,1,'c'],['passes','n',10,0,1,'c']],
+ 6:[['dstock','n',25,3,0.5,'x','D'],['dfinp','n',0,3,0.5,'x','D'],['depth','n',12.5,3,0.5,'x','P'],['side','s',0,['ext','int'],0,'c'],['passes','n',1,0,1,'c'],['feed','n',0.04,3,0.01,'c']],
+ 8:[['za','n',0,3,0.5,'z'],['rz','n',12,3,0.5,'z'],['dstock','n',24,3,0.5,'x','D'],['rx','n',12,3,0.5,'x'],['shape','s',0,['convex','concave'],0,'c'],['passes','n',12,0,1,'c'],['feed','n',0.07,3,0.01,'c']]};
+let ltOp=-1,ltPre={},ltV={},ltHelp=false;try{ltV=JSON.parse(localStorage.getItem('h4lathe3')||'{}')}catch(e){}
 if(ltV.xdia===undefined)ltV.xdia=1;
-const ltDef=(f,m)=>f[1]=='x'?f[2][ltV.xdia?0:1]:(f[1]=='s'?f[2]:f[2]);
-function ltFill(reset){for(const m in LTF){ltV[m]=ltV[m]||{};for(const f of LTF[m])if(ltV[m][f[0]]===undefined||(reset&&f[1]=='x'))ltV[m][f[0]]=ltDef(f,m)}}
-ltFill(false);
+function ltFill(){for(const m in LTF){ltV[m]=ltV[m]||{};for(const f of LTF[m])if(ltV[m][f[0]]===undefined)ltV[m][f[0]]=f[2]}}
+ltFill();
 const ltT=()=>LTT[look.lang=='el'?'el':'en'];
-const ltSave=()=>{try{localStorage.setItem('h4lathe2',JSON.stringify(ltV))}catch(e){}};
+const ltSave=()=>{try{localStorage.setItem('h4lathe3',JSON.stringify(ltV))}catch(e){}};
 const ltCur=()=>ltOp<0?(st.mode in LTF?st.mode:4):ltOp;
-const ltX=v=>ltV.xdia?-v/2:v;  // a form X value (Ø or depth) as the H4's X
+const ltShown=f=>!f[6]||(f[6]=='D')==!!ltV.xdia;
 const ltFmt=(v,d)=>v===''||v==null?'':(+v).toFixed(d);
 function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
  for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
@@ -759,36 +774,40 @@ function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'e
  const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--fg)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
  $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
 $('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;ltForm();if(st.lathe)ltShow()});
-function ltLabel(f){const L=ltT();if(f[1]!='x')return L.f[f[0]];return L.f[f[0]]+' '+(ltV.xdia?'Ø mm':'mm')}
+function ltLabel(f,m){const L=ltT();if(f[0]=='dnom'&&ltV[m].side==1)return L.f.dbore;return L.f[f[0]]}
 // The form is built once per mode, language or X kind; a change of a value only rewrites that value.
 function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
- const zero=`<div class="ltzero"><b>${L.zero}</b><button type="button" data-z="z0">${L.z0}</button><button type="button" data-z="x0">${L.x0}</button><button type="button" data-z="dia">${L.dia}</button>
-  <span class="ltxin">${L.xin}</span><div class="seg" data-xk="1"><button type="button" data-i="1" class="${ltV.xdia?'on':''}">${L.xdia}</button><button type="button" data-i="0" class="${ltV.xdia?'':'on'}">${L.xdep}</button></div></div>`;
- const pre=LTPRE[m]?`<div class="f wide"><label for="ltPre">${L.f.preset}</label><select id="ltPre" class="sel"><option value="">—</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${ltPre[m]===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select></div>`:'';
- const fl=F.map(f=>f[1]=='s'
+ const zero=`<div class="ltzero"><b>${L.step1}</b><button type="button" data-z="z0">${L.z0}</button><button type="button" data-z="x0">${L.x0}</button><button type="button" data-z="dia">${L.dia}</button><button type="button" class="lthelpb" data-h="1">${L.help}</button>
+  <span class="ltxin">${L.xin}</span><div class="seg" data-xk="1"><button type="button" data-i="1" class="${ltV.xdia?'on':''}">${L.xdia}</button><button type="button" data-i="0" class="${ltV.xdia?'':'on'}">${L.xdep}</button></div></div>
+  <div class="lthelp"${ltHelp?'':' hidden'}>${L.helpText}</div>`;
+ const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[o]}</button>`).join('')}</div></div>`
-  :`<div class="f"><label>${ltLabel(f)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(v[f[0]],f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`).join('');
- $('ltForm').innerHTML=`<h3>${L.t[m]}</h3>${zero}<div class="ltfields">${pre}${fl}</div><div class="ltinfo" id="ltInfo"></div>`;
+  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(v[f[0]],f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`;
+ const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
+ const pre=LTPRE[m]?`<div class="f wide"><label for="ltPre">${L.f.preset}</label><select id="ltPre" class="sel"><option value="">—</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${ltPre[m]===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select></div>`:'';
+ $('ltForm').innerHTML=`${zero}<h3>${L.step2}${L.t[m]}</h3>${pre}<div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltV.xdia?L.xx:L.xxd,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
+ $('ltForm').querySelectorAll('.ltgz').forEach(e=>e.style.setProperty('--c',AXC.Z));$('ltForm').querySelectorAll('.ltgx').forEach(e=>e.style.setProperty('--c',AXC.X));
  ltLast={};ltInfo();ltDraw()}
 function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;ltPre[m]='';ltSave();
  const b=document.querySelector('#ltForm .numv[data-k="'+k+'"]');if(b)b.textContent=ltFmt(val,f[3]);
  const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw()}
 $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const L=ltT(),m=ltCur(),v=ltV[m];
+ if(b.dataset.h){ltHelp=!ltHelp;const h=$('ltForm').querySelector('.lthelp');if(h)h.hidden=!ltHelp;return}
  if(b.dataset.z){if(st.on){msg(L.busy);return}
-  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltV.xdia=1;ltFill(true);ltSave();ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
-  try{await post('/lathe?do='+b.dataset.z);if(b.dataset.z=='x0'&&ltV.xdia){ltV.xdia=0;ltFill(true);ltSave();ltForm()}msg(L.zeroDone)}catch(err){msg(err.message)}return}
+  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltV.xdia=1;ltSave();ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
+  try{await post('/lathe?do='+b.dataset.z);if(b.dataset.z=='x0'&&ltV.xdia){ltV.xdia=0;ltSave();ltForm()}msg(L.zeroDone)}catch(err){msg(err.message)}return}
  if(st.on)return;
- const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;if(sg.dataset.xk){if(ltV.xdia!=i){ltV.xdia=i;ltFill(true);ltSave();ltForm()}return}
-  v[sg.dataset.k]=i;ltPre[m]='';ltSave();sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x==b));const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw();return}
+ const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;if(sg.dataset.xk){if(ltV.xdia!=i){ltV.xdia=i;ltSave();ltForm()}return}
+  v[sg.dataset.k]=i;ltPre[m]='';ltSave();if(sg.dataset.k=='side'&&m==7){ltForm();return}
+  sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x==b));const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw();return}
  const k=b.dataset.k;if(!k)return;const f=LTF[m].find(f=>f[0]==k);
- if(b.classList.contains('numv')){ltPad(ltLabel(f),v[k],f[1]=='o',n=>{if(n===''&&f[1]!='o')return;if(f[1]=='n'&&f[3]==0)n=Math.max(1,Math.round(n));ltSet(m,k,n)});return}
+ if(b.classList.contains('numv')){ltPad(ltLabel(f,m),v[k],f[1]=='o',n=>{if(n===''&&f[1]!='o')return;if(f[3]==0)n=Math.max(1,Math.round(n));ltSet(m,k,n)});return}
  let n=(v[k]===''?(k=='zstop'?+(st.z||0).toFixed(1):0):+v[k])+f[4]*b.dataset.d;n=+n.toFixed(5);if(f[3]==0||k=='feed'||k=='pitch'||k=='speed')n=Math.max(f[3]==0?1:f[4],n);ltSet(m,k,n)});
 $('ltForm').addEventListener('change',e=>{const m=ltCur(),v=ltV[m],t=e.target;if(t.id!='ltPre')return;ltPre[m]=t.value;
  if(t.value!==''){const p=LTPRE[m][+t.value];
-  if(m==7){const D=p[1],P=p[2],int=v.side==1;v.pitch=+P.toFixed(4);
-   if(ltV.xdia){v.xa=+(int?D-1.0825*P:D).toFixed(3);v.xb=+(int?D:D-2*0.6134*P).toFixed(3)}else{v.xa=0;v.xb=+((int?-0.5413:0.6134)*P).toFixed(3)}}
+  if(m==7){const D=p[1],P=p[2],int=v.side==1;v.pitch=+P.toFixed(4);v.dnom=+(int?D-1.0825*P:D).toFixed(3);v.tdep=+((int?0.5413:0.6134)*P).toFixed(3)}
   if(m==3)v.dsmall=+(v.dbig-p[1]*v.len).toFixed(3);
-  if(m==8){v.rz=v.rx=p[1]/2;if(ltV.xdia)v.xa=p[1]}}
+  if(m==8){v.rz=v.rx=p[1]/2;v.dstock=p[1]}}
  ltSave();const keep=t.value;ltForm();if($('ltPre'))$('ltPre').value=keep;ltPre[m]=keep;if(st.lathe)ltShow()});
 // A numeric keypad of the page itself: the tablet's own keyboard would cover the form.
 function ltPad(title,val,optional,done){const L=ltT();let s=val===''||val==null?'':String(+val);
@@ -802,37 +821,36 @@ function ltPad(title,val,optional,done){const L=ltT();let s=val===''||val==null?
   if(first&&/[0-9.]/.test(k))s='';first=false;
   if(k=='b')s=s.slice(0,-1);else if(k=='±')s=s.startsWith('-')?s.slice(1):'-'+s;else if(k=='.'){if(!s.includes('.'))s+=(s===''||s=='-'?'0':'')+'.'}else if(s.replace(/[-.]/g,'').length<8)s+=k;show()});
  document.body.appendChild(o);show()}
-// What the form becomes on the H4: work coordinates (the part's zero), as the H4 displays them.
-function ltPlan(){const m=ltCur(),v=ltV[m],q={mode:m},lo=Math.min,hi=Math.max;
+// What the form becomes on the H4: work coordinates (the part's zero), as the H4 displays them. X grows towards the
+// centre: with X0 on the centre a diameter D is X = -D/2; with X0 on the surface the depth d is X = +d outside.
+function ltPlan(){const m=ltCur(),v=ltV[m],q={mode:m},lo=Math.min,hi=Math.max,dia=!!ltV.xdia,R=d=>-d/2,in_=v.side==1;
+ const X0=dia?R(v.dstock!==undefined?v.dstock:v.dnom):0;
  if(m==0||m==2){const p=m==0?v.feed:v.speed;q.pitch=(v.dir?-1:1)*p;q.zl=q.zr='';if(v.zstop!==''){if(v.dir)q.zr=v.zstop;else q.zl=v.zstop}}
- if(m==4){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(v.zb>=v.za?1:-1)*v.feed;q.passes=v.passes;q.aux=xb>xa?1:0;q.zr=lo(v.za,v.zb);q.zl=hi(v.za,v.zb);q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.za,xa]}
- if(m==5){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(xb>=xa?1:-1)*v.feed;q.passes=v.passes;q.aux=v.zb>v.za?1:0;q.zr=lo(v.za,v.zb);q.zl=hi(v.za,v.zb);q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.za,xa]}
- if(m==3){q.pitch=(v.dir?-1:1)*v.feed;q.cone=Math.abs(v.dbig-v.dsmall)/v.len;q.aux=v.side?0:1;q.xl=q.xr='';const z=st.z||0;if(v.dir){q.zr=z-v.len;q.zl=''}else{q.zl=z+v.len;q.zr=''}}
- if(m==7){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(v.hand?-1:1)*v.pitch;q.starts=v.starts;q.passes=v.passes;q.aux=xb>xa?1:0;q.zr=lo(v.za,v.zb);q.zl=hi(v.za,v.zb);q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.hand?q.zl:q.zr,xa]}
- if(m==6){const xa=ltX(v.xa),xb=ltX(v.xb);q.pitch=(xb>=xa?1:-1)*v.feed;q.passes=v.passes;q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[null,xa]}
- if(m==8){const xa=ltX(v.xa);q.pitch=v.feed;q.passes=v.passes;q.aux=v.shape?0:1;q.zr=v.za;q.zl=v.za+v.rz;q.xr=xa;q.xl=xa+v.rx;q.start=[v.za,xa]}
+ if(m==4){const xb=dia?R(v.dfin):(in_?-v.depth:v.depth);q.pitch=v.feed;q.passes=v.passes;q.aux=in_?0:1;q.zr=v.za;q.zl=v.za+v.len;q.xr=lo(X0,xb);q.xl=hi(X0,xb);q.start=[v.za,X0];q.xb=xb}
+ if(m==5){const xb=dia?R(v.dfinf):v.xin;q.pitch=(xb>=X0?1:-1)*v.feed;q.passes=v.passes;q.aux=1;q.zr=v.za;q.zl=v.za+v.zdep;q.xr=lo(X0,xb);q.xl=hi(X0,xb);q.start=[v.za,X0];q.xb=xb}
+ if(m==3){q.pitch=(v.dir?-1:1)*v.feed;q.cone=Math.abs(v.dbig-v.dsmall)/v.len;q.aux=in_?0:1;q.xl=q.xr='';const z=st.z||0;if(v.dir){q.zr=z-v.len;q.zl=''}else{q.zl=z+v.len;q.zr=''}}
+ if(m==7){const xa=dia?R(v.dnom):0,xb=xa+(in_?-v.tdep:v.tdep);q.pitch=(v.hand?-1:1)*v.pitch;q.starts=v.starts;q.passes=v.passes;q.aux=in_?0:1;q.zr=v.za;q.zl=v.za+v.len;q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.hand?q.zl:q.zr,xa];q.xb=xb}
+ if(m==6){const xb=dia?R(v.dfinp):(in_?-v.depth:v.depth);q.pitch=(xb>=X0?1:-1)*v.feed;q.passes=v.passes;q.xr=lo(X0,xb);q.xl=hi(X0,xb);q.start=[null,X0];q.xb=xb}
+ if(m==8){q.pitch=v.feed;q.passes=v.passes;q.aux=v.shape?0:1;q.zr=v.za;q.zl=v.za+v.rz;q.xr=X0;q.xl=X0+v.rx;q.start=[v.za,X0]}
  return q}
-function ltCheck(){const L=ltT(),m=ltCur(),v=ltV[m],E=L.err;
- for(const f of LTF[m])if(f[1]!='o'&&f[1]!='s'&&!isFinite(+v[f[0]]))return E.val;
- if(ltV.xdia)for(const f of LTF[m])if(f[1]=='x'&&v[f[0]]<0)return E.dia;
- if([4,5,7].includes(m)&&v.za==v.zb)return E.same;
- if([4,5,6,7].includes(m)&&v.xa==v.xb)return E.same;
+function ltCheck(){const L=ltT(),m=ltCur(),v=ltV[m],E=L.err,F=LTF[m].filter(ltShown);
+ for(const f of F)if(f[1]=='n'&&!isFinite(+v[f[0]]))return E.val;
+ for(const f of F)if(f[1]=='n'&&/^d/.test(f[0])&&v[f[0]]<0)return E.dia;
+ for(const k of ['len','zdep','rz','rx','tdep','depth','xin'])if(F.some(f=>f[0]==k)&&!(v[k]>0))return E.len;
  if(m==3&&!(v.dbig>v.dsmall))return E.cone;
- if(m==8&&!(v.rz>0&&v.rx>0))return E.val;
- if(m==7&&(ltX(v.xb)>ltX(v.xa))!=(v.side==0))return E.side;
+ if(ltV.xdia&&(m==4||m==6)){const fin=m==4?v.dfin:v.dfinp;if(fin==v.dstock)return E.same;
+  if((fin>v.dstock)!=(v.side==1))return E.side.replace('{w}',v.side==1?E.larger:E.smaller)}
+ if(ltV.xdia&&m==5&&v.dfinf==v.dstock)return E.same;
  return ''}
 let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;const e=$(id);if(e)e.innerHTML=html}};
 function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
  if(err)out.push('<b class="bad">'+err+'</b>');
  else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(q.start[0])).replace('{x}',f3(q.start[1])+(ltV.xdia?' (Ø '+f3(-2*q.start[1])+')':'')));
-  if(m==6)out.push(L.goTo.split('Z')[0].trim()+' X '+f3(q.start[1])+'. '+L.cutZ);
-  if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len)):''));
-  if([4,6,7].includes(m))out.push(L.sideIs+': '+(q.aux||(m==6&&q.pitch>0)?L.ext:L.int)+(m==3?'':''));
-  if(m==3)out.push('k = '+(+q.cone).toFixed(5));
-  if(ltV.xdia&&LTF[m].some(f=>f[1]=='x'))out.push(L.x0note)}
- const p=Math.abs(q.pitch||0);let mm=0;
- if(m==4)mm=Math.abs(v.zb-v.za)*v.passes;if(m==7)mm=Math.abs(v.zb-v.za)*v.passes*v.starts;if(m==5)mm=Math.abs(ltX(v.xb)-ltX(v.xa))*v.passes;
- if(m==6)mm=Math.abs(ltX(v.xb)-ltX(v.xa));if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
+  if(m==6)out.push(L.cutZ.replace('{z}',f3(st.z)));
+  if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len))+' k = '+(+q.cone).toFixed(5):''));
+  if(ltV.xdia&&LTF[m].some(f=>f[5]=='x'&&f[6]=='D'))out.push(L.x0note)}
+ const p=Math.abs(q.pitch||0),dx=q.xb!==undefined&&q.start?Math.abs(q.xb-q.start[1]):0;let mm=0;
+ if(m==4)mm=v.len*v.passes;if(m==7)mm=v.len*v.passes*v.starts;if(m==5)mm=dx*v.passes;if(m==6)mm=dx;if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
  if(mm&&p&&m!=2&&!err){if(st.rpm>2){const t=mm/(p*st.rpm)*1.15;
    out.push('≈ '+(t<1?Math.max(1,Math.round(t*60))+(look.lang=='el'?' δευτ.':' s'):t.toFixed(1)+(look.lang=='el'?' λεπτά':' min'))+' '+L.estimate+' '+st.rpm+' '+L.rpmu)}else out.push(L.stopped)}
  ltPut('ltInfo',out.join('<br>'))}
@@ -853,20 +871,21 @@ function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm
 // START: send the form (the H4 refuses while it is ON or moving), then press ON through the H4's key queue.
 async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.measure){msg(L.inch);return}
  const err=ltCheck();if(err){msg(err);return}
- const q=ltPlan(),p=new URLSearchParams();for(const [k,v] of Object.entries(q))if(k!='start')p.set(k,v===''?'':(typeof v=='number'?+v.toFixed(5):v));
+ const q=ltPlan(),p=new URLSearchParams();for(const [k,v] of Object.entries(q))if(k!='start'&&k!='xb')p.set(k,v===''?'':(typeof v=='number'?+v.toFixed(5):v));
  try{await post('/lathe?'+p.toString());await new Promise(r=>setTimeout(r,300));await post('/lathe?do=start')}catch(e){msg(e.message)}}
 (function(){const b=$('ltStart');let t=null,t0=0;const end=()=>{clearInterval(t);t=null;$('ltFill').style.width='0'};
  const go=e=>{if(st.on||t)return;e.preventDefault();t0=performance.now();t=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/800);$('ltFill').style.width=k*100+'%';if(k>=1){end();ltStartGo()}},30)};
  b.addEventListener('pointerdown',go);['pointerup','pointerleave','pointercancel'].forEach(v=>b.addEventListener(v,end));
  b.addEventListener('keydown',e=>{if(e.key=='Enter'||e.key==' ')go(e)});b.addEventListener('keyup',end)})();
-// Side view, fitted to Z0, the stops (or the form's plan) and the tool; X0 as the H4 has it.
+// Side view, fitted to Z0, the stops (or the form's plan) and the tool; X0 as the H4 has it, the outside of the
+// part at the bottom so the tool comes from below as on the lathe.
 function ltDraw(){const l=st.lathe;if(!l)return;const W=600,H=300,q=st.on?null:ltPlan(),src=st.on||!q?l:{zl:q.zl,zr:q.zr,xl:q.xl,xr:q.xr};
  const num=v=>v===''||v==null?null:+v,zl=num(src.zl),zr=num(src.zr),xl=num(src.xl),xr=num(src.xr),zs=[0,st.z],xs=[0,st.x];if(!ltV.xdia&&xl!=null)xs.push(xl+2);
  for(const v of [zl,zr])if(v!=null)zs.push(v);for(const v of [xl,xr])if(v!=null)xs.push(v);
  let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
  const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.15;z1+=zr_*.35;x0-=xr_*.25;x1+=xr_*.25;
- const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>20+(x-x0)*S,g=[];
- const ax=ltV.xdia?py(0):H-12,chuck=px(z1);
+ const S=Math.min((W-120)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>H-20-(x-x0)*S,g=[];  // outside at the bottom: the tool comes from below
+ const ax=ltV.xdia?py(0):12,chuck=px(z1);
  for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="var(--tileb)" stroke-width="1"/>`);
  const surf=xr!=null?xr:(ltV.xdia?Math.min(st.x,0):0),top=py(surf);
  g.push(`<rect x="${chuck}" y="${Math.min(top,ax)}" width="${Math.max(0,px(0)-chuck)}" height="${Math.abs(ax-top)}" fill="#8b95a6" opacity=".55"/>`);
