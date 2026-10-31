@@ -194,6 +194,18 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
  .ltfields{gap:5px}.ltfields label{font-size:11px}.ltfields .step .numv{font-size:15px;padding:3px 0}.ltfields .step{grid-template-columns:30px 1fr 30px}
  .ltfields .seg button{padding:5px 2px;font-size:12px}.ltfields .sel{padding:4px 6px}.ltinfo{font-size:11.5px}.ltnow{font-size:11px}.ltstart{min-width:150px;padding:11px 12px}
  .ltdro{gap:4px}.ltsp{padding:3px 8px}.ltsp .v{font-size:17px}.ltside{gap:6px}.card.ltpanel{padding:8px;gap:6px}}
+/* X group heading: a shortcut to the setting Ø / R (Settings, Appearance). */
+.ltg h4{display:flex;justify-content:space-between;align-items:center;gap:6px}.ltxr{padding:1px 7px;font:600 11px system-ui;border-radius:6px;border:1px solid var(--line);background:var(--tile);color:var(--fg)}
+/* Lathe form: large - / + buttons for the finger, on every screen size (they override the compact sizes above). */
+.ltg .step,.ltfields .step{grid-template-columns:48px 1fr 48px!important}
+.ltg .step button:not(.numv),.ltfields .step button:not(.numv){font-size:30px!important;font-weight:700;line-height:1;min-height:40px;touch-action:manipulation}
+.ltg .step button:not(.numv):active,.ltfields .step button:not(.numv):active{background:var(--or);color:#111}
+.ltgc .ltgf,.ltfields{grid-template-columns:repeat(auto-fill,minmax(164px,1fr))!important}
+/* The notes under the form give way first (they scroll inside); the controls keep their size. */
+.ltpanel>.ltinfo{flex:1 1 0;min-height:2.9em;overflow-y:auto}.ltpanel>*:not(.ltinfo){flex-shrink:0}
+@media (max-height:640px),(orientation:portrait) and (max-height:1000px){.ltg label{line-height:1.15}.ltg .f{gap:1px}.ltg{padding:3px 6px;gap:3px}.ltgroups{gap:4px}.ltgc .ltgf{gap:3px 4px}}
+@media (max-height:640px){.ltgc .ltgf,.ltfields{grid-template-columns:repeat(auto-fill,minmax(136px,1fr))!important}.ltg .step,.ltfields .step{grid-template-columns:42px 1fr 42px!important}.ltg .step button:not(.numv),.ltfields .step button:not(.numv){min-height:30px;font-size:26px!important}.ltg .step .numv{padding:0}}
+@media (orientation:portrait) and (max-height:1000px){.ltg .step button:not(.numv),.ltfields .step button:not(.numv){min-height:34px}.ltg .step .numv{padding:0}}
 </style></head><body>
 <div id="app">
 <header><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
@@ -564,7 +576,7 @@ const AXC={X:look.X,Z:look.Z,C:look.C};
 function lookApply(){document.body.classList.toggle('light',look.theme=='light');const r=document.documentElement.style;
  r.setProperty('--or',look.acc);r.setProperty('--dro',look.size+'px');AXC.X=look.X;AXC.Z=look.Z;AXC.C=look.C;
  document.querySelectorAll('#pad [data-a]').forEach(b=>b.style.setProperty('--c',AXC[b.dataset.a]));$('padCl').style.setProperty('--c',AXC.C);
- const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow()}
+ const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow();if($('slist')&&$('slist').innerHTML)setList()}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
 function lookForm(){$('lkXr').value=look.xr;$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
@@ -673,7 +685,8 @@ function sub(t,p,quiet){const bar=document.querySelector(`.subtabs[data-s="${t}"
  if(!quiet&&curTab!=t)tab(t);pagers();if(p=='path')requestAnimationFrame(drawPath)}
 document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.parentElement.dataset.s,b.dataset.p));
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
-function setList(){const L=[['look','Appearance'],['screen','Screen and jog']].concat(cfgGroups.map((g,i)=>['m'+i,'Machine: '+g])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app','App update']]:[]);
+// The list follows the chosen language (the pages themselves are bilingual or English).
+function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος X (Ø / R)':'Appearance · language · Lathe X (Ø / R)'],['screen',el?'Οθόνη και jog':'Screen and jog']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+g])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]);
  $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setShow('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('');setShow(setOpen,true)}
 function setShow(k,noHist){const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}
@@ -795,7 +808,7 @@ function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
  const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[o]}</button>`).join('')}</div></div>`
   :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`;
- const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
+ const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}${g=='x'?'<button type="button" class="ltxr" title="Ø / R" onclick="tab(\'settings\');setShow(\'look\')">Ø / R ⚙</button>':''}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
  const pre=LTPRE[m]?`<select id="ltPre" class="sel ltpre" aria-label="${L.f.preset}"><option value="">${L.f.preset}…</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${ltPre[m]===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select>`:'';
  $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
  $('ltForm').querySelectorAll('.ltgz').forEach(e=>e.style.setProperty('--c',AXC.Z));$('ltForm').querySelectorAll('.ltgx').forEach(e=>e.style.setProperty('--c',AXC.X));
