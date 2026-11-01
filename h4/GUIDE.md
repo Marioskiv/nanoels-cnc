@@ -215,7 +215,7 @@ program runs.
   back there. A left-hand thread (it starts at the chuck end) goes out to the safe X, then along Z to its start from
   outside. STOP stops these moves too, and after a STOP nothing moves by itself. Feed, constant feed and taper start
   where the tool stands. Pick an operation at the top and fill its form: Z values
-  (green: start, length) and X values (orange: part Ø and final Ø, or the depth) side by side, or a preset.
+  (green: start, length) and X values (orange: part Ø and final Ø) side by side, or a preset.
   The side view draws the part from its zero (face at Z0, its diameter), the material that comes off and the
   tool's path pass by pass; **▶ Simulate** runs the tool along it. Presets: metric and UNC threads, Morse and other tapers, spheres; every value stays editable, with the
   page's own number pad. Filling the form moves nothing and sends nothing. **Hold START**: the page sends the values
@@ -223,6 +223,20 @@ program runs.
   as the H4's own setup steps need; the H4 then moves the tool to the start point by itself and cuts, and refuses
   as it does from the keys. Taper, feed and parting start where the tool stands. **STOP** turns it OFF. Inch
   measure: set the values on the H4 keys.
+  **Threads** (*Male* = bolt, *Female* = nut): choose the standard (e.g. M10 × 1.5); for metric threads the page
+  shows the ISO 965 tolerance of what to make first - a male thread's part Ø (class 6g, e.g. M10 × 1.5: 9.732 -
+  9.968) or a female thread's hole Ø (class 6H, 8.376 - 8.676, with the drill) - and fills in the middle of it.
+  Measure what you made and write that in *Part Ø now* / *Hole Ø now*: the thread depth is worked out from it to
+  the *Final Ø* (male: the root, d - 1.22687 P; female: the nominal D), and a measured Ø outside the tolerance is
+  flagged. The H4 cuts the same depth each pass (its own thread mode), so the last passes take more: use more
+  passes for a better finish; check with a nut / bolt and run START again with a final Ø 0.05 smaller (male) or
+  larger (female) if it is tight. UNC threads: nominal sizes only. Leave a relief groove at the end of the length.
+  **Taper**: *Large Ø* towards the chuck or at the face (any side, any direction); the H4's taper starts where the
+  tool stands, and the page shows the Ø it starts from and ends at.
+  **Sphere**: *Convex* is a dome on the end of the part (face side), *Concave* a cove at the face corner; Radius X
+  cannot pass the centre.
+  The drawing and the values sent are checked against the H4's own mode functions run on a PC
+  (`h4/test/lathe/run.sh`: every point of the H4 path on the drawing, within 0.05 mm).
 - **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
 - **H4 keys**: the H4 display and keys, and the gamepad.
