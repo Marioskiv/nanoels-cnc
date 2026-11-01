@@ -225,6 +225,9 @@ program runs.
   as the H4's own setup steps need; the H4 then moves the tool to the start point by itself and cuts, and refuses
   as it does from the keys. Taper, feed and parting start where the tool stands. **STOP** turns it OFF. Inch
   measure: set the values on the H4 keys.
+  **Z places** (start Z, stop at Z) have the arrows **◀** (towards the chuck) and **▶** (towards the face), the
+  way the drawing shows the lathe, in every Z view; lengths keep − / +. A turning or thread start inside the part
+  is pointed out: the tool goes in straight there at every pass (it needs a tool that also cuts on its side).
   **Part** (button in the zero row): declare the part once - part Ø, how far it sticks out of the jaws (measured
   from the face, after *Touch Z0*), bore Ø for a tube. The drawing then shows the real part and the jaws; the forms
   take the part Ø from it (the largest over the operation's length); an operation that would come closer than 2 mm
