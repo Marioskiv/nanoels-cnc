@@ -79,14 +79,14 @@ final class UpdateCheck {
                 }
                 prefs.edit().putLong("updateCheck", System.currentTimeMillis()).apply();
                 if (best == null) {
-                    if (manual) tell(activity, "H4 CNC " + current + " is the newest version.");
+                    if (manual) tell(activity, Tr.t(activity, "H4 CNC " + current + " is the newest version.", "Το H4 CNC " + current + " είναι η νεότερη έκδοση."));
                     return;
                 }
                 final String version = best, url = bestUrl;
                 activity.runOnUiThread(() -> offer(activity, current, version, url));
             } catch (Exception e) {
                 // no network or GitHub unreachable: the automatic check tries again next time
-                if (manual) tell(activity, "Could not look for an update (no internet?): " + e.getMessage());
+                if (manual) tell(activity, Tr.t(activity, "Could not look for an update (no internet?): ", "Δεν έγινε έλεγχος για ενημέρωση (χωρίς internet;): ") + e.getMessage());
             } finally {
                 busy = false;
             }
@@ -96,21 +96,29 @@ final class UpdateCheck {
     private static void tell(MainActivity activity, String text) {
         activity.runOnUiThread(() -> {
             if (activity.isFinishing()) return;
-            new AlertDialog.Builder(activity).setTitle("App update").setMessage(text).setPositiveButton("OK", null).show();
+            new AlertDialog.Builder(activity).setTitle(Tr.t(activity, "App update", "Ενημέρωση app")).setMessage(text).setPositiveButton("OK", null).show();
         });
     }
 
     private static void offer(MainActivity activity, String current, String version, String url) {
         if (activity.isFinishing()) return;
         new AlertDialog.Builder(activity)
-                .setTitle("Update available")
-                .setMessage("H4 CNC " + version + " is available (this one is " + current + ").\n\n"
-                        + "Install downloads it and Android asks you to confirm. If Android says it cannot "
-                        + "(an older app signed differently), uninstall H4 CNC first and install again.\n\n"
-                        + "Huawei tablets (Android 7): hold the tablet upright (portrait) while Android installs; "
-                        + "held sideways, its installer stays at \"Installing...\".")
-                .setPositiveButton("Install", (d, w) -> install(activity, url))
-                .setNegativeButton("Later", null)
+                .setTitle(Tr.t(activity, "Update available", "Υπάρχει ενημέρωση"))
+                .setMessage(Tr.t(activity,
+                        "H4 CNC " + version + " is available (this one is " + current + ").\n\n"
+                        + "Install downloads it and Android asks you to confirm. Android closes the app while it "
+                        + "installs it: that is normal, open it again afterwards. If Android says it cannot (an older "
+                        + "app signed differently), uninstall H4 CNC first and install again.\n\n"
+                        + "Huawei tablets (Android 7): keep Auto-rotate on (or hold the tablet upright) while Android "
+                        + "installs; with the rotation locked sideways its installer stays at \"Installing...\".",
+                        "Υπάρχει το H4 CNC " + version + " (αυτό είναι το " + current + ").\n\n"
+                        + "Το Εγκατάσταση το κατεβάζει και το Android ζητά επιβεβαίωση. Στην εγκατάσταση το Android "
+                        + "κλείνει το app: είναι κανονικό, άνοιξέ το ξανά μετά. Αν το Android λέει ότι δεν μπορεί "
+                        + "(παλιό app με άλλη υπογραφή), απεγκατάστησε πρώτα το H4 CNC και εγκατάστησε ξανά.\n\n"
+                        + "Tablet Huawei (Android 7): άφησε την Αυτόματη περιστροφή ενεργή (ή κράτα το tablet κάθετα) "
+                        + "όσο εγκαθιστά· με κλειδωμένη πλάγια περιστροφή ο εγκαταστάτης μένει στο «Εγκατάσταση...»."))
+                .setPositiveButton(Tr.t(activity, "Install", "Εγκατάσταση"), (d, w) -> install(activity, url))
+                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null)
                 .show();
     }
 
@@ -122,21 +130,22 @@ final class UpdateCheck {
     // installer opens: some installers only hang on it instead of saying why.
     private static void install(final MainActivity activity, final String url) {
         if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {
-            new AlertDialog.Builder(activity).setTitle("App update")
-                    .setMessage("Android must allow H4 CNC to install apps (once). Switch it on in the next screen, "
+            new AlertDialog.Builder(activity).setTitle(Tr.t(activity, "App update", "Ενημέρωση app"))
+                    .setMessage(Tr.greek(activity) ? "Το Android πρέπει να επιτρέψει στο H4 CNC να εγκαθιστά εφαρμογές (μία φορά). "
+                            + "Ενεργοποίησέ το στην επόμενη οθόνη, γύρνα πίσω και πάτα ξανά Έλεγχος για ενημέρωση." : "Android must allow H4 CNC to install apps (once). Switch it on in the next screen, "
                             + "come back and press Check for an app update again.")
-                    .setPositiveButton("Open settings", (d, w) -> {
+                    .setPositiveButton(Tr.t(activity, "Open settings", "Άνοιγμα ρυθμίσεων"), (d, w) -> {
                         try {
                             activity.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                     Uri.parse("package:" + activity.getPackageName())));
                         } catch (Exception ignored) {
                         }
                     })
-                    .setNegativeButton("Later", null).show();
+                    .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null).show();
             return;
         }
-        final AlertDialog progress = new AlertDialog.Builder(activity).setTitle("App update")
-                .setMessage("Downloading ...").setCancelable(false).show();
+        final AlertDialog progress = new AlertDialog.Builder(activity).setTitle(Tr.t(activity, "App update", "Ενημέρωση app"))
+                .setMessage(Tr.t(activity, "Downloading ...", "Λήψη ...")).setCancelable(false).show();
         new Thread(() -> {
             try {
                 final File apk = ApkProvider.file(activity);
@@ -154,7 +163,7 @@ final class UpdateCheck {
                         if (pct != lastPct) {
                             lastPct = pct;
                             final long kb = done / 1024;
-                            activity.runOnUiThread(() -> progress.setMessage(pct >= 0 ? "Downloading ... " + pct + " %" : "Downloading ... " + kb + " kB"));
+                            activity.runOnUiThread(() -> progress.setMessage(Tr.t(activity, "Downloading ... ", "Λήψη ... ") + (pct >= 0 ? pct + " %" : kb + " kB")));
                         }
                     }
                 }
@@ -165,12 +174,12 @@ final class UpdateCheck {
                     progress.dismiss();
                     if (problem == null) openInstaller(activity, apk);
                     else if (problem.equals(SIGNED_DIFFERENTLY)) offerUninstall(activity);
-                    else tell(activity, "The update was not installed: " + problem);
+                    else tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + problem);
                 });
             } catch (Exception e) {
                 activity.runOnUiThread(() -> {
                     progress.dismiss();
-                    tell(activity, "The update was not installed: " + e.getMessage());
+                    tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + e.getMessage());
                 });
             }
         }).start();
@@ -213,7 +222,7 @@ final class UpdateCheck {
         try {
             activity.startActivityForResult(i, INSTALL_REQUEST);
         } catch (Exception e) {
-            tell(activity, "Android's installer did not open: " + e.getMessage());
+            tell(activity, Tr.t(activity, "Android's installer did not open: ", "Ο εγκαταστάτης του Android δεν άνοιξε: ") + e.getMessage());
         }
     }
 
@@ -221,18 +230,20 @@ final class UpdateCheck {
     // one after this one is removed. Uninstalling loses only the app's own settings (the H4 address, screen).
     private static void offerUninstall(MainActivity activity) {
         if (activity.isFinishing()) return;
-        new AlertDialog.Builder(activity).setTitle("App update")
-                .setMessage("The installed H4 CNC was signed with another key (an early test version), so Android "
+        new AlertDialog.Builder(activity).setTitle(Tr.t(activity, "App update", "Ενημέρωση app"))
+                .setMessage(Tr.greek(activity) ? "Το εγκατεστημένο H4 CNC έχει άλλη υπογραφή (παλιά δοκιμαστική έκδοση), οπότε το Android "
+                        + "δεν μπορεί να το ενημερώσει.\n\nΑπεγκατάστησέ το τώρα, κατέβασε ξανά το H4CNC.apk από\n" + LATEST
+                        + "\nκαι άνοιξέ το. Χάνονται μόνο οι ρυθμίσεις του app (διεύθυνση H4, οθόνη)· το H4 τα κρατά όλα." : "The installed H4 CNC was signed with another key (an early test version), so Android "
                         + "cannot update it.\n\nUninstall it now, then download H4CNC.apk once more from\n"
                         + LATEST + "\nand open it. Only the app's own settings are lost (the H4 address, the "
                         + "screen); the H4 keeps everything.")
-                .setPositiveButton("Uninstall", (d, w) -> {
+                .setPositiveButton(Tr.t(activity, "Uninstall", "Απεγκατάσταση"), (d, w) -> {
                     try {
                         activity.startActivity(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + activity.getPackageName())));
                     } catch (Exception ignored) {
                     }
                 })
-                .setNegativeButton("Later", null).show();
+                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null).show();
     }
 
     static final String LATEST = "https://github.com/Marioskiv/nanoels-cnc/releases/latest/download/H4CNC.apk";
@@ -243,7 +254,7 @@ final class UpdateCheck {
         int code = data != null ? data.getIntExtra("android.intent.extra.INSTALL_RESULT", 0) : 0;
         // -7 INSTALL_FAILED_UPDATE_INCOMPATIBLE: another signature
         if (code == -7) offerUninstall(activity);
-        else tell(activity, "The update was not installed (Android code " + code + ").");
+        else tell(activity, Tr.t(activity, "The update was not installed (Android code " + code + ").", "Η ενημέρωση δεν εγκαταστάθηκε (κωδικός Android " + code + ")."));
     }
 
     // "1.10" > "1.9": compares the numbers between the dots.

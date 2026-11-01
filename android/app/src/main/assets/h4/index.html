@@ -424,7 +424,7 @@ async function eventsShow(){try{const r=await fetch('/events');const t=await r.t
 // The screen is the app's; the H4 firmware must speak the same interface (st.api). Older firmware works but lacks
 // newer fields: say it once.
 let apiSaid=false;function apiCheck(){if(apiSaid||DEMO||st.api!==undefined)return;apiSaid=true;msg('The H4 firmware is older than this app: update it (Settings, Firmware).')}
-function show(){const u=st.inch?' in':' mm';restartShow();apiCheck();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
+function show(){const u=st.inch?' in':' mm';restartShow();apiCheck();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -588,6 +588,7 @@ const AXC={X:look.X,Z:look.Z,C:look.C};
 function lookApply(){document.body.classList.toggle('light',look.theme=='light');const r=document.documentElement.style;
  r.setProperty('--or',look.acc);r.setProperty('--dro',look.size+'px');AXC.X=look.X;AXC.Z=look.Z;AXC.C=look.C;
  document.querySelectorAll('#pad [data-a]').forEach(b=>b.style.setProperty('--c',AXC[b.dataset.a]));$('padCl').style.setProperty('--c',AXC.C);
+ try{if(isApp&&H4App.setLang)H4App.setLang(look.lang=='el'?'el':'en')}catch(e){} // the app's own dialogs follow
  const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow();if($('slist')&&$('slist').innerHTML)setList()}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
@@ -702,7 +703,10 @@ document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.pare
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
 // The list follows the chosen language (the pages themselves are bilingual or English).
 function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος X / Z':'Appearance · language · Lathe X / Z'],['screen',el?'Οθόνη και jog':'Screen and jog']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+g])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]);
- $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setShow('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('');setShow(setOpen,true)}
+ $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setShow('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('')+'<div class="small" id="verLine"></div>';verShow();setShow(setOpen,true)}
+// the versions, always in view in Settings: this app (the screen) and the H4's firmware
+function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
+ const t=(look.lang=='el'?'Έκδοση app ':'App version ')+a+' · firmware '+(st.fw||'-');if(e.textContent!=t)e.textContent=t}
 function setShow(k,noHist){const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}
  setOpen=k;$('sets').classList.toggle('open',!!k);document.querySelectorAll('.spage').forEach(p=>p.hidden=p.dataset.sp!=k);
