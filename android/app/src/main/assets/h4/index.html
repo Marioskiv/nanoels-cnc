@@ -755,7 +755,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    spring:'Spring pass (a clean last cut): START again with the same values; the earlier passes go through the air, the last one runs again at the final depth.',
    cust:'My own metric thread…',custD:'Own thread: nominal Ø (e.g. 20)',custP:'Own thread: pitch mm (e.g. 1.25)',custNote:'{n}: own metric thread; tolerances 6g / 6H from the ISO 965-1 formulas.',
    g:{mc:'ISO metric coarse',mf:'ISO metric fine',uc:'UNC (inch)',uf:'UNF (inch)',g:'G pipe (BSP, 55°)',t:'Tr trapezoidal (30°)'}},
-  coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',vAll:'All',vClose:'Close',passOf:'Pass {k} of {n}',
+  coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',cn:{ang:'Half angle α {a}° (included {b}°).',angBtn:'Angle…',chBtn:'Chamfer…',angAsk:'Half angle α (degrees): Ø small comes from it',chAskE:'Chamfer size c mm (Ø large = part Ø {d})',chAskI:'Chamfer size c mm (Ø small = hole Ø {d})',chAng:'Chamfer angle (degrees)',bad:'Not possible with these values.',start:'Chamfer {c} × {a}°: START with the tool {z} mm in front of the face, at Ø {d}.',go:'Take the tool there',front:'First bring the tool in front of the face (Z above 0), in the air.',big:'A chamfer over 1 mm in one pass: in steel better in steps (1 mm, then the full size).'},vAll:'All',vClose:'Close',passOf:'Pass {k} of {n}',
   inside:'The start (Z {z}) is inside the part: at every pass the tool goes in straight there - it needs a tool that also cuts on its side (grooving or neutral).',
   part:{title:'Part',short:'Part Ø{d}×{l}',help:'With the face at Z0 (touch Z0 first). The length is measured from the face to the jaws. The part Ø of the forms then comes from here, and what an operation started here takes off is taken off the part.',d:'Part Ø mm',len:'Out of the jaws mm',bore:'Bore Ø mm (0: solid)',new:'New part',none:'No part',bad:'Part Ø and length above 0, bore smaller than the part.',made:'Part set: face at Z0.',jaw:'This reaches the jaws ({d} mm left, at least 2 mm needed).',wall:'The final Ø reaches the bore: it would cut through the tube.',boot:'The H4 restarted: check the part (Part, New part) - its position may have changed.'},noSafe:'Safe distance 0: from where it stands the tool goes straight (both axes) to the start: make sure nothing is in the way.',
   ok:'OK',cancel:'Cancel',clear:'Empty',
@@ -788,7 +788,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    spring:'Πέρασμα καθαρισμού: ξανά ΕΚΚΙΝΗΣΗ με τις ίδιες τιμές· τα προηγούμενα περάσματα περνούν στον αέρα, το τελευταίο ξανά στο τελικό βάθος.',
    cust:'Δικό μου μετρικό σπείρωμα…',custD:'Δικό μου σπείρωμα: ονομαστική Ø (π.χ. 20)',custP:'Δικό μου σπείρωμα: βήμα mm (π.χ. 1,25)',custNote:'{n}: δικό σου μετρικό σπείρωμα· ανοχές 6g / 6H από τους τύπους του ISO 965-1.',
    g:{mc:'ISO μετρικά χοντρά',mf:'ISO μετρικά ψιλά',uc:'UNC (ίντσες)',uf:'UNF (ίντσες)',g:'G σωλήνα (BSP, 55°)',t:'Tr τραπεζοειδή (30°)'}},
-  coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',vAll:'Όλο',vClose:'Κοντινό',passOf:'Πέρασμα {k} από {n}',
+  coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',cn:{ang:'Μισή γωνία α {a}° (ολική {b}°).',angBtn:'Γωνία…',chBtn:'Λοξότμηση…',angAsk:'Μισή γωνία α (μοίρες): από αυτή βγαίνει η μικρή Ø',chAskE:'Λοξότμηση: μέγεθος c mm (μεγάλη Ø = Ø κομματιού {d})',chAskI:'Λοξότμηση: μέγεθος c mm (μικρή Ø = Ø τρύπας {d})',chAng:'Γωνία λοξότμησης (μοίρες)',bad:'Δεν γίνεται με αυτές τις τιμές.',start:'Λοξότμηση {c} × {a}°: ΕΚΚΙΝΗΣΗ με το κοπτικό {z} mm μπροστά από το πρόσωπο, στην Ø {d}.',go:'Πήγαινε το κοπτικό εκεί',front:'Φέρε πρώτα το κοπτικό μπροστά από το πρόσωπο (Z πάνω από 0), στον αέρα.',big:'Λοξότμηση πάνω από 1 mm σε ένα πέρασμα: σε χάλυβα καλύτερα σε βήματα (1 mm, μετά όλο).'},vAll:'Όλο',vClose:'Κοντινό',passOf:'Πέρασμα {k} από {n}',
   inside:'Η αρχή (Z {z}) είναι μέσα στο κομμάτι: σε κάθε πέρασμα το κοπτικό μπαίνει εκεί κάθετα — χρειάζεται κοπτικό που κόβει και στο πλάι (αυλακωτής ή ουδέτερο).',
   part:{title:'Κομμάτι',short:'Κομμάτι Ø{d}×{l}',help:'Με το πρόσωπο στο Z0 (πρώτα Άγγιγμα Z0). Το μήκος μετριέται από το πρόσωπο ως τις σιαγόνες. Η Ø κομματιού των φορμών παίρνεται από εδώ, και ό,τι αφαιρεί μια κατεργασία που ξεκίνησε εδώ αφαιρείται από το κομμάτι.',d:'Ø κομματιού mm',len:'Έξω από τις σιαγόνες mm',bore:'Ø τρύπας mm (0: συμπαγές)',new:'Νέο κομμάτι',none:'Χωρίς κομμάτι',bad:'Ø και μήκος πάνω από 0, τρύπα μικρότερη από το κομμάτι.',made:'Το κομμάτι ορίστηκε: πρόσωπο στο Z0.',jaw:'Φτάνει στις σιαγόνες (μένουν {d} mm, χρειάζονται τουλάχιστον 2).',wall:'Η τελική Ø φτάνει στην τρύπα: θα τρυπούσε τον σωλήνα.',boot:'Το H4 επανεκκίνησε: έλεγξε το Κομμάτι (Κομμάτι, Νέο κομμάτι) — η θέση του μπορεί να άλλαξε.'},noSafe:'Απόσταση ασφαλείας 0: από εκεί που στέκεται, το κοπτικό πηγαίνει ευθεία (και οι δύο άξονες) στην αρχή: βεβαιώσου ότι δεν υπάρχει εμπόδιο.',
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
@@ -912,7 +912,7 @@ function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;const g
  $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3><button type="button" class="ltrecb" data-rc="open">${L.rc.btn} (${ltRec.steps.length})</button>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
  $('ltForm').querySelectorAll('.ltgz').forEach(e=>e.style.setProperty('--c',AXC.Z));$('ltForm').querySelectorAll('.ltgx').forEach(e=>e.style.setProperty('--c',AXC.X));
  ltLast={};ltInfo();ltDraw()}
-function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;
+function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;if(m==3)delete ltV[3].ch; // a changed taper is no longer that chamfer
  // a thread keeps its standard (and tolerances) while its diameters are measured in; a new pitch ends it
  const keep=m==7&&k!='pitch'&&ltV[7].thr!==''&&ltV[7].thr!=null;if(m==7&&k=='pitch')ltV[7].thr='';if(!keep)ltPre[m]='';ltSave();
  const b=document.querySelector('#ltForm .numv[data-k="'+k+'"]');if(b)b.textContent=ltFmt(ltDisp(k,val),f[3]);
@@ -931,12 +931,13 @@ $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button'
   // Z0 on a part not cut yet moves the part's face there (the part is declared with its face at Z0)
   try{await post('/lathe?do='+b.dataset.z);await gdTouched('z');if(ltPart&&!ltPart.cut){ltPart.z0=0-partOff();partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}return}
  if(b.dataset.rc){recClick(b.dataset.rc);return}
+ if(b.dataset.cn){if(st.on)return;cnClick(b.dataset.cn);return}
  if(b.dataset.advp){if(st.on)return;ltSet(m,'passes',+b.dataset.advp);ltForm();return}
  if(b.dataset.ms){if(st.on)return;if(b.dataset.ms=='m')ltPad(L.ms.pad,'',false,d=>{msMeasured(d);ltForm()});else{msCorrect();ltForm()}return}
  if(b.dataset.gd){if(b.dataset.gd=='tool'){gdEvent('tool',true,true);msg(L.gd.toolDone)}else gdConfirm();ltForm();return}
  if(st.on)return;
  const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;
-  v[sg.dataset.k]=i;if(m!=7)ltPre[m]='';
+  v[sg.dataset.k]=i;if(m!=7)ltPre[m]='';if(m==3)delete v.ch;
   if(sg.dataset.k=='side'&&m==7){const t=ltThr(ltThrRow(v),i==1);if(t){v.dnom=t.mid;v.dthr=t.fin}else{const P=+v.pitch;v.dthr=i==1?+(+v.dnom+1.0825*P).toFixed(3):+(v.dnom-1.22687*P).toFixed(3)}ltSave();ltForm();return}
   if(sg.dataset.k=='side'&&m==3){v.big=i;ltSave();ltForm();return}
   ltSave();
@@ -1007,6 +1008,7 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
  {const g=gdNote(m,true);if(g)out.push('<b class="bad">'+g+'</b>')}
  if(m==4)msNote(v,out); // also when the part (cut to the final Ø) leaves nothing to cut
  advNote(m,v,out);
+ if(m==3)cnNote(v,out);
  if(err)out.push('<b class="bad">'+err+'</b>');
  else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(ltZs(q.start[0]))).replace('{x}',ltXs(q.start[1])));
   const sp=ltSafe(q);if(sp)out.push(L.safe.replace('{z}',f3(ltZs(sp.z==null?st.z:sp.z))).replace('{x}',sp.x==null?'—':ltXs(sp.x)));
@@ -1324,6 +1326,30 @@ function advNote(m,v,out){const D=advDia(m,v);if(!(D>0))return;const L=ltT().adv
  if(tot>0){const ap=tot/np,need=Math.ceil(tot/M[4]-1e-9);
   if(ap>M[4]+1e-9)out.push('<b>'+L.deep.replace('{a}',f2(ap)).replace('{m}',f2(M[4])).replace('{n}',need)+'</b> <button type="button" class="ltgdok" data-advp="'+need+'">'+L.setP.replace('{n}',need)+'</button>')}
  if((m==4||m==5||m==8)&&+v.feed>M[2]+1e-9)out.push('<b>'+L.fast.replace('{f}',f2(v.feed)).replace('{a}',f2(M[2]))+'</b>')}
+// ---------------------------------------------------------------- Taper by angle, chamfer.
+// The H4's taper (cone mode) is set by Ø large, Ø small and length; here also by the half angle α (Ø small = Ø large -
+// 2 L tan α). A chamfer is a short taper: c mm at angle α (45°) on the outside at the face (or the mouth of a hole).
+// The cone mode starts where the tool stands, so the page works out the start 1 mm in front of the face on the same
+// line, and can take the tool there (X first, then Z - only when the tool already is in front of the face, in the
+// air). One pass: a large chamfer is better made in steps.
+const CN_AIR=1;                                                        // start this far in front of the face (mm)
+const cnHalf=v=>Math.atan((v.dbig-v.dsmall)/(2*v.len))*180/Math.PI;
+function cnNote(v,out){const L=ltT().cn,a=cnHalf(v),ok=v.len>0&&v.dbig>v.dsmall;  // the buttons also with values to fix
+ out.push((ok?L.ang.replace('{a}',a.toFixed(3)).replace('{b}',(2*a).toFixed(3)):'')+` <button type="button" class="ltgdok" data-cn="ang">${L.angBtn}</button> <button type="button" class="ltgdok" data-cn="ch">${L.chBtn}</button>`);
+ const c=v.ch;if(!c)return;const d3=x=>(+x).toFixed(3);
+ out.push('<b>'+L.start.replace('{c}',d3(c.c)).replace('{a}',+c.a.toFixed(2)).replace('{z}',d3(CN_AIR)).replace('{d}',d3(c.d))+'</b> <button type="button" class="ltgdok" data-cn="go">'+L.go+'</button>');
+ if(c.c>1+1e-9)out.push(L.big)}
+function cnClick(a){const L=ltT().cn,v=ltV[3];
+ if(a=='ang'){ltPad(L.angAsk,v.len>0&&v.dbig>v.dsmall?+cnHalf(v).toFixed(3):'',false,x=>{if(!(x>0&&x<80)){msg(L.bad);return}const ds=v.dbig-2*v.len*Math.tan(x*Math.PI/180);
+   if(!(ds>0)){msg(L.bad);return}v.dsmall=+ds.toFixed(4);delete v.ch;ltSave();ltForm()});return}
+ if(a=='ch'){const int=v.side==1;ltPad(int?L.chAskI.replace('{d}',v.dsmall):L.chAskE.replace('{d}',v.dbig),1,false,c=>{if(!(c>0)){msg(L.bad);return}
+   ltPad(L.chAng,45,false,al=>{if(!(al>0&&al<80)){msg(L.bad);return}const t=Math.tan(al*Math.PI/180),lc=c/t;
+    if(int){const d=+v.dsmall,s=d+2*c+2*CN_AIR*t;v.dbig=+s.toFixed(4);v.big=1;v.ch={c,a:al,d:s}}
+    else{const D=+v.dbig,s=D-2*c-2*CN_AIR*t;if(!(s>0)){msg(L.bad);return}v.dsmall=+s.toFixed(4);v.big=0;v.ch={c,a:al,d:s}}
+    v.len=+(lc+CN_AIR).toFixed(4);v.dir=0;ltSave();ltForm()})});return}
+ if(a=='go'){const c=v.ch;if(!c)return;const g=gdState();if(g.z||g.x){msg(ltT().gd.refuse);return}
+  if(!(st.z<-0.2)){msg(L.front);return}                          // H4 frame: in front of the face = negative Z
+  ltAbort=false;(async()=>{try{await ltGoto('x',-c.d/2);await ltGoto('z',-CN_AIR)}catch(e){msg(e.message)}})()}}
 function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart.boot){ltPart.boot=st.boot;partSave();msg(ltT().part.boot)}}
 // View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
 let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};
