@@ -242,16 +242,26 @@ program runs.
   passes that were finished. *Touch Ø → X0* corrects the part Ø while nothing was cut. The part is kept in the
   tablet, in a frame that zeroing does not move; after an H4 restart the app asks to check it. Work done from the
   H4 keys is not known to the app: *New part* starts again.
-  **Threads** (*Male* = bolt, *Female* = nut): choose the standard (e.g. M10 × 1.5); for metric threads the page
-  shows the ISO 965 tolerance of what to make first - a male thread's part Ø (class 6g, e.g. M10 × 1.5: 9.732 -
-  9.968) or a female thread's hole Ø (class 6H, 8.376 - 8.676, with the drill) - and fills in the middle of it.
-  Measure what you made and write that in *Part Ø now* / *Hole Ø now*: the thread depth is worked out from it to
-  the *Final Ø* (male: the root, d - 1.22687 P; female: the nominal D), and a measured Ø outside the tolerance is
-  flagged. **Preparation ›** opens Turning set to make that part Ø (male) or bore that hole Ø (female) over the
-  thread's length, with the tolerance shown there too. Each thread pass goes less deep than the one before - the
-  depth after pass k of n is the full depth × √(k/n), so every pass takes about the same material (thread mode of
-  this fork, also from the H4 keys; turning and facing keep the same depth each pass). Check with a nut / bolt and
-  run START again with a final Ø 0.05 smaller (male) or larger (female) if it is tight. UNC threads: nominal sizes only. Leave a relief groove at the end of the length.
+  **Threads** (*Male* = bolt, *Female* = nut): choose the standard from the list - ISO metric coarse (M1.6 - M64)
+  and fine (ISO 261 / 262), UNC and UNF, G pipe (BSP, 55°, ISO 228-1), Tr trapezoidal (30°, ISO 2904) - or **My own
+  metric thread…** (the page's keypad asks the nominal Ø and the pitch, e.g. M20 × 1.25). For metric threads the
+  page shows the ISO 965-1 tolerance of what to make first - a male thread's part Ø (class 6g, e.g. M10 × 1.5:
+  9.732 - 9.968) or a female thread's hole Ø (class 6H, 8.376 - 8.676, with the drill) - and fills in the middle of
+  it; the usual pitches use the standard's table, other pitches and the own thread its formulas (es = -(15 + 11 P),
+  Td = 180 P^(2/3) - 3.15/√P, TD1 = 230 P^0.7 or 433 P - 190 P^1.22, in µm). UN, G and Tr threads are made to their
+  nominal sizes (no tolerance table): check them with the mating part. Measure what you made and write that in
+  *Part Ø now* / *Hole Ø now*: the thread depth is worked out from it to the *Final Ø* (male: the root - 60°
+  d - 1.22687 P, G d - 1.280654 P, Tr d - P - 2 ac; female: the nut's major Ø - D, Tr D + 2 ac), and a measured Ø
+  outside the tolerance is flagged. **Preparation ›** opens Turning set to make that part Ø (male) or bore that
+  hole Ø (female) over the thread's length, with the tolerance shown there too. Each thread pass goes less deep
+  than the one before - the depth after pass k of n is the full depth × √(k/n), so every pass takes about the same
+  material (thread mode of this fork, also from the H4 keys; turning and facing keep the same depth each pass). The
+  page also gives the insert angle (60°, 55° or 30°), a relief groove for the end of the length (cut first, with a
+  grooving tool in *Parting*; a little past the thread, about two pitches wide - a workshop rule, not a standard's
+  table) and the chamfer at the start. Order: Preparation, groove, chamfer, thread. Check with
+  a nut / bolt and run START again with a final Ø 0.05 smaller (male) or larger (female) if it is tight; START again
+  with the same values is a spring pass (the earlier passes run in the air). Both rely on the H4 keeping the thread
+  in step with the spindle between runs: check it in the air first (two runs, the same groove).
   **Taper**: *Large Ø* towards the chuck or at the face (any side, any direction); the H4's taper starts where the
   tool stands, and the page shows the Ø it starts from and ends at.
   **Sphere**: *Convex* is a dome on the end of the part (face side), *Concave* a cove at the face corner; Radius X
