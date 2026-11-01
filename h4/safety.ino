@@ -40,11 +40,8 @@ char eventQueue[EVENT_QUEUE][128];
 volatile uint32_t eventHead = 0, eventTail = 0;
 portMUX_TYPE eventMux = portMUX_INITIALIZER_UNLOCKED;
 
-// The Arduino core asks this at start: true = the sketch accepts a new firmware itself (safetyLoop()). C linkage:
-// it replaces the core's weak C function of the same name.
-extern "C" bool verifyRollbackLater() {
-  return true;
-}
+// verifyRollbackLater() (the Arduino core asks it at start) is in rollback.cpp: true = this sketch accepts a new
+// firmware itself, in safetyLoop().
 
 const char* resetReasonText(esp_reset_reason_t r) {
   switch (r) {
@@ -73,9 +70,9 @@ void eventLog(const char* text) {
   char line[128];
   snprintf(line, sizeof(line), "#%lu %lus %s", (unsigned long)bootNumber, (unsigned long)(millis() / 1000), text);
   portENTER_CRITICAL(&eventMux);
-  if (eventHead - eventTail >= EVENT_QUEUE) eventTail++; // full: the oldest unwritten line goes
+  if (eventHead - eventTail >= EVENT_QUEUE) eventTail = eventTail + 1; // full: the oldest unwritten line goes
   memcpy(eventQueue[eventHead % EVENT_QUEUE], line, sizeof(eventQueue[0])); // line is 0-terminated (snprintf)
-  eventHead++;
+  eventHead = eventHead + 1;
   portEXIT_CRITICAL(&eventMux);
 }
 
@@ -172,7 +169,7 @@ void eventsFlush() {
     bool any = eventHead != eventTail;
     if (any) {
       memcpy(line, eventQueue[eventTail % EVENT_QUEUE], sizeof(line));
-      eventTail++;
+      eventTail = eventTail + 1;
     }
     portEXIT_CRITICAL(&eventMux);
     if (!any) break;

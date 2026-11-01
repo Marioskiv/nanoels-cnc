@@ -78,7 +78,7 @@ void check(bool ok, const char* what) { checks++; if (!ok) { fails++; printf("FA
 // a restart: RAM is lost (except RTC_NOINIT), the flash stays
 void restart(esp_reset_reason_t why, bool powerCut) {
   nextReason = why; nowMs = 0;
-  restartUnconfirmed = false; restartText = ""; programFlagSet = false; firmwareAccepted = false; eventHead = eventTail = 0;
+  restartUnconfirmed = false; restartText = ""; programFlagSet = false; firmwareAccepted = false; eventHead = 0; eventTail = 0;
   if (powerCut) { rtcSafetyMagic = 12345; rtcMoving = 77; rtcCrashCount = 99; } // RTC memory is garbage after power on
   safetyBoot();
 }
