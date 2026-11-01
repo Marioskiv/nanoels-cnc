@@ -234,6 +234,11 @@ program runs.
   whole part and the jaws; **⊙ Close** about 24 mm around the tool, following it in the simulation and while the H4
   works. Two fingers zoom, one finger moves the drawing, a double tap goes back. While the simulation or the H4 runs it
   shows *Pass k of n*.
+  The part is drawn as a half section, as on a drawing: below the centre line cut open (hatched material, the bore,
+  the thread's teeth), above it seen from outside (the bore hidden, dashed; the thread as helix lines). The tool has
+  the shape of the operation: an 80° insert for turning, facing and taper, a V of the thread's angle (60°, 55° or
+  30°), a parting blade, a round insert for the sphere, and for inside work a boring bar along Z coming out of the
+  hole.
   **Part** (button in the zero row): declare the part once - part Ø, how far it sticks out of the jaws (measured
   from the face, after *Touch Z0*), bore Ø for a tube. The drawing then shows the real part and the jaws; the forms
   take the part Ø from it (the largest over the operation's length); an operation that would come closer than 2 mm
