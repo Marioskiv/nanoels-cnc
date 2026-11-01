@@ -46,9 +46,9 @@ final class FirmwareUpdate {
                 JSONObject status = new JSONObject(get("http://" + address + "/status", 3000));
                 String fw = status.optString("fw", "");
                 if (fw.isEmpty()) {
-                    problem = "This H4 firmware is too old for updates from the app: install the new firmware once over USB.";
+                    problem = Tr.t(activity, "This H4 firmware is too old for updates from the app: install the new firmware once over USB.", "Αυτό το firmware του H4 είναι πολύ παλιό για ενημέρωση από το app: βάλε μία φορά το νέο firmware με USB.");
                 } else if (status.optInt("running", 0) != 0) {
-                    problem = "The machine is running a program: try again when it has stopped.";
+                    problem = Tr.t(activity, "The machine is running a program: try again when it has stopped.", "Η μηχανή τρέχει πρόγραμμα: δοκίμασε ξανά όταν σταματήσει.");
                 } else {
                     JSONArray releases = new JSONArray(get(RELEASES, 8000));
                     String best = null, bestUrl = null;
@@ -73,10 +73,10 @@ final class FirmwareUpdate {
                         activity.runOnUiThread(() -> offer(activity, address, fw, version, url));
                         return;
                     }
-                    if (manual) problem = "The H4 has the newest firmware (" + fw + ").";
+                    if (manual) problem = Tr.t(activity, "The H4 has the newest firmware (" + fw + ").", "Το H4 έχει το νεότερο firmware (" + fw + ").");
                 }
             } catch (Exception e) {
-                if (manual) problem = "Could not check: " + e.getMessage();
+                if (manual) problem = Tr.t(activity, "Could not check: ", "Δεν έγινε έλεγχος: ") + e.getMessage();
             } finally {
                 busy = false;
             }
@@ -91,33 +91,38 @@ final class FirmwareUpdate {
         if (activity.isFinishing()) return;
         new AlertDialog.Builder(activity)
                 .setTitle("H4 firmware " + version)
-                .setMessage("A newer firmware for the H4 is available (it has " + current + ").\n\n"
+                .setMessage(Tr.t(activity, "A newer firmware for the H4 is available (it has " + current + ").\n\n"
                         + "Install it now over WiFi? Nothing may run; the H4 restarts and keeps its machine settings. "
-                        + "If anything goes wrong on the way, it keeps its present firmware.")
-                .setPositiveButton("Install", (d, w) -> install(activity, address, version, url))
-                .setNegativeButton("Later", null)
+                        + "If anything goes wrong on the way, it keeps its present firmware. Do not switch the H4 off "
+                        + "in the first 20 s after it restarts.",
+                        "Υπάρχει νεότερο firmware για το H4 (έχει το " + current + ").\n\n"
+                        + "Να εγκατασταθεί τώρα μέσω WiFi; Τίποτα δεν πρέπει να τρέχει· το H4 επανεκκινεί και κρατά τις "
+                        + "ρυθμίσεις της μηχανής. Αν κάτι πάει στραβά, μένει το τωρινό firmware. Μην σβήσεις το H4 στα "
+                        + "πρώτα 20 δευτερόλεπτα μετά την επανεκκίνηση."))
+                .setPositiveButton(Tr.t(activity, "Install", "Εγκατάσταση"), (d, w) -> install(activity, address, version, url))
+                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null)
                 .show();
     }
 
     private static void install(final MainActivity activity, final String address, final String version, final String url) {
         final AlertDialog progress = new AlertDialog.Builder(activity).setTitle("H4 firmware " + version)
-                .setMessage("Downloading...").setCancelable(false).show();
+                .setMessage(Tr.t(activity, "Downloading...", "Λήψη...")).setCancelable(false).show();
         new Thread(() -> {
             String result;
             boolean ok = false;
             try {
                 byte[] bin = download(url);
-                activity.runOnUiThread(() -> progress.setMessage("Sending to the H4 (" + bin.length / 1024 + " kB)..."));
+                activity.runOnUiThread(() -> progress.setMessage(Tr.t(activity, "Sending to the H4 (", "Αποστολή στο H4 (") + bin.length / 1024 + " kB)..."));
                 result = upload("http://" + address + "/firmware", "h4-firmware-" + version + ".bin", bin);
                 ok = result.startsWith("Firmware updated");
             } catch (Exception e) {
-                result = "Failed: " + e.getMessage();
+                result = Tr.t(activity, "Failed: ", "Απέτυχε: ") + e.getMessage();
             }
             final String text = result;
             final boolean done = ok;
             activity.runOnUiThread(() -> {
                 progress.dismiss();
-                info(activity, "H4 firmware " + version, done ? text + "\n\nThe page reloads in a few seconds." : text);
+                info(activity, "H4 firmware " + version, done ? text + Tr.t(activity, "\n\nThe page reloads in a few seconds.", "\n\nΗ οθόνη ξαναφορτώνει σε λίγα δευτερόλεπτα.") : text);
                 if (done) activity.reloadLater(9000);
             });
         }).start();

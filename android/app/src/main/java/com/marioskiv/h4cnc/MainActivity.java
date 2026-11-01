@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, int code, String description, String failingUrl) {
                 if (demo) return;
-                askAddress("Could not open " + failingUrl + " (" + description + ").");
+                askAddress(Tr.t(MainActivity.this, "Could not open ", "Δεν άνοιξε το ") + failingUrl + " (" + description + ").");
             }
         });
         web.setWebChromeClient(new WebChromeClient() {  // also shows the page's confirm() questions
@@ -109,7 +109,7 @@ public class MainActivity extends Activity {
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
         if (address == null) askAddress(null);
         else open();
-        UpdateCheck.maybeCheck(this);  // each time the app opens; never while it is in use
+        UpdateCheck.maybeCheck(this);  // 15 s after the app opens, at most every 12 h (and says when an install did not go through)
     }
 
     // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
@@ -137,6 +137,10 @@ public class MainActivity extends Activity {
         }
     }
 
+    WebView web() {
+        return web;
+    }
+
     String address() {
         return address;
     }
@@ -156,14 +160,14 @@ public class MainActivity extends Activity {
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         input.setHint("192.168.1.50");
         if (address != null) input.setText(address);
-        String text = "The address shown on the H4 display (the phone must be on the same WiFi).";
+        String text = Tr.t(this, "The address shown on the H4 display (the phone must be on the same WiFi).", "Η διεύθυνση που δείχνει η οθόνη του H4 (το tablet στο ίδιο WiFi).");
         if (problem != null) text = problem + "\n\n" + text;
         AlertDialog.Builder b = new AlertDialog.Builder(this)
-                .setTitle("H4 address")
+                .setTitle(Tr.t(this, "H4 address", "Διεύθυνση H4"))
                 .setMessage(text)
                 .setView(input)
                 .setCancelable(address != null)
-                .setPositiveButton("Open", (d, w) -> {
+                .setPositiveButton(Tr.t(this, "Open", "Άνοιγμα"), (d, w) -> {
                     String a = input.getText().toString().trim();
                     a = a.replaceFirst("^https?://", "").replaceAll("/+$", "");
                     if (a.isEmpty()) {
@@ -174,8 +178,8 @@ public class MainActivity extends Activity {
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_ADDRESS, a).apply();
                     open();
                 });
-        if (address != null) b.setNeutralButton("Retry", (d, w) -> open());
-        b.setNegativeButton("Demo (no H4)", (d, w) -> startDemo());
+        if (address != null) b.setNeutralButton(Tr.t(this, "Retry", "Ξανά"), (d, w) -> open());
+        b.setNegativeButton(Tr.t(this, "Demo (no H4)", "Demo (χωρίς H4)"), (d, w) -> startDemo());
         addressDialog = b.show();
     }
 
@@ -289,6 +293,12 @@ public class MainActivity extends Activity {
             final String v = o;
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_ORIENTATION, v).apply();
             runOnUiThread(() -> applyOrientation(v));
+        }
+
+        // the language chosen on the screen, for the app's own dialogs (Tr)
+        @JavascriptInterface
+        public void setLang(String lang) {
+            Tr.set(MainActivity.this, lang);
         }
 
         @JavascriptInterface
