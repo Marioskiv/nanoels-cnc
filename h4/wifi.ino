@@ -124,6 +124,7 @@ String lcdLineJson(int r) {
       case 4: out += "\\u2192"; break;
       case 5: out += "\\u2195"; break;
       case 6: out += "\\u2194"; break;
+      case 7: out += "\\u00d8"; break;   // Ø (diameter view, latheview.ino)
       case 223: out += "\\u00b0"; break; // degree
       case 126: out += "\\u2192"; break;
       case 127: out += "\\u2190"; break;
@@ -217,6 +218,7 @@ void handleStatus() {
   json += ",\"z\":" + String(getAxisPosDu(&z) / divisor, 4);
   json += ",\"c\":" + String(a1.active ? getAxisPosDu(&a1) / 10000.0 : 0.0, 4);
   json += ",\"cActive\":" + String(a1.active ? 1 : 0);
+  json += ",\"lzv\":" + String(latheZView) + ",\"lxv\":" + String(latheXView); // how the lathe modes show Z / X
   json += ",\"inch\":" + String(measure == MEASURE_METRIC ? 0 : 1);
   json += ",\"feed\":" + String(cnc_st_realtime_rate(), 1);
   json += ",\"rpm\":" + String(getApproxRpm());
@@ -575,6 +577,19 @@ void haltManualMoves() {
 
 void handleLathe() {
   String what = server.arg("do");
+  // How the lathe modes show Z and X, on the H4's display and on this page (latheview.ino). Saved like the
+  // H4's other values (when nothing moves). Only the display changes, never the motion.
+  if (what == "view") {
+    int zv = server.arg("z").toInt(), xv = server.arg("x").toInt();
+    if (server.arg("z") == "" || server.arg("x") == "" || !latheViewValid(zv, xv)) {
+      server.send(400, "text/plain", "Bad view");
+      return;
+    }
+    latheZView = zv;
+    latheXView = xv;
+    server.send(200, "text/plain", "View set");
+    return;
+  }
   // Zero on the part, as the H4's keys do: Z0 / X0 here (keys Z / X), or X0 on the centre line from a measured
   // diameter (numpad + key A: the outside then reads -Ø/2). Only while the H4 is OFF and nothing moves.
   if (what == "z0" || what == "x0" || what == "dia") {

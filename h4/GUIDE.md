@@ -190,8 +190,20 @@ program runs.
   H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
   Updated about 7 times a second. Work is set from the part's zero, as on the H4 keys: **Z0** on the face, **X0**
   on the centre line from a measured diameter (**Ø → X0**, the H4's numpad + A); **How?** on the screen explains it.
-  X values are diameters or radii, chosen once in *Settings, Appearance, Lathe X*; the lathe screen's X readout
-  follows it.
+  **How X and Z are shown** (*Settings, Appearance, Lathe X / Lathe Z*; kept in the H4, so the H4's own display
+  and this page show the same; the **Ø / R ⚙** button in the form's X group opens it):
+  - *Lathe Z*: **as on lathes (ISO, default)** - Z0 on the face, negative towards the chuck (a 20 mm long turning
+    goes from Z 0 to Z -20; positive Z is the air in front of the face); or **as the original H4** - positive
+    towards the chuck.
+  - *Lathe X*: **diameter Ø (default)** or **radius R**, both positive and getting smaller towards the centre; or
+    **as the original H4** - the radius from X0, growing towards the centre (with X0 on the centre line the
+    outside is negative, e.g. -10 for Ø 20). The H4's display marks a diameter with Ø instead of X.
+  Only the showing changes: the motion, the stops and the keys stay the H4's. The keys take numbers without a sign
+  (the arrow gives the direction), so they work the same in every view, with one difference: **with X shown as a
+  diameter, a number typed for X is a diameter** (numpad 30 + X: "the tool is on Ø 30"; numpad 2 + ↑ / ↓: 2 mm of
+  diameter, 1 mm of radius), as on a lathe in diameter mode. numpad + A takes a diameter in every view. The jog
+  step (STEP) stays a distance of the tool (radius). The GCODE mode is never affected: it shows the G-code
+  coordinates.
   **Two zeros:** the lathe modes and the G-code mode each keep their own zero (X and Z). A touch-off for turning
   never moves the G-code (polar) zero, and a zero set in the G-code mode (keys, G10 L20) never moves the lathe one;
   the H4 changes to the right one when the mode changes. Both are kept like the H4's own zero: no Home needed,
@@ -203,7 +215,7 @@ program runs.
   back there. A left-hand thread (it starts at the chuck end) goes out to the safe X, then along Z to its start from
   outside. STOP stops these moves too, and after a STOP nothing moves by itself. Feed, constant feed and taper start
   where the tool stands. Pick an operation at the top and fill its form: Z values
-  (green: start, length) and X values (orange: part Ø and final Ø, or the depth) side by side, or a preset.
+  (green: start, length) and X values (orange: part Ø and final Ø) side by side, or a preset.
   The side view draws the part from its zero (face at Z0, its diameter), the material that comes off and the
   tool's path pass by pass; **▶ Simulate** runs the tool along it. Presets: metric and UNC threads, Morse and other tapers, spheres; every value stays editable, with the
   page's own number pad. Filling the form moves nothing and sends nothing. **Hold START**: the page sends the values
@@ -211,6 +223,22 @@ program runs.
   as the H4's own setup steps need; the H4 then moves the tool to the start point by itself and cuts, and refuses
   as it does from the keys. Taper, feed and parting start where the tool stands. **STOP** turns it OFF. Inch
   measure: set the values on the H4 keys.
+  **Threads** (*Male* = bolt, *Female* = nut): choose the standard (e.g. M10 × 1.5); for metric threads the page
+  shows the ISO 965 tolerance of what to make first - a male thread's part Ø (class 6g, e.g. M10 × 1.5: 9.732 -
+  9.968) or a female thread's hole Ø (class 6H, 8.376 - 8.676, with the drill) - and fills in the middle of it.
+  Measure what you made and write that in *Part Ø now* / *Hole Ø now*: the thread depth is worked out from it to
+  the *Final Ø* (male: the root, d - 1.22687 P; female: the nominal D), and a measured Ø outside the tolerance is
+  flagged. **Preparation ›** opens Turning set to make that part Ø (male) or bore that hole Ø (female) over the
+  thread's length, with the tolerance shown there too. Each thread pass goes less deep than the one before - the
+  depth after pass k of n is the full depth × √(k/n), so every pass takes about the same material (thread mode of
+  this fork, also from the H4 keys; turning and facing keep the same depth each pass). Check with a nut / bolt and
+  run START again with a final Ø 0.05 smaller (male) or larger (female) if it is tight. UNC threads: nominal sizes only. Leave a relief groove at the end of the length.
+  **Taper**: *Large Ø* towards the chuck or at the face (any side, any direction); the H4's taper starts where the
+  tool stands, and the page shows the Ø it starts from and ends at.
+  **Sphere**: *Convex* is a dome on the end of the part (face side), *Concave* a cove at the face corner; Radius X
+  cannot pass the centre.
+  The drawing and the values sent are checked against the H4's own mode functions run on a PC
+  (`h4/test/lathe/run.sh`: every point of the H4 path on the drawing, within 0.05 mm).
 - **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
 - **H4 keys**: the H4 display and keys, and the gamepad.
