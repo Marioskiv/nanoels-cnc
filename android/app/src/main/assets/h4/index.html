@@ -845,6 +845,18 @@ function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'e
  const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--dim)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
  $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
 $('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;partFill(ltOp);ltForm();if(st.lathe)ltShow()});
+// The buttons beside a value show where its point moves in the drawing (chuck on the left, face on the right, centre
+// line at the top, outside at the bottom; the H4's ↑ key also goes towards the centre):
+//  Z places (start, stop): ◀ towards the chuck, ▶ towards the face (in the H4 frame, whatever the Z view);
+//  Z lengths (length, facing depth, sphere Z): ◀ longer (the end goes towards the chuck), ▶ shorter;
+//  diameters: ▼ larger (outwards), ▲ smaller (towards the centre); sphere radius X (inwards): ▲ more, ▼ less;
+//  everything else (safe distances, passes, feed, pitch, starts): − / +.
+function ltArrow(k,right){
+ if(ltIsZ(k))return right?'data-zd="-1">▶':'data-zd="1">◀';
+ if(k=='len'||k=='zdep'||k=='rz')return right?'data-d="-1">▶':'data-d="1">◀';
+ if(ltIsD(k))return right?'data-d="-1">▲':'data-d="1">▼';
+ if(k=='rx')return right?'data-d="1">▲':'data-d="-1">▼';
+ return right?'data-d="1">+':'data-d="-1">−'}
 function ltLabel(f,m){const L=ltT(),t=f[0]=='dnom'&&ltV[m].side==1?L.f.dbore:L.f[f[0]];return ltIsD(f[0])&&ltRad()?t.replace(/Ø/g,'R'):t}
 // The form is built once per mode, language or X kind; a change of a value only rewrites that value.
 function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
@@ -853,7 +865,7 @@ function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
   <div class="lthelp"${ltHelp?'':' hidden'}>${L.helpText}</div>`;
  const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[m==7&&f[0]=='side'?(o=='ext'?'male':'female'):o]}</button>`).join('')}</div></div>`
-  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" ${ltIsZ(f[0])?'data-zd="1" title="◀ chuck">◀':'data-d="-1">−'}</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" ${ltIsZ(f[0])?'data-zd="-1" title="face ▶">▶':'data-d="1">+'}</button></div></div>`;
+  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" ${ltArrow(f[0],0)}</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" ${ltArrow(f[0],1)}</button></div></div>`;
  const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}${g=='x'?(m==7?`<button type="button" class="ltxr" data-prep="1">${L.thr.prep} ›</button>`:'<button type="button" class="ltxr" title="Ø / R" onclick="tab(\'settings\');setShow(\'look\')">Ø / R ⚙</button>'):''}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
  const pre=LTPRE[m]?`<select id="ltPre" class="sel ltpre" aria-label="${L.f.preset}"><option value="">${L.f.preset}…</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${(m==7&&v.thr!==''&&v.thr!=null?String(v.thr):ltPre[m])===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select>`:'';
  $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
