@@ -161,6 +161,12 @@ it cannot connect, it opens its own access point **`NanoEls-H4-Setup`**, passwor
 point shows its name, password and address in turn), printed on USB and shown on the page. Type it into the
 browser of a phone, tablet (Android or iPhone) or computer on the same network, e.g. `http://192.168.1.50`.
 
+**Since firmware 1.16 the full screen is part of the Android app** (H4 CNC, app 1.18 and newer): the app serves it
+for the H4's address, so every request still goes to the H4, and it is updated with the app, without flashing.
+The firmware itself keeps a small **emergency page** for any browser (status, STOP, *Zeros checked* after a
+restart, WiFi, firmware update, lasting log) - enough to recover the H4 if the app is not at hand. The app's screen
+shows the following:
+
 The page shows X, Z and C, the program name, a progress bar and the current line, Start / Pause / Resume and
 a large STOP, a drawing of the program (polar programs as seen from the cutter, the done part in blue, the
 tool as a red dot), the files, the 25 H4 keys, the WiFi settings and a firmware update. The page is a

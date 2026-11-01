@@ -244,6 +244,7 @@ void handleStatus() {
   json += ",\"wcs\":\"" + String(wcsNames[constrain(modes.coord, 0, 8)]) + "\"";
   json += ",\"rssi\":" + String(wifiSetupAp ? 0 : WiFi.RSSI());
   json += ",\"fw\":\"" FW_VERSION "\"";
+  json += ",\"api\":1"; // the version of this interface; the app's screen checks it
   json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
   if (!modes.overridesEnabled) json += ",\"ovrOff\":1";
   // what the program asked of the spindle, coolant and tool (the H4 switches neither spindle nor coolant)

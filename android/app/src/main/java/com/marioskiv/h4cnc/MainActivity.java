@@ -16,12 +16,16 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
+
+import java.io.IOException;
 
 import org.json.JSONObject;
 
@@ -54,6 +58,22 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 return false;  // every link of the H4 page stays in the app
+            }
+
+            // The H4 screen comes from the app, not from the H4: the page itself (http://<H4>/) is answered here
+            // with the app's copy, so it has the H4's address as its origin and every request it makes (status,
+            // commands, files) still goes to the H4. The firmware keeps only a small emergency page.
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                WebResourceResponse r = appPage(request.getUrl().toString(), request.getMethod());
+                return r != null ? r : super.shouldInterceptRequest(view, request);
+            }
+
+            @SuppressWarnings("deprecation")
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                WebResourceResponse r = appPage(url, "GET");
+                return r != null ? r : super.shouldInterceptRequest(view, url);
             }
 
             @Override
@@ -97,6 +117,24 @@ public class MainActivity extends Activity {
         setRequestedOrientation("landscape".equals(o) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 : "portrait".equals(o) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                 : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+    }
+
+    // The app's H4 screen for the page address of the H4 (http://<address>/ or /index.html, with any query).
+    WebResourceResponse appPage(String url, String method) {
+        if (demo || address == null || !"GET".equalsIgnoreCase(method) || url == null) return null;
+        String base = "http://" + address;
+        String path = url.startsWith(base) ? url.substring(base.length()) : null;
+        if (path == null) return null;
+        int q = path.indexOf('?');
+        if (q >= 0) path = path.substring(0, q);
+        int h = path.indexOf('#');
+        if (h >= 0) path = path.substring(0, h);
+        if (!path.isEmpty() && !path.equals("/") && !path.equals("/index.html")) return null;
+        try {
+            return new WebResourceResponse("text/html", "utf-8", getAssets().open("h4/index.html"));
+        } catch (IOException e) {
+            return null;  // then the H4's own (emergency) page
+        }
     }
 
     String address() {

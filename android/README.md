@@ -1,8 +1,13 @@
 # H4 CNC — Android app
 
-A small app for the NanoEls H4 CNC fork: it opens the H4's own web page full screen (files, Start / Pause /
-STOP, positions, Home All, MDI, the H4 keys and display, settings, firmware update) and reads a **PS4 / PS5
-gamepad** through Android itself, so no browser setting is needed. Android 5.0 and newer.
+A small app for the NanoEls H4 CNC fork: it holds **the H4 screen** (files, Start / Pause / STOP, positions, Home
+All, MDI, the H4 keys and display, the lathe screen, settings, firmware update) and reads a **PS4 / PS5 gamepad**
+through Android itself, so no browser setting is needed. Android 5.0 and newer.
+
+Since app 1.18 the screen is part of the app (`app/src/main/assets/h4/index.html`), not of the firmware: the app
+answers the H4's page address with it, so it talks to the H4 exactly as before, and a new screen comes with an app
+update, without flashing the H4. The firmware (1.16 and newer) keeps only a small emergency page for any browser.
+With an older firmware the screen still works and asks once for a firmware update.
 
 ## Install
 
@@ -19,8 +24,7 @@ Updating: see *Signing* below (without the signing secret, uninstall the old app
 
 In the first dialog (or *H4 address* later) press **Demo (no H4)**: the app shows the H4 page with a simulated
 machine. Everything can be tried - files, Draw, Start / Pause / STOP, feed override, Test, Diagnostics, settings,
-the gamepad - and nothing moves. *H4 address* → *Open* goes back to the real machine. The same demo opens in any
-browser with `?demo` after the page address.
+the gamepad - and nothing moves. *H4 address* → *Open* goes back to the real machine.
 
 ## Updates
 
