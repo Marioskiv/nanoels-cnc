@@ -289,6 +289,11 @@ program runs.
   in step with the spindle between runs: check it in the air first (two runs, the same groove).
   **Taper**: *Large Ø* towards the chuck or at the face (any side, any direction); the H4's taper starts where the
   tool stands, and the page shows the Ø it starts from and ends at.
+  **Taper by angle, chamfer**: the note under Taper shows the half angle α (and the included angle); *Angle…* sets
+  Ø small from α (Ø small = Ø large - 2 L tan α). *Chamfer…* asks the size c and the angle (45°): outside, Ø large =
+  the part Ø; inside (a hole's mouth), Ø small = the hole Ø. The taper is then set to start 1 mm in front of the face
+  on the same line, and *Take the tool there* moves X, then Z - only when the tool already is in front of the face
+  (in the air) and the zeros are set. One pass: a chamfer over 1 mm is better made in steps in steel.
   **Sphere**: *Convex* is a dome on the end of the part (face side), *Concave* a cove at the face corner; Radius X
   cannot pass the centre.
   The drawing and the values sent are checked against the H4's own mode functions run on a PC
