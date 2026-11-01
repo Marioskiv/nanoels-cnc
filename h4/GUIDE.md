@@ -249,6 +249,11 @@ program runs.
   form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
   positions) and asks once: *The zeros are right*. Feed, Constant feed and Taper start where the tool stands and are
   not held.
+  **Measure and correct** (Turning): after a turning that ended normally the note asks for the Ø you measured
+  (*I measured Ø…*). Still too large outside (too small in a bore): **Correction pass** sets one pass from the
+  measured Ø to the final Ø (START it; afterwards the form's passes come back). Within 0.005 mm: on size. Too much
+  came off: said, with the final Ø to set for the next part. The part's drawing takes the measured Ø, and after a
+  thread Preparation the measurement is checked against the thread's tolerance.
   **Threads** (*Male* = bolt, *Female* = nut): choose the standard from the list - ISO metric coarse (M1.6 - M64)
   and fine (ISO 261 / 262), UNC and UNF, G pipe (BSP, 55°, ISO 228-1), Tr trapezoidal (30°, ISO 2904) - or **My own
   metric thread…** (the page's keypad asks the nominal Ø and the pitch, e.g. M20 × 1.25). For metric threads the

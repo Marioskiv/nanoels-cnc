@@ -741,7 +741,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Zero on the part',step2:'2 · ',z0:'Touch Z0',dia:'Touch Ø → X0',help:'How?',
   helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Touch Z0</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Touch Ø → X0</b> with that number (the tool still touches that diameter). The H4 then knows where the centre is.<br>X values are diameters or radii, and Z is negative towards the chuck as on lathes (or both as on the original H4), as chosen once in <i>Settings, Appearance, Lathe X / Lathe Z</i>; the H4\'s own display shows the same.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
   zx:'Z (length)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
-  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',gd:{tool:'Tool changed',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set from this screen yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
+  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',ms:{ask:'Measure the Ø you made:',btn:'I measured Ø…',pad:'Measured Ø (mm)',ok:'Measured Ø {d}: on size ({e}).',more:'Measured Ø {d}: {e} mm of Ø still to come off.',cor:'Correction pass',over:'Measured Ø {d}: {e} mm of Ø too much came off. It cannot be put back on this part; for the next part set the final Ø {s}.',corNote:'Correction pass: 1 pass from Ø {a} to Ø {b}; then the {n} passes come back.',tol:'Inside the thread preparation tolerance {lo} – {hi}.',tolOut:'Outside the thread preparation tolerance {lo} – {hi}.'},gd:{tool:'Tool changed',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set from this screen yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
   goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',safe:'First the tool goes to the safe place Z {z}, {x} (X first, then Z); after a normal end it goes back there.',safeNeg:'A safe distance cannot be negative.',approach:'TO THE SAFE PLACE',safeStop:'Stopped before the end: move the tool away with the keys.',fromTool:'Starts where the tool stands at START.',
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{safeX:'The safe Ø must be outside the part (larger for external work, smaller for internal).',safeZ:'The safe Z must be to the right of the start (smaller Z).',same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.',thrM:'For a male thread the final Ø must be smaller than the part Ø.',thrF:'For a female thread the final Ø must be larger than the hole Ø.',sph:'Radius X cannot be more than the part radius (it would pass the centre).'},
@@ -774,7 +774,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Άγγιγμα Z0',dia:'Άγγιγμα Ø → X0',help:'Πώς;',
   helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Άγγιγμα Z0</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Άγγιγμα Ø → X0</b> γράφοντας τον αριθμό (το κοπτικό ακουμπά ακόμα αυτή τη διάμετρο). Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες και το Z είναι αρνητικό προς το τσοκ όπως στους τόρνους (ή και τα δύο όπως στο αρχικό H4), όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X / Τόρνος Z</i>· η οθόνη του H4 δείχνει τα ίδια.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
   zx:'Z (μήκος)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
-  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',gd:{tool:'Άλλαξα κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα από αυτή την οθόνη',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
+  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',ms:{ask:'Μέτρησε την Ø που βγήκε:',btn:'Μέτρησα Ø…',pad:'Μετρημένη Ø (mm)',ok:'Μετρημένη Ø {d}: στη διάσταση ({e}).',more:'Μετρημένη Ø {d}: μένουν {e} mm Ø να φύγουν.',cor:'Πέρασμα διόρθωσης',over:'Μετρημένη Ø {d}: έφυγαν {e} mm Ø παραπάνω. Σε αυτό το κομμάτι δεν διορθώνεται· στο επόμενο βάλε τελική Ø {s}.',corNote:'Πέρασμα διόρθωσης: 1 πέρασμα από Ø {a} σε Ø {b}· μετά επανέρχονται τα {n} περάσματα.',tol:'Μέσα στην ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.',tolOut:'Έξω από την ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.'},gd:{tool:'Άλλαξα κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα από αυτή την οθόνη',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
   goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',safe:'Πρώτα το κοπτικό πηγαίνει στη θέση ασφαλείας Z {z}, {x} (πρώτα X, μετά Z)· μετά από κανονικό τέλος γυρίζει εκεί.',safeNeg:'Η απόσταση ασφαλείας δεν μπορεί να είναι αρνητική.',approach:'ΣΤΗ ΘΕΣΗ ΑΣΦΑΛΕΙΑΣ',safeStop:'Σταμάτησε πριν το τέλος: απομάκρυνε το κοπτικό με τα πλήκτρα.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{safeX:'Η ασφαλής Ø πρέπει να είναι έξω από το κομμάτι (μεγαλύτερη στο εξωτερικό, μικρότερη στο εσωτερικό).',safeZ:'Το ασφαλές Z πρέπει να είναι δεξιά από την αρχή (μικρότερο Z).',same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.',thrM:'Στο αρσενικό η τελική Ø πρέπει να είναι μικρότερη από την Ø του κομματιού.',thrF:'Στο θηλυκό η τελική Ø πρέπει να είναι μεγαλύτερη από την Ø της τρύπας.',sph:'Η ακτίνα X δεν μπορεί να είναι πάνω από την ακτίνα του κομματιού (θα περνούσε το κέντρο).'},
@@ -930,6 +930,7 @@ $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button'
   if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltSave();await gdTouched('x');if(ltPart&&!ltPart.cut){ltPart.d=d;ltPart.ro=ltPart.ro.map(()=>d/2);partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
   // Z0 on a part not cut yet moves the part's face there (the part is declared with its face at Z0)
   try{await post('/lathe?do='+b.dataset.z);await gdTouched('z');if(ltPart&&!ltPart.cut){ltPart.z0=0-partOff();partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}return}
+ if(b.dataset.ms){if(st.on)return;if(b.dataset.ms=='m')ltPad(L.ms.pad,'',false,d=>{msMeasured(d);ltForm()});else{msCorrect();ltForm()}return}
  if(b.dataset.gd){if(b.dataset.gd=='tool'){gdEvent('tool',true,true);msg(L.gd.toolDone)}else gdConfirm();ltForm();return}
  if(st.on)return;
  const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;
@@ -1001,6 +1002,7 @@ let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;cons
 function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
  if(JSON.stringify(gdState())!==ltGdKey){ltForm();return} // the zero buttons' marks follow the guard
  {const g=gdNote(m,true);if(g)out.push('<b class="bad">'+g+'</b>')}
+ if(m==4)msNote(v,out); // also when the part (cut to the final Ø) leaves nothing to cut
  if(err)out.push('<b class="bad">'+err+'</b>');
  else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(ltZs(q.start[0]))).replace('{x}',ltXs(q.start[1])));
   const sp=ltSafe(q);if(sp)out.push(L.safe.replace('{z}',f3(ltZs(sp.z==null?st.z:sp.z))).replace('{x}',sp.x==null?'—':ltXs(sp.x)));
@@ -1044,7 +1046,7 @@ function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm
  ltPut('ltNow',(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now));
  if(st.on&&l.op>ltOpSeen)ltOpSeen=l.op;
  partBoot();
- if(ltWasOn&&!st.on&&ltJob){const j=ltJob;ltJob=null;partAfterJob(j,l);partFill(ltCur());if(ltPart)ltForm();
+ if(ltWasOn&&!st.on&&ltJob){const j=ltJob;ltJob=null;partAfterJob(j,l);partFill(ltCur());msEnd(j,l);if(ltPart||j.m==4)ltForm();
   if(j.sp&&!ltAbort){if(Math.max(ltOpSeen,+l.op||0)>=j.passes&&j.start&&Math.abs(st.x-j.start[1])<0.05)ltRetract(j.sp);else msg(L.safeStop)}}
  ltWasOn=!!st.on;
  const sb=$('ltStart');sb.classList.toggle('run',!!st.on);$('ltStartT').textContent=st.on?L.running:L.start;
@@ -1211,6 +1213,31 @@ function gdNote(m,html){const L=ltT().gd,g=gdState(),ax=gdAxes(m),need=ax.filter
  if(need.length)return L.need.replace('{w}',need.map(a=>L[a]).join(L.and)).replace('{why}',L.why[ltGd.why||'first']);
  if(chg.length)return L.changed.replace('{a}',chg.map(a=>a.toUpperCase()).join(L.and))+(html?` <button type="button" class="ltgdok" data-gd="ok">${L.ok}</button>`:'');
  return ''}
+// ---------------------------------------------------------------- Measure and correct (Turning).
+// After a Turning that ended normally the page asks for the measured Ø. Still too large (outside) / too small (bore):
+// a correction pass - one pass from the measured Ø to the final Ø, then the form's passes come back. Too much off:
+// said, with the final Ø to set for the next part. The part's drawing takes the measured Ø over that length.
+const MS_OK=0.005;                                                  // Ø within this of the final Ø: on size
+function msEnd(j,l){const v=ltV[4];if(j.m!=4)return;
+ if(!(+(l.done||0)>j.done0)){if(j.v.cor!=null){v.passes=j.v.cor;delete v.cor;ltSave()}return}  // stopped: nothing to measure
+ if(j.v.cor!=null){v.passes=j.v.cor;delete v.cor}
+ v.meas={fin:+j.v.dfin,side:+j.v.side,zr:+j.q.zr-partOff(),zl:+j.q.zl-partOff(),d:null};ltSave()}
+// the measurement is shown while the form still is that turning (same side and final Ø)
+const msCur=v=>v.meas&&v.meas.side==v.side&&Math.abs(v.meas.fin-v.dfin)<1e-6?v.meas:null;
+function msNote(v,out){const M=ltT().ms,me=msCur(v),d3=x=>(+x).toFixed(3);
+ if(v.cor!=null)out.push('<b>'+M.corNote.replace('{a}',d3(v.dstock)).replace('{b}',d3(v.dfin)).replace('{n}',v.cor)+'</b>');
+ if(!me)return;
+ if(me.d==null){out.push('<b>'+M.ask+'</b> <button type="button" class="ltgdok" data-ms="m">'+M.btn+'</button>');return}
+ const e=(me.d-me.fin)*(me.side==1?-1:1);                           // > 0: material still to come off
+ if(Math.abs(e)<=MS_OK)out.push('<b>'+M.ok.replace('{d}',d3(me.d)).replace('{e}',(me.d-me.fin>=0?'+':'')+d3(me.d-me.fin))+'</b>');
+ else if(e>0)out.push('<b>'+M.more.replace('{d}',d3(me.d)).replace('{e}',d3(e))+'</b> <button type="button" class="ltgdok" data-ms="c">'+M.cor+'</button>');
+ else out.push('<b class="bad">'+M.over.replace('{d}',d3(me.d)).replace('{e}',d3(-e)).replace('{s}',d3(me.fin+(me.side==1?e:-e)))+'</b>');
+ const P=v.prep;if(P&&P.hi>P.lo)out.push(me.d>=P.lo-1e-6&&me.d<=P.hi+1e-6?M.tol.replace('{lo}',d3(P.lo)).replace('{hi}',d3(P.hi)):'<b class="bad">'+M.tolOut.replace('{lo}',d3(P.lo)).replace('{hi}',d3(P.hi))+'</b>')}
+function msMeasured(d){const v=ltV[4],me=msCur(v);if(!me||!(d>0))return;me.d=+d;ltSave();
+ if(ltPart){const a=Math.min(me.zr,me.zl)+partOff(),b=Math.max(me.zr,me.zl)+partOff();      // the drawing takes the measured Ø
+  for(let i=0;i<ltPart.ro.length;i++){const z=partZ(i);if(z<a-1e-9||z>b+1e-9||!(ltPart.ro[i]>0))continue;if(me.side==1)ltPart.ri[i]=d/2;else ltPart.ro[i]=d/2}
+  partSave();partFill(4)}}
+function msCorrect(){const v=ltV[4],me=msCur(v);if(!me||me.d==null)return;if(v.cor==null)v.cor=v.passes;v.dstock=me.d;v.passes=1;v.meas=null;ltSave()}
 function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart.boot){ltPart.boot=st.boot;partSave();msg(ltT().part.boot)}}
 // View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
 let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};
