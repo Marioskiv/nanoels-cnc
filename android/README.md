@@ -32,7 +32,7 @@ The app's own dialogs (updates, H4 address) follow the language chosen on the sc
 versions in use are always shown under the Settings list (*App version ... · firmware ...*). While Android installs
 an update it closes the app: that is normal, open it again afterwards.
 
-Each time it opens (never while it is in use), and with *Settings, App update, Check for an app update*, the app looks at this repository's Releases (public, no account or key needed). When a
+15 seconds after it opens (at most every 12 hours; *Later* keeps that version quiet for a day), and at once with *Settings, App update, Check for an app update*, the app looks at this repository's Releases (public, no account or key needed). If an install that was started did not go through (the app opens again at the old version), it says so and how to retry. When a
 newer *H4 CNC* is there, it says so and offers **Install**: the app downloads it (with progress), checks that it is
 this app, newer and signed with the same key, and opens Android's installer, which asks to confirm (Android 8 and
 newer first ask once to allow H4 CNC to install apps). If the installed app was signed with another key (the early

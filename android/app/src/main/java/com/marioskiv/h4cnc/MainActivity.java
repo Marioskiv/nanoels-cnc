@@ -109,7 +109,7 @@ public class MainActivity extends Activity {
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
         if (address == null) askAddress(null);
         else open();
-        UpdateCheck.maybeCheck(this);  // each time the app opens; never while it is in use
+        UpdateCheck.maybeCheck(this);  // 15 s after the app opens, at most every 12 h (and says when an install did not go through)
     }
 
     // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
@@ -135,6 +135,10 @@ public class MainActivity extends Activity {
         } catch (IOException e) {
             return null;  // then the H4's own (emergency) page
         }
+    }
+
+    WebView web() {
+        return web;
     }
 
     String address() {
