@@ -256,8 +256,9 @@ program runs.
   hole Ø (female) over the thread's length, with the tolerance shown there too. Each thread pass goes less deep
   than the one before - the depth after pass k of n is the full depth × √(k/n), so every pass takes about the same
   material (thread mode of this fork, also from the H4 keys; turning and facing keep the same depth each pass). The
-  page also gives the insert angle (60°, 55° or 30°), a relief groove for the end of the length (a little past the
-  thread, about two pitches wide - a workshop rule, not a standard's table) and the chamfer at the start. Check with
+  page also gives the insert angle (60°, 55° or 30°), a relief groove for the end of the length (cut first, with a
+  grooving tool in *Parting*; a little past the thread, about two pitches wide - a workshop rule, not a standard's
+  table) and the chamfer at the start. Order: Preparation, groove, chamfer, thread. Check with
   a nut / bolt and run START again with a final Ø 0.05 smaller (male) or larger (female) if it is tight; START again
   with the same values is a spring pass (the earlier passes run in the air). Both rely on the H4 keeping the thread
   in step with the spindle between runs: check it in the air first (two runs, the same groove).
