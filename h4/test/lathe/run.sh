@@ -12,5 +12,6 @@ node threads.js "$OUT/page.html" # thread data and form: ISO 965-1, own thread, 
 node guard.js "$OUT/page.html" # touch-off guard: START waits for the zeros
 node measure.js "$OUT/page.html" # measure and correct after a turning
 node recipe.js "$OUT/page.html" # sequence of operations (recipe)
+node advice.js "$OUT/page.html" # spindle speed / feed starting point
 node plans.js "$OUT/page.html" "$OUT/plans.json"
 python3 compare.py "$OUT/plans.json" "$OUT/lathe_sim"
