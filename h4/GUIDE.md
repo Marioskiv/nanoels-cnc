@@ -165,11 +165,13 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
 
 1. At the first start the H4 opens its own network **`NanoEls-H4-Setup`**, password **`nanoels-h4`**. Join it
    with a phone and open `http://192.168.4.1`. The H4 display shows the name, password and address in turn.
-2. On the page, *WiFi*: enter your network and password. The H4 restarts and joins it.
+2. On that page, *WiFi*: enter your network and password. The H4 restarts and joins it.
 3. The H4 display now shows **`IP 192.168.x.y`** (bottom line, for 30 s after start, and always in the GCODE mode
-   while idle). Open `http://192.168.x.y` on any phone, tablet or computer on the same network. Give the H4 a fixed
-   address in your router (DHCP reservation), so it does not change.
-4. Android: the [H4 CNC app](../android/README.md) shows the same page full screen and reads a PS4 / PS5 gamepad.
+   while idle). Give the H4 a fixed address in your router (DHCP reservation), so it does not change.
+4. **The screen is in the [H4 CNC app](../android/README.md)** (Android, app 1.18 and newer): type that address in
+   the app. It shows the full screen described below and reads a PS4 / PS5 gamepad. A browser on any phone, tablet
+   or computer opening `http://192.168.x.y` gets the H4's small **emergency page** (status, STOP, *Zeros checked*,
+   WiFi, firmware update, lasting log) - since firmware 1.16 the full screen is no longer stored in the H4.
 
 The page **never scrolls**: every screen fits the phone or tablet, upright or turned. Screens are chosen with the
 **tabs** (at the bottom when upright, on the left when turned; or swipe left / right; the phone's Back key goes to the
