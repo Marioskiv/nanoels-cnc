@@ -86,6 +86,8 @@ const char* cncStartRefusal() {
   if (HOME_X_USE && HOME_X_IS_LIMIT && inHomeX) return "X on its switch";
   if (HOME_Z_USE && HOME_Z_IS_LIMIT && inHomeZ) return "Z on its switch";
   if (homingActive) return "Homing";
+  const char* restart = safetyStartRefusal(); // restarted while moving (safety.ino)
+  if (restart != NULL) return restart;
   if (HOME_REQUIRED && !cncHomeOverride && ((HOME_X_USE && !x.homed) || (HOME_Z_USE && !z.homed))) return "Home All first";
   return NULL;
 }
@@ -279,6 +281,7 @@ void homingRun() {
   if (ok) {
     cncStatusText = "Homed";
     cncLog("Home All done");
+    safetyConfirmRestart("Home All done after the restart");
   } else if (homingAbort && !cncFaultStop && strcmp(cncStatusText, cncFaultText) != 0) {
     cncStatusText = "Homing stopped";
     cncLog("Homing stopped");

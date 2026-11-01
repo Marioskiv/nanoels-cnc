@@ -64,6 +64,11 @@ bool cncRunActive() {
 
 // Any motion, or the machine ON in any mode (it may move at any moment, e.g. following the spindle). Only reads
 // flags: refusing a request changes nothing in the program or the planner.
+// The name of the program the web page loaded (empty for a Grbl sender).
+String currentProgramName() {
+  return webProgramName;
+}
+
 bool motionActive() {
   return cncRunActive() || isOn || stepperIsRunning(&x) || stepperIsRunning(&z) || stepperIsRunning(&a1);
 }
@@ -218,6 +223,7 @@ void handleStatus() {
   json += ",\"z\":" + String(getAxisPosDu(&z) / divisor, 4);
   json += ",\"c\":" + String(a1.active ? getAxisPosDu(&a1) / 10000.0 : 0.0, 4);
   json += ",\"cActive\":" + String(a1.active ? 1 : 0);
+  json += ",\"restart\":\"" + jsonEscape(restartText) + "\""; // restarted while moving, not confirmed (safety.ino)
   json += ",\"lzv\":" + String(latheZView) + ",\"lxv\":" + String(latheXView); // how the lathe modes show Z / X
   json += ",\"inch\":" + String(measure == MEASURE_METRIC ? 0 : 1);
   json += ",\"feed\":" + String(cnc_st_realtime_rate(), 1);
@@ -483,6 +489,10 @@ void handleCommand() {
     cncBenchSize = webProgramSize > 0 ? webProgramSize - 1 : 0;  // without the closing 0
     cncBenchRequest = true;
     server.send(200, "text/plain", "Testing " + name + " (nothing moves) ...");
+  } else if (what == "confirmRestart") {
+    // after a restart while moving: the operator checked the zeros again (machines without Home All)
+    safetyConfirmRestart("the operator confirmed the zeros after the restart");
+    server.send(200, "text/plain", "Confirmed");
   } else if (what == "diagReset") {
     cncDiagReset();
     server.send(200, "text/plain", "Diagnostics cleared");
@@ -1003,6 +1013,7 @@ void taskWifi(void* param) {
   } else {
     LittleFS.mkdir("/gcode");
     updateFsUsage();
+    eventsFsReady = true; // the lasting log may be written now (safety.ino)
   }
   if (!wifiJoin() && !wifiSetupAccessPoint()) {
     vTaskDelete(NULL);
@@ -1024,6 +1035,7 @@ void taskWifi(void* param) {
   server.on("/config", HTTP_POST, handleConfigSave);
   server.on("/mdi", HTTP_POST, handleMdi);
   server.on("/log", HTTP_GET, handleLog);
+  server.on("/events", HTTP_GET, []() { server.send(200, "text/plain; charset=utf-8", eventsText()); }); // lasting log (safety.ino)
   server.on("/lathe", HTTP_POST, handleLathe);
   server.begin();
   while (emergencyStop == ESTOP_NONE) {

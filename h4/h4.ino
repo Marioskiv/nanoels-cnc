@@ -151,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.14"
+#define FW_VERSION "1.15"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1285,6 +1285,7 @@ void setAsyncTimerEnable(bool value) {
 void taskDisplay(void *param) {
   while (emergencyStop == ESTOP_NONE) {
     updateDisplay();
+    safetyLoop(); // restart marker, new firmware accepted, lasting log (safety.ino)
     // Calling Preferences.commit() blocks all interrupts for 30ms, don't call saveIfChanged() if
     // encoder is likely to move soon.
     unsigned long now = micros();
@@ -1636,6 +1637,7 @@ void cncLog(const char* text) {
   dest[sizeof(cncLogText[0]) - 1] = '\0';
   cncLogCount = cncLogCount + 1;
   portEXIT_CRITICAL(&cncLogMux);
+  eventLog(text); // also to the lasting log (safety.ino)
 }
 
 IRAM_ATTR Axis* cncAxis(int i) {
@@ -2372,6 +2374,7 @@ void taskGcode(void *param) {
     if (cncStartRequest && !cncBusy()) {
       // A program starts (ON pressed or '~' received): positions and modes from the H4.
       cncStartRequest = false;
+      safetyProgramStart(currentProgramName()); // known at the next start if the power goes (safety.ino)
       cncDiagReset(); // the diagnostics of the web page describe this program
       cncSyncFromAxes(cncStartKeepModes);
       cncStartKeepModes = false;
@@ -2694,6 +2697,8 @@ void setup() {
     pinMode(A11, OUTPUT);
     DHIGH(A13);
   }
+
+  safetyBoot(); // why the H4 started; positions not reliable after a restart while moving (safety.ino)
 
   pinMode(BUZZ, OUTPUT);
 
