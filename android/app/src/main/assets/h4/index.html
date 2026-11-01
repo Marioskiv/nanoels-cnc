@@ -156,7 +156,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltzero{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.ltzero>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:6px 10px;font-weight:700}.ltzero>button.need{border:2px solid var(--warn,#e8a33a);color:var(--warn,#e8a33a)}.ltgdok{margin-left:6px;border:1px solid var(--line);border-radius:8px;background:var(--tile);color:var(--fg);padding:3px 8px;font-weight:700}
 .ltzero .ltxin{margin-left:auto;color:var(--dim)}.ltzero .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ltzero .seg button{border:0;border-radius:0;background:var(--tile);color:var(--fg);padding:6px 8px;font-size:12px}
 .ltzero .seg button.on{background:var(--or);color:#111;font-weight:700}.ltturn{font-size:14px;color:var(--dim);font-weight:600}
-.lthead{display:flex;align-items:center;gap:8px}.lthead h3{flex:1;min-width:0}.lthead .ltpre{width:auto;max-width:48%;padding:4px 8px}
+.lthead{display:flex;align-items:center;gap:8px}.ltrecb{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:4px 9px;font-weight:700;white-space:nowrap}.rcrow{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--line)}.rcrow span{flex:1;min-width:0}.rcrow.cur{color:var(--or)}.rcrow button{padding:4px 9px}.rcta{width:100%;min-height:90px;font:12px monospace;background:var(--in);color:var(--fg);border:1px solid var(--line);border-radius:8px}.lthead h3{flex:1;min-width:0}.lthead .ltpre{width:auto;max-width:48%;padding:4px 8px}
 .lthelpb{margin-left:2px}.lthelp{font-size:12.5px;line-height:1.5;color:var(--fg);background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .ltgroups{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ltg{border:1px solid var(--line);border-left:4px solid var(--c,var(--dim));border-radius:10px;padding:6px 8px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .ltg h4{margin:0;font-size:12.5px;color:var(--c,var(--dim));font-weight:800}.ltgz .ltgf,.ltgx .ltgf{display:flex;flex-direction:column;gap:6px}
@@ -741,7 +741,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Zero on the part',step2:'2 · ',z0:'Touch Z0',dia:'Touch Ø → X0',help:'How?',
   helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Touch Z0</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Touch Ø → X0</b> with that number (the tool still touches that diameter). The H4 then knows where the centre is.<br>X values are diameters or radii, and Z is negative towards the chuck as on lathes (or both as on the original H4), as chosen once in <i>Settings, Appearance, Lathe X / Lathe Z</i>; the H4\'s own display shows the same.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
   zx:'Z (length)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
-  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',ms:{ask:'Measure the Ø you made:',btn:'I measured Ø…',pad:'Measured Ø (mm)',ok:'Measured Ø {d}: on size ({e}).',more:'Measured Ø {d}: {e} mm of Ø still to come off.',cor:'Correction pass',over:'Measured Ø {d}: {e} mm of Ø too much came off. It cannot be put back on this part; for the next part set the final Ø {s}.',corNote:'Correction pass: 1 pass from Ø {a} to Ø {b}; then the {n} passes come back.',tol:'Inside the thread preparation tolerance {lo} – {hi}.',tolOut:'Outside the thread preparation tolerance {lo} – {hi}.'},gd:{tool:'Tool changed',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set from this screen yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
+  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',rc:{btn:'Sequence',title:'Sequence of operations',help:'Fill a form as usual, then add it here as a step (with its tool number). Run: the steps come one at a time into their form; each one starts with START. After a step ended: Next step.',empty:'No steps yet.',add:'+ Add this one ({s})',run:'▶ Run the sequence',save:'Save recipe',clear:'Empty',saved:'Saved recipes:',load:'Load',savedMsg:'Recipe saved.',toolAsk:'Tool number (T)',put:'Save the form into step {k}',editMsg:'Step {k} is in the form: change it, then Sequence → Save the form into step {k}.',now:'Sequence: step {k} of {n} — {s} · tool T{t}',next:'Next step ›',done:'The sequence is finished.',end:'End the sequence',toolMsg:'Put tool T{t} in, then Touch Z0 and Ø → X0.',textHelp:'As text (to keep or move to another tablet): Export, or paste and Import.',exp:'Export',imp:'Import',impBad:'This text is not a recipe.',impMsg:'{n} steps imported: check each one before START.'},ms:{ask:'Measure the Ø you made:',btn:'I measured Ø…',pad:'Measured Ø (mm)',ok:'Measured Ø {d}: on size ({e}).',more:'Measured Ø {d}: {e} mm of Ø still to come off.',cor:'Correction pass',over:'Measured Ø {d}: {e} mm of Ø too much came off. It cannot be put back on this part; for the next part set the final Ø {s}.',corNote:'Correction pass: 1 pass from Ø {a} to Ø {b}; then the {n} passes come back.',tol:'Inside the thread preparation tolerance {lo} – {hi}.',tolOut:'Outside the thread preparation tolerance {lo} – {hi}.'},gd:{tool:'Tool changed',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set from this screen yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
   goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',safe:'First the tool goes to the safe place Z {z}, {x} (X first, then Z); after a normal end it goes back there.',safeNeg:'A safe distance cannot be negative.',approach:'TO THE SAFE PLACE',safeStop:'Stopped before the end: move the tool away with the keys.',fromTool:'Starts where the tool stands at START.',
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{safeX:'The safe Ø must be outside the part (larger for external work, smaller for internal).',safeZ:'The safe Z must be to the right of the start (smaller Z).',same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.',thrM:'For a male thread the final Ø must be smaller than the part Ø.',thrF:'For a female thread the final Ø must be larger than the hole Ø.',sph:'Radius X cannot be more than the part radius (it would pass the centre).'},
@@ -774,7 +774,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Άγγιγμα Z0',dia:'Άγγιγμα Ø → X0',help:'Πώς;',
   helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Άγγιγμα Z0</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Άγγιγμα Ø → X0</b> γράφοντας τον αριθμό (το κοπτικό ακουμπά ακόμα αυτή τη διάμετρο). Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες και το Z είναι αρνητικό προς το τσοκ όπως στους τόρνους (ή και τα δύο όπως στο αρχικό H4), όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X / Τόρνος Z</i>· η οθόνη του H4 δείχνει τα ίδια.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
   zx:'Z (μήκος)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
-  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',ms:{ask:'Μέτρησε την Ø που βγήκε:',btn:'Μέτρησα Ø…',pad:'Μετρημένη Ø (mm)',ok:'Μετρημένη Ø {d}: στη διάσταση ({e}).',more:'Μετρημένη Ø {d}: μένουν {e} mm Ø να φύγουν.',cor:'Πέρασμα διόρθωσης',over:'Μετρημένη Ø {d}: έφυγαν {e} mm Ø παραπάνω. Σε αυτό το κομμάτι δεν διορθώνεται· στο επόμενο βάλε τελική Ø {s}.',corNote:'Πέρασμα διόρθωσης: 1 πέρασμα από Ø {a} σε Ø {b}· μετά επανέρχονται τα {n} περάσματα.',tol:'Μέσα στην ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.',tolOut:'Έξω από την ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.'},gd:{tool:'Άλλαξα κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα από αυτή την οθόνη',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
+  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',rc:{btn:'Σειρά',title:'Σειρά κατεργασιών',help:'Συμπλήρωσε μια φόρμα όπως πάντα και πρόσθεσέ την εδώ ως βήμα (με τον αριθμό κοπτικού). Εκτέλεση: τα βήματα έρχονται ένα-ένα στη φόρμα τους· το καθένα ξεκινά με ΕΚΚΙΝΗΣΗ. Όταν τελειώσει ένα βήμα: Επόμενο βήμα.',empty:'Δεν υπάρχουν βήματα ακόμα.',add:'+ Πρόσθεσε αυτή ({s})',run:'▶ Ξεκίνα τη σειρά',save:'Αποθήκευσε συνταγή',clear:'Άδειασε',saved:'Αποθηκευμένες συνταγές:',load:'Φόρτωσε',savedMsg:'Η συνταγή αποθηκεύτηκε.',toolAsk:'Αριθμός κοπτικού (T)',put:'Αποθήκευσε τη φόρμα στο βήμα {k}',editMsg:'Το βήμα {k} είναι στη φόρμα: άλλαξέ το και μετά Σειρά → Αποθήκευσε τη φόρμα στο βήμα {k}.',now:'Σειρά: βήμα {k} από {n} — {s} · κοπτικό T{t}',next:'Επόμενο βήμα ›',done:'Η σειρά τελείωσε.',end:'Τέλος σειράς',toolMsg:'Βάλε το κοπτικό T{t} και κάνε Άγγιγμα Z0 και Ø → X0.',textHelp:'Ως κείμενο (για φύλαξη ή για άλλο tablet): Εξαγωγή, ή επικόλληση και Εισαγωγή.',exp:'Εξαγωγή',imp:'Εισαγωγή',impBad:'Αυτό το κείμενο δεν είναι συνταγή.',impMsg:'Εισήχθησαν {n} βήματα: έλεγξε το καθένα πριν την ΕΚΚΙΝΗΣΗ.'},ms:{ask:'Μέτρησε την Ø που βγήκε:',btn:'Μέτρησα Ø…',pad:'Μετρημένη Ø (mm)',ok:'Μετρημένη Ø {d}: στη διάσταση ({e}).',more:'Μετρημένη Ø {d}: μένουν {e} mm Ø να φύγουν.',cor:'Πέρασμα διόρθωσης',over:'Μετρημένη Ø {d}: έφυγαν {e} mm Ø παραπάνω. Σε αυτό το κομμάτι δεν διορθώνεται· στο επόμενο βάλε τελική Ø {s}.',corNote:'Πέρασμα διόρθωσης: 1 πέρασμα από Ø {a} σε Ø {b}· μετά επανέρχονται τα {n} περάσματα.',tol:'Μέσα στην ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.',tolOut:'Έξω από την ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.'},gd:{tool:'Άλλαξα κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα από αυτή την οθόνη',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
   goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',safe:'Πρώτα το κοπτικό πηγαίνει στη θέση ασφαλείας Z {z}, {x} (πρώτα X, μετά Z)· μετά από κανονικό τέλος γυρίζει εκεί.',safeNeg:'Η απόσταση ασφαλείας δεν μπορεί να είναι αρνητική.',approach:'ΣΤΗ ΘΕΣΗ ΑΣΦΑΛΕΙΑΣ',safeStop:'Σταμάτησε πριν το τέλος: απομάκρυνε το κοπτικό με τα πλήκτρα.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{safeX:'Η ασφαλής Ø πρέπει να είναι έξω από το κομμάτι (μεγαλύτερη στο εξωτερικό, μικρότερη στο εσωτερικό).',safeZ:'Το ασφαλές Z πρέπει να είναι δεξιά από την αρχή (μικρότερο Z).',same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.',thrM:'Στο αρσενικό η τελική Ø πρέπει να είναι μικρότερη από την Ø του κομματιού.',thrF:'Στο θηλυκό η τελική Ø πρέπει να είναι μεγαλύτερη από την Ø της τρύπας.',sph:'Η ακτίνα X δεν μπορεί να είναι πάνω από την ακτίνα του κομματιού (θα περνούσε το κέντρο).'},
@@ -909,7 +909,7 @@ function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;const g
  const opt=(p,i)=>`<option value="${i}"${(m==7?LTTHR[i][0]===v.thr:ltPre[m]===String(i))?' selected':''}>${p[0]}</option>`;
  const pre=!LTPRE[m]?'':m==7?`<select id="ltPre" class="sel ltpre" aria-label="${L.f.preset}"><option value="">${L.f.preset}…</option><option value="c"${v.thr==='c'?' selected':''}>${v.thr==='c'&&ltThrRow(v)?ltThrRow(v)[0]+' · ':''}${L.thr.cust}</option>${['mc','mf','uc','uf','g','t'].map(g=>`<optgroup label="${L.thr.g[g]}">${LTTHR.map((p,i)=>p[4]==g?opt(p,i):'').join('')}</optgroup>`).join('')}</select>`
   :`<select id="ltPre" class="sel ltpre" aria-label="${L.f.preset}"><option value="">${L.f.preset}…</option>${LTPRE[m].map(opt).join('')}</select>`;
- $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
+ $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3><button type="button" class="ltrecb" data-rc="open">${L.rc.btn} (${ltRec.steps.length})</button>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
  $('ltForm').querySelectorAll('.ltgz').forEach(e=>e.style.setProperty('--c',AXC.Z));$('ltForm').querySelectorAll('.ltgx').forEach(e=>e.style.setProperty('--c',AXC.X));
  ltLast={};ltInfo();ltDraw()}
 function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;
@@ -930,6 +930,7 @@ $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button'
   if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltSave();await gdTouched('x');if(ltPart&&!ltPart.cut){ltPart.d=d;ltPart.ro=ltPart.ro.map(()=>d/2);partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
   // Z0 on a part not cut yet moves the part's face there (the part is declared with its face at Z0)
   try{await post('/lathe?do='+b.dataset.z);await gdTouched('z');if(ltPart&&!ltPart.cut){ltPart.z0=0-partOff();partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}return}
+ if(b.dataset.rc){recClick(b.dataset.rc);return}
  if(b.dataset.ms){if(st.on)return;if(b.dataset.ms=='m')ltPad(L.ms.pad,'',false,d=>{msMeasured(d);ltForm()});else{msCorrect();ltForm()}return}
  if(b.dataset.gd){if(b.dataset.gd=='tool'){gdEvent('tool',true,true);msg(L.gd.toolDone)}else gdConfirm();ltForm();return}
  if(st.on)return;
@@ -1001,6 +1002,7 @@ function ltCheck(){const L=ltT(),m=ltCur(),v=ltV[m],E=L.err,F=LTF[m].filter(ltSh
 let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;const e=$(id);if(e)e.innerHTML=html}};
 function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
  if(JSON.stringify(gdState())!==ltGdKey){ltForm();return} // the zero buttons' marks follow the guard
+ recNote(out);
  {const g=gdNote(m,true);if(g)out.push('<b class="bad">'+g+'</b>')}
  if(m==4)msNote(v,out); // also when the part (cut to the final Ø) leaves nothing to cut
  if(err)out.push('<b class="bad">'+err+'</b>');
@@ -1046,7 +1048,7 @@ function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm
  ltPut('ltNow',(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now));
  if(st.on&&l.op>ltOpSeen)ltOpSeen=l.op;
  partBoot();
- if(ltWasOn&&!st.on&&ltJob){const j=ltJob;ltJob=null;partAfterJob(j,l);partFill(ltCur());msEnd(j,l);if(ltPart||j.m==4)ltForm();
+ if(ltWasOn&&!st.on&&ltJob){const j=ltJob;ltJob=null;partAfterJob(j,l);partFill(ltCur());msEnd(j,l);recEnd(j,l);if(ltPart||j.m==4||ltRec.cur>=0)ltForm();
   if(j.sp&&!ltAbort){if(Math.max(ltOpSeen,+l.op||0)>=j.passes&&j.start&&Math.abs(st.x-j.start[1])<0.05)ltRetract(j.sp);else msg(L.safeStop)}}
  ltWasOn=!!st.on;
  const sb=$('ltStart');sb.classList.toggle('run',!!st.on);$('ltStartT').textContent=st.on?L.running:L.start;
@@ -1238,6 +1240,68 @@ function msMeasured(d){const v=ltV[4],me=msCur(v);if(!me||!(d>0))return;me.d=+d;
   for(let i=0;i<ltPart.ro.length;i++){const z=partZ(i);if(z<a-1e-9||z>b+1e-9||!(ltPart.ro[i]>0))continue;if(me.side==1)ltPart.ri[i]=d/2;else ltPart.ro[i]=d/2}
   partSave();partFill(4)}}
 function msCorrect(){const v=ltV[4],me=msCur(v);if(!me||me.d==null)return;if(v.cor==null)v.cor=v.passes;v.dstock=me.d;v.passes=1;v.meas=null;ltSave()}
+// ---------------------------------------------------------------- Sequence of operations (recipe).
+// Steps = an operation with its values and a tool number. Running a sequence loads one step at a time into its form;
+// each step is started with the normal START (hold) - nothing starts by itself. After a step ended normally the note
+// offers the next one (time to measure, correct or change the tool first). A step with another tool number asks for
+// the touch-offs again (the guard's tool change). Kept in this tablet; saved recipes can be loaded again, exported
+// and imported as text.
+let ltRec={steps:[],cur:-1,fin:false},ltRecs=[];
+try{ltRec=Object.assign(ltRec,JSON.parse(localStorage.getItem('h4recipe')||'{}')||{});ltRecs=JSON.parse(localStorage.getItem('h4recipes')||'[]')||[]}catch(e){}
+const recSave=()=>{try{localStorage.setItem('h4recipe',JSON.stringify(ltRec));localStorage.setItem('h4recipes',JSON.stringify(ltRecs))}catch(e){}};
+const RC_KEYS=['thr','cust'];                                       // kept with a step besides the form's fields
+function recClean(m,v){const o={};for(const f of LTF[m]||[]){const x=v[f[0]];if(f[1]=='s'?Number.isInteger(x)&&x>=0&&x<f[3].length:x===''||isFinite(+x))o[f[0]]=f[1]=='s'?x:x===''?'':+x}
+ if(m==7){if(typeof v.thr=='string')o.thr=v.thr;if(v.cust&&+v.cust.D>0&&+v.cust.P>0)o.cust={D:+v.cust.D,P:+v.cust.P}}return o}
+function recLabel(sp){const L=ltT(),v=sp.v,d=x=>(+x).toFixed(x%1?2:0),m=sp.m;let t=L.t[m]||m;
+ if(m==4)t+=' Ø'+d(v.dstock)+' → '+d(v.dfin)+', '+d(v.len)+' mm';else if(m==5)t+=' Ø'+d(v.dstock)+', '+d(v.zdep)+' mm';
+ else if(m==6)t+=' Ø'+d(v.dstock)+' → '+d(v.dfinp);else if(m==7){const r=ltThrRow(v);t+=' '+(r?r[0]:'P'+d(v.pitch))+(v.side==1?' '+L.f.female:'')}
+ else if(m==8)t+=' R'+d(v.rz)+' × '+d(v.rx);else if(m==3)t+=' Ø'+d(v.dbig)+'/'+d(v.dsmall);return t}
+function recName(steps){return steps.map(sp=>{const L=ltT(),r=sp.m==7?ltThrRow(sp.v):null;return r?r[0]:(L.t[sp.m]||'').split(/[ (]/)[0]}).join(' · ')}
+// load step k into its form; another tool than the step before asks for the touch-offs again
+function recLoad(k){const sp=ltRec.steps[k];if(!sp)return;ltRec.cur=k;ltRec.fin=false;const L=ltT();
+ ltOp=sp.m;ltV[sp.m]=Object.assign({},ltV[sp.m],JSON.parse(JSON.stringify(sp.v)));delete ltV[sp.m].meas;delete ltV[sp.m].cor;ltSave();
+ const prev=k>0?ltRec.steps[k-1].t:ltRec.tool;if(prev!=null&&prev!=sp.t){gdEvent('tool',true,true);msg(L.rc.toolMsg.replace('{t}',sp.t))}
+ ltRec.tool=sp.t;recSave();ltForm();if(st.lathe)ltShow()}
+function recEnd(j,l){if(ltRec.cur<0)return;const sp=ltRec.steps[ltRec.cur];if(!sp||sp.m!=j.m)return;if(+(l.done||0)>j.done0){ltRec.fin=true;recSave()}}
+function recNote(out){if(ltRec.cur<0)return;const L=ltT().rc,n=ltRec.steps.length,k=ltRec.cur,sp=ltRec.steps[k];if(!sp){ltRec.cur=-1;return}
+ let h='<b>'+L.now.replace('{k}',k+1).replace('{n}',n).replace('{s}',recLabel(sp)).replace('{t}',sp.t)+'</b>';
+ if(ltRec.fin)h+=k+1<n?` <button type="button" class="ltgdok" data-rc="next">${L.next}</button>`:' <b>'+L.done+'</b>';
+ h+=` <button type="button" class="ltgdok" data-rc="end">${L.end}</button>`;out.push(h)}
+function recClick(a){const L=ltT().rc;if(st.on)return;
+ if(a=='open')return recSheet();
+ if(a=='next'){recLoad(ltRec.cur+1);return}
+ if(a=='end'){ltRec.cur=-1;ltRec.fin=false;recSave();ltForm();return}}
+function recSheet(){const L=ltT(),R=L.rc,S=ltRec.steps,cm=ltCur();
+ const rows=S.map((sp,i)=>`<div class="rcrow${i==ltRec.cur?' cur':''}"><span>${i+1}. T${sp.t} · ${recLabel(sp)}</span><button data-rk="up" data-i="${i}">↑</button><button data-rk="down" data-i="${i}">↓</button><button data-rk="tool" data-i="${i}">T</button><button data-rk="edit" data-i="${i}">✎</button><button data-rk="del" data-i="${i}">✕</button></div>`).join('')||`<div class="small">${R.empty}</div>`;
+ const saved=ltRecs.map((r,i)=>`<div class="rcrow"><span>${r.name}</span><button data-rk="load" data-i="${i}">${R.load}</button><button data-rk="sdel" data-i="${i}">✕</button></div>`).join('');
+ sheet(R.title,`<div class="small">${R.help}</div>${rows}${ltRec.edit!=null&&S[ltRec.edit]?`<div class="sgrid"><button data-rk="put">${R.put.replace('{k}',ltRec.edit+1)}</button></div>`:''}
+  <div class="sgrid"><button data-rk="add">${R.add.replace('{s}',L.t[cm]||'')}</button><button data-rk="run"${S.length?'':' disabled'}>${R.run}</button></div>
+  <div class="sgrid"><button data-rk="save"${S.length?'':' disabled'}>${R.save}</button><button data-rk="clear"${S.length?'':' disabled'}>${R.clear}</button></div>
+  ${saved?`<div class="small">${R.saved}</div>${saved}`:''}
+  <div class="small">${R.textHelp}</div><textarea class="rcta" id="rcText" spellcheck="false"></textarea>
+  <div class="sgrid"><button data-rk="exp"${S.length?'':' disabled'}>${R.exp}</button><button data-rk="imp">${R.imp}</button></div>`);
+ $('shBody').onclick=e=>{const b=e.target.closest('[data-rk]');if(!b||b.disabled)return;const k=b.dataset.rk,i=+b.dataset.i;
+  const redo=()=>{recSave();recSheet();ltForm()};
+  if(k=='add'){const m=ltCur(),last=S.length?S[S.length-1].t:1;ltPad(R.toolAsk,last,false,t=>{t=Math.max(1,Math.round(+t)||1);S.push({m,t,v:recClean(m,ltV[m])});redo()});return}
+  if(k=='up'&&i>0){[S[i-1],S[i]]=[S[i],S[i-1]];if(ltRec.cur>=0)ltRec.cur=-1;return redo()}
+  if(k=='down'&&i<S.length-1){[S[i+1],S[i]]=[S[i],S[i+1]];if(ltRec.cur>=0)ltRec.cur=-1;return redo()}
+  if(k=='del'){S.splice(i,1);ltRec.cur=-1;ltRec.edit=null;return redo()}
+  if(k=='tool'){ltPad(R.toolAsk,S[i].t,false,t=>{S[i].t=Math.max(1,Math.round(+t)||1);redo()});return}
+  if(k=='edit'){ltRec.edit=i;ltOp=S[i].m;Object.assign(ltV[S[i].m],JSON.parse(JSON.stringify(S[i].v)));ltSave();recSave();sheetClose();ltForm();if(st.lathe)ltShow();msg(R.editMsg.replace('{k}',i+1));return}
+  if(k=='put'){const e_=ltRec.edit,sp=S[e_];sp.v=recClean(sp.m,ltV[sp.m]);ltRec.edit=null;return redo()}
+  if(k=='run'){ltRec.edit=null;ltRec.tool=null;sheetClose();recLoad(0);return}
+  if(k=='clear'){ltRec.steps=[];ltRec.cur=-1;ltRec.edit=null;recSave();recSheet();ltForm();return}
+  if(k=='save'){ltRecs.unshift({name:recName(S),steps:JSON.parse(JSON.stringify(S))});ltRecs=ltRecs.slice(0,30);redo();msg(R.savedMsg);return}
+  if(k=='load'){ltRec.steps=JSON.parse(JSON.stringify(ltRecs[i].steps));ltRec.cur=-1;ltRec.edit=null;return redo()}
+  if(k=='sdel'){ltRecs.splice(i,1);return redo()}
+  if(k=='exp'){$('rcText').value=JSON.stringify({h4recipe:1,steps:S});$('rcText').select();return}
+  if(k=='imp'){const r=recImport($('rcText').value);if(typeof r=='string'){msg(r);return}ltRec.steps=r;ltRec.cur=-1;ltRec.edit=null;redo();msg(R.impMsg.replace('{n}',r.length));return}}}
+// text from Export (or written by hand / by an assistant): {"h4recipe":1,"steps":[{"m":4,"t":1,"v":{...}}]};
+// only known operations and their own fields are taken, every number is checked by the form as usual
+function recImport(txt){const R=ltT().rc;let o;try{o=JSON.parse(txt)}catch(e){return R.impBad}
+ const a=o&&Array.isArray(o.steps)?o.steps:Array.isArray(o)?o:null;if(!a||!a.length||a.length>50)return R.impBad;const out=[];
+ for(const sp of a){const m=+(sp&&sp.m);if(!LTF[m]||!sp.v||typeof sp.v!='object')return R.impBad;
+  const v=Object.assign({},ltV[m],recClean(m,sp.v));out.push({m,t:Math.max(1,Math.round(+sp.t)||1),v:recClean(m,v)})}return out}
 function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart.boot){ltPart.boot=st.boot;partSave();msg(ltT().part.boot)}}
 // View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
 let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};

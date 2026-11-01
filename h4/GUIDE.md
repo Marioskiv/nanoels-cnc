@@ -249,6 +249,13 @@ program runs.
   form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
   positions) and asks once: *The zeros are right*. Feed, Constant feed and Taper start where the tool stands and are
   not held.
+  **Sequence** (recipe): fill a form as usual and add it as a step with its tool number (*Sequence* → *+ Add this
+  one*); steps can be moved up / down, given another tool, edited in their form (✎, then *Save the form into step
+  k*) or removed. *Run the sequence* loads step 1 into its form; each step is started with START as usual - nothing
+  starts by itself. After a step ended normally the note offers **Next step ›** (measure, correct, change the tool
+  first); after a STOP the step stays. A step with another tool number than the one before says which tool to put
+  in and asks for the touch-offs again. Recipes are saved in the tablet (named after their steps) and can be loaded
+  again; *Export* / *Import* move one as text (only known operations and their own fields are taken in).
   **Measure and correct** (Turning): after a turning that ended normally the note asks for the Ø you measured
   (*I measured Ø…*). Still too large outside (too small in a bore): **Correction pass** sets one pass from the
   measured Ø to the final Ø (START it; afterwards the form's passes come back). Within 0.005 mm: on size. Too much
