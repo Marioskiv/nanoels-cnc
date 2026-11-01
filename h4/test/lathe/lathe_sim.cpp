@@ -25,6 +25,7 @@ void markAxisOrigin(Axis* a) { if (a->leftStop != LONG_MAX) a->leftStop -= a->po
 void markOrigin() { markAxisOrigin(&z); markAxisOrigin(&x); spindlePos = spindlePosAvg = 0; spindlePosSync = 0; }
 #define MODE_THREAD 7
 int mode = 0;
+unsigned long latheDoneCount = 0; // h4.ino: operations ended normally
 long auxSafeDistance, startOffset;
 #include "modes.inc" // made by extract.sh
 long toPos(double mm) { return lround(mm * 1000); }
