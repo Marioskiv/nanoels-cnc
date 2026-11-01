@@ -133,6 +133,10 @@ void vTaskDelay(int ms) {        // the homing task waits; meanwhile loop() runs
   }
 }
 
+// safety.ino (tested in safety_test.cpp): no restart to confirm here
+const char* safetyStartRefusal() { return NULL; }
+void safetyConfirmRestart(const char*) {}
+
 #include "../homing.ino"
 
 // ------------------------------------------------------------------ scenarios

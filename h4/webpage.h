@@ -284,7 +284,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <button id="bHome" onclick="homeAll()">Home All</button></div>
 <div class="pane card" data-p="diag" hidden><h2>Diagnostics <span class="grow"></span><button class="info" onclick="infoSheet('diag')">i</button></h2>
 <div class="pg"><div id="diag" class="small">-</div></div><button onclick="cmd('diagReset')">Clear</button></div>
-<div class="pane card" data-p="log" hidden><h2>Messages</h2><div class="pg" id="log"></div><div class="pgc"></div></div>
+<div class="pane card" data-p="log" hidden><h2>Messages <button onclick="eventsShow()">Lasting log</button></h2><div class="pg" id="log"></div><div class="pgc"></div></div>
 </div></section>
 
 <section class="scr" data-tab="settings" hidden><div class="sets" id="sets">
@@ -351,7 +351,7 @@ if(DEMO)(function(){
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
-   lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360)}),
+   restart:'',lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360)}),
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
    diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
@@ -365,6 +365,7 @@ if(DEMO)(function(){
   const ok=t=>[200,typeof t=='string'?t:JSON.stringify(t)],no=t=>[409,t];
   if(p=='/status')return ok(status());
   if(p=='/log')return ok(S.log.slice(-40));
+  if(p=='/events')return ok('#1 0s start, firmware demo, cause: power on');
   if(p=='/files')return ok(S.files);
   if(p=='/file')return text[arg('name')]!==undefined?ok(text[arg('name')]):[404,'File not found'];
   if(p=='/config')return opt&&opt.method=='POST'?ok('Demo: settings are not saved.'):ok({items:cfgItems});
@@ -417,7 +418,12 @@ function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
  const ok=d.late==0&&(!d.rate||d.isrUs<0.7*per)&&!st.underruns;
  $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+'<br>Step interrupt, longest: '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
   '<br>Highest step rate: '+d.rate+' /s (limit '+d.limit+' /s)<br>Started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs<br>Step buffer ran empty: '+st.underruns+'<br>Steps given: '+d.steps}
-function show(){const u=st.inch?' in':' mm';diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
+// After a restart while the machine moved (crash, watchdog, voltage drop, power cut during a program) the H4's
+// positions are not reliable: say it once, and let the operator confirm after checking the zeros (or Home All).
+let restartSeen='';function restartShow(){if(!st.restart||st.restart==restartSeen)return;restartSeen=st.restart;
+ sheet('Restart while moving',`<div>${st.restart.replace(/</g,'&lt;')}</div><div class="sgrid"><button onclick="sheetClose()">Later</button><button onclick="post('/cmd?do=confirmRestart').then(()=>{sheetClose();msg('Confirmed')}).catch(e=>msg(e.message))">Zeros checked</button></div>`)}
+async function eventsShow(){try{const r=await fetch('/events');const t=await r.text();sheet('Lasting log',`<pre style="white-space:pre-wrap;font-size:11px;max-height:60vh;overflow:auto">${(t||'(empty)').replace(/</g,'&lt;')}</pre>`)}catch(e){msg('No log')}}
+function show(){const u=st.inch?' in':' mm';restartShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');

@@ -99,6 +99,9 @@ g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/latheview_test" latheview_test.
 # the depth of each thread pass: smaller and smaller, the same material each pass (threadpass.ino)
 g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/threadpass_test" threadpass_test.cpp
 "$OUT/threadpass_test" || fail=$((fail + 1))
+# restarts while moving, power cut during a program, lasting log, accepting a new firmware (safety.ino)
+g++ -O2 -Wall -Wextra -std=c++17 -Istubs -x c++ -o "$OUT/safety_test" safety_test.cpp
+"$OUT/safety_test" || fail=$((fail + 1))
 fail=$((fail + jfail))
 # real CAM programs (test/cam): as written, and through the polar converter
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp

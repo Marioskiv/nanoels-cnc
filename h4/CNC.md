@@ -248,6 +248,22 @@ A1 (C) takes machine 0 where it stands. Soft limits (`MIN_LIMIT` / `MAX_LIMIT`, 
 hold for programs and for jogging. With *Programs start only after Home All* a program does not start before.
 OFF or STOP stops homing. After an emergency stop by cutting the drivers' power, home again.
 
+## Restarts, firmware updates and the lasting log (safety.ino)
+
+- **Restart while moving.** A crash, a watchdog or a voltage drop (brownout) restarts the ESP32 at once. If it
+  happened while the machine moved, or during a G-code program (a power cut too: the H4 notes in its flash that a
+  program runs, before the first move), the positions it restores are not where the axes are. The H4 then says
+  so (the page shows *Restart while moving* with the cause) and **the GCODE mode does not start** until Home All,
+  or, on a machine without home switches, until *Zeros checked* is pressed after checking the zeros.
+- **A new firmware has to prove itself.** After an update over WiFi the new firmware is accepted only after it has
+  run for 20 s; if it restarts before (it crashes), the ESP32 starts the previous firmware again and the log says
+  so. (Do not switch the H4 off in the first 20 s after an update: that also counts as a failed start.)
+- **Lasting log** (page: *Messages*, *Lasting log*; or `/events`): every start with its cause, restarts in a row,
+  faults, alarms, Home All, programs started, written to the flash only while nothing moves (24 KB, then the older
+  half is kept as `events.old.log`).
+- The ESP32's own watchdogs stay as they are: a core 0 task that blocks for 5 s, or interrupts blocked for 300 ms,
+  restart the H4 (and then the points above apply).
+
 ## Settings for a polar machine (X radial, Z axial, chuck on C)
 
 On the web page (*Machine settings*) or in `h4.ino`: steps, travel per turn, speeds, accelerations,
