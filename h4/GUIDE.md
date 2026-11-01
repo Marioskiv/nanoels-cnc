@@ -232,8 +232,8 @@ program runs.
   is pointed out: the tool goes in straight there at every pass (it needs a tool that also cuts on its side).
   **The drawing**: it shows the operation (cuts, tool path, tool) at the largest size that fits; **⤢ All** also the
   whole part and the jaws; **⊙ Close** about 24 mm around the tool, following it in the simulation and while the H4
-  works. Two fingers zoom, one finger moves the drawing, a double tap goes back. The tool is drawn as the operation
-  uses it (outside insert, boring bar, 60° thread tip, parting blade, round nose for the sphere), with *Pass k of n*.
+  works. Two fingers zoom, one finger moves the drawing, a double tap goes back. While the simulation or the H4 runs it
+  shows *Pass k of n*.
   **Part** (button in the zero row): declare the part once - part Ø, how far it sticks out of the jaws (measured
   from the face, after *Touch Z0*), bore Ø for a tube. The drawing then shows the real part and the jaws; the forms
   take the part Ø from it (the largest over the operation's length); an operation that would come closer than 2 mm

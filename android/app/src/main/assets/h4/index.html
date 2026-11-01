@@ -1132,17 +1132,6 @@ function partSheet(){const L=ltT(),P=L.part,c=ltPart||{d:30,len:60,bore:0},row=(
   if(k=='new'){if(!(vals.d>0&&vals.len>0&&vals.bore>=0&&vals.bore<vals.d)){msg(P.bad);return}partNew(vals.d,vals.len,vals.bore);sheetClose();partFill(ltCur());ltForm();if(st.lathe)ltShow();msg(P.made);return}
   ltPad(P[k],vals[k],false,n=>{if(n==='')return;vals[k]=+n;b.textContent=+n})}}
 function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart.boot){ltPart.boot=st.boot;partSave();msg(ltT().part.boot)}}
-// The tool as the operation uses it, drawn with its tip (the point the H4 moves) at 0,0; the outside is down, the
-// centre line up. Outside turning: insert from below; inside: boring bar from the right; thread: 60° tip;
-// parting: the blade (w pixels wide); sphere: round nose.
-function ltToolShape(m,inner,w){const holder='fill="var(--dim)"',ins='fill="var(--fg)"';
- if(m==7)return inner?`<path d="M0 0 L-6 -10 L6 -10 Z" ${ins}/><rect x="-4" y="-16" width="70" height="6" ${holder}/>`
-  :`<path d="M0 0 L-6 10 L6 10 Z" ${ins}/><rect x="-6" y="10" width="12" height="30" ${holder}/>`;
- if(m==6)return inner?`<rect x="0" y="-12" width="${w}" height="12" ${ins}/><rect x="0" y="-18" width="70" height="6" ${holder}/>`
-  :`<rect x="0" y="0" width="${w}" height="34" ${ins}/><rect x="${w}" y="14" width="10" height="20" ${holder}/>`;
- if(m==8)return `<circle cx="0" cy="5" r="5" ${ins}/><rect x="-5" y="8" width="16" height="30" ${holder}/>`;
- if(inner)return `<path d="M0 0 L-6 -12 L10 -12 Z" ${ins}/><rect x="-2" y="-18" width="70" height="6" ${holder}/>`;
- return `<path d="M0 0 L-8 22 L16 22 Z" ${ins}/><rect x="-6" y="22" width="22" height="26" ${holder}/>`}
 // View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
 let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};
 function ltVwSet(mode){ltVw={mode,zoom:1,dz:0,dx:0,S:ltVw.S};ltVwBtns();ltDraw()}
@@ -1200,8 +1189,7 @@ function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoun
  let ly=-99;for(const x of (G.xmarks||[]).slice().sort((a,b)=>py(a)-py(b))){const t=ltXs(x),y=Math.max(py(x)-3,ly+13);ly=y;g.push(`<text x="8" y="${y}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
  if(G.safe)g.push(`<circle cx="${px(G.safe[0])}" cy="${py(G.safe[1])}" r="5" fill="none" stroke="${AXC.Z}" stroke-width="2"/>`);
  // the tool: where the simulation has it, else where the H4 has it
- const tz=A?A.z:st.z,tx=A?A.x:st.x,tm=st.on?st.mode:ltCur(),tv=ltV[tm]||{},inner=tv.side==1&&!(tm==8),k=Math.max(1,Math.min(2.4,S/10));
- g.push(`<g transform="translate(${px(tz)},${py(tx)}) scale(${k})">${ltToolShape(tm,inner,tm==6?Math.max(2,2*S/k):0)}</g>`);
+ const tz=A?A.z:st.z,tx=A?A.x:st.x;g.push(`<g transform="translate(${px(tz)},${py(tx)})"><path d="M0 0 L-8 22 L16 22 Z" fill="var(--fg)"/><rect x="-6" y="22" width="22" height="26" fill="var(--dim)"/></g>`);
  // the pass the simulation or the H4 is at
  const np=G.passes||1,cp=A?Math.min(np,A.pass):(st.on&&[4,5,6,7,8].includes(st.mode)?Math.min(np,+l.op||0):0);
  if(cp>0)g.push(`<text x="10" y="${H-10}" fill="var(--fg)" font-size="13" font-weight="700">${ltT().passOf.replace('{k}',cp).replace('{n}',np)}</text>`);
