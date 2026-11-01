@@ -745,6 +745,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    prep:'Preparation',prepFor:'Preparation for the {n} thread ({c}): Ø {lo} – {hi}, aim at {mid}. Then measure it and go to Thread.',prepOut:'The final Ø is outside {lo} – {hi}.',
    checkM:'Try it with a nut (or a ring gauge); if tight, run START again with the final Ø 0.05 smaller.',checkF:'Try it with a bolt (or a plug gauge); if tight, run START again with the final Ø 0.05 larger.',unc:'{n}: inch thread: nominal sizes only, check with a nut / bolt.',runout:'The H4 stops the tool at the end of the length: leave a relief groove there.'},
   coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',
+  inside:'The start (Z {z}) is inside the part: at every pass the tool goes in straight there - it needs a tool that also cuts on its side (grooving or neutral).',
   part:{title:'Part',short:'Part Ø{d}×{l}',help:'With the face at Z0 (touch Z0 first). The length is measured from the face to the jaws. The part Ø of the forms then comes from here, and what an operation started here takes off is taken off the part.',d:'Part Ø mm',len:'Out of the jaws mm',bore:'Bore Ø mm (0: solid)',new:'New part',none:'No part',bad:'Part Ø and length above 0, bore smaller than the part.',made:'Part set: face at Z0.',jaw:'This reaches the jaws ({d} mm left, at least 2 mm needed).',wall:'The final Ø reaches the bore: it would cut through the tube.',boot:'The H4 restarted: check the part (Part, New part) - its position may have changed.'},noSafe:'Safe distance 0: from where it stands the tool goes straight (both axes) to the start: make sure nothing is in the way.',
   ok:'OK',cancel:'Cancel',clear:'Empty',
   m:{0:'Feed',2:'Constant feed',3:'Taper',4:'Turning',5:'Facing',6:'Parting',7:'Thread',8:'Sphere',9:'G-code'},
@@ -771,6 +772,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    prep:'Προετοιμασία',prepFor:'Προετοιμασία για σπείρωμα {n} ({c}): Ø {lo} – {hi}, στόχος {mid}. Μετά μέτρησε και πήγαινε στο Σπείρωμα.',prepOut:'Η τελική Ø είναι έξω από {lo} – {hi}.',
    checkM:'Δοκίμασε με παξιμάδι (ή δακτύλιο ελέγχου)· αν σφίγγει, ξανά ΕΚΚΙΝΗΣΗ με τελική Ø 0,05 μικρότερη.',checkF:'Δοκίμασε με βίδα (ή πείρο ελέγχου)· αν σφίγγει, ξανά ΕΚΚΙΝΗΣΗ με τελική Ø 0,05 μεγαλύτερη.',unc:'{n}: ιντσάτο σπείρωμα: μόνο ονομαστικές τιμές, έλεγχος με παξιμάδι / βίδα.',runout:'Το H4 σταματά το κοπτικό στο τέλος του μήκους: άφησε εκεί αυλάκι εξόδου.'},
   coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',
+  inside:'Η αρχή (Z {z}) είναι μέσα στο κομμάτι: σε κάθε πέρασμα το κοπτικό μπαίνει εκεί κάθετα — χρειάζεται κοπτικό που κόβει και στο πλάι (αυλακωτής ή ουδέτερο).',
   part:{title:'Κομμάτι',short:'Κομμάτι Ø{d}×{l}',help:'Με το πρόσωπο στο Z0 (πρώτα Άγγιγμα Z0). Το μήκος μετριέται από το πρόσωπο ως τις σιαγόνες. Η Ø κομματιού των φορμών παίρνεται από εδώ, και ό,τι αφαιρεί μια κατεργασία που ξεκίνησε εδώ αφαιρείται από το κομμάτι.',d:'Ø κομματιού mm',len:'Έξω από τις σιαγόνες mm',bore:'Ø τρύπας mm (0: συμπαγές)',new:'Νέο κομμάτι',none:'Χωρίς κομμάτι',bad:'Ø και μήκος πάνω από 0, τρύπα μικρότερη από το κομμάτι.',made:'Το κομμάτι ορίστηκε: πρόσωπο στο Z0.',jaw:'Φτάνει στις σιαγόνες (μένουν {d} mm, χρειάζονται τουλάχιστον 2).',wall:'Η τελική Ø φτάνει στην τρύπα: θα τρυπούσε τον σωλήνα.',boot:'Το H4 επανεκκίνησε: έλεγξε το Κομμάτι (Κομμάτι, Νέο κομμάτι) — η θέση του μπορεί να άλλαξε.'},noSafe:'Απόσταση ασφαλείας 0: από εκεί που στέκεται, το κοπτικό πηγαίνει ευθεία (και οι δύο άξονες) στην αρχή: βεβαιώσου ότι δεν υπάρχει εμπόδιο.',
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
   m:{0:'Πρόωση',2:'Σταθερή πρόωση',3:'Κώνος',4:'Τόρνευση',5:'Πρόσωπο',6:'Αποκοπή',7:'Σπείρωμα',8:'Σφαίρα',9:'G-code'},
@@ -847,7 +849,7 @@ function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
   <div class="lthelp"${ltHelp?'':' hidden'}>${L.helpText}</div>`;
  const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[m==7&&f[0]=='side'?(o=='ext'?'male':'female'):o]}</button>`).join('')}</div></div>`
-  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`;
+  :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" ${ltIsZ(f[0])?'data-zd="1" title="◀ chuck">◀':'data-d="-1">−'}</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" ${ltIsZ(f[0])?'data-zd="-1" title="face ▶">▶':'data-d="1">+'}</button></div></div>`;
  const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}${g=='x'?(m==7?`<button type="button" class="ltxr" data-prep="1">${L.thr.prep} ›</button>`:'<button type="button" class="ltxr" title="Ø / R" onclick="tab(\'settings\');setShow(\'look\')">Ø / R ⚙</button>'):''}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
  const pre=LTPRE[m]?`<select id="ltPre" class="sel ltpre" aria-label="${L.f.preset}"><option value="">${L.f.preset}…</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${(m==7&&v.thr!==''&&v.thr!=null?String(v.thr):ltPre[m])===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select>`:'';
  $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
@@ -878,6 +880,9 @@ $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button'
   ltSave();
   sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x==b));const p=$('ltPre');if(p)p.value='';ltInfo();ltDraw();return}
  const k=b.dataset.k;if(!k)return;const f=LTF[m].find(f=>f[0]==k);
+ // Z positions: ◀ moves the place towards the chuck, ▶ towards the face, whatever the Z view (the H4 frame grows
+ // towards the chuck)
+ if(b.dataset.zd){const raw=v[k]===''?+(+(st.z||0)).toFixed(1):+v[k];ltSet(m,k,+(raw+f[4]*b.dataset.zd).toFixed(5));return}
  const toV=n=>n===''?n:ltIsZ(k)?ltZs(n):ltIsD(k)&&ltRad()?n*2:n;  // shown values back to the kept ones (Z flips, R → Ø)
  if(b.classList.contains('numv')){ltPad(ltLabel(f,m),ltDisp(k,v[k]),f[1]=='o',n=>{if(n===''&&f[1]!='o')return;if(f[3]==0)n=Math.max(1,Math.round(n));ltSet(m,k,toV(n))});return}
  let n=(v[k]===''?(k=='zstop'?+ltZs(st.z||0).toFixed(1):0):+ltDisp(k,v[k]))+f[4]*b.dataset.d;n=+n.toFixed(5);if(f[3]==0||k=='feed'||k=='pitch'||k=='speed')n=Math.max(f[3]==0?1:f[4],n);if(k=='cx'||k=='cz')n=Math.max(0,n);ltSet(m,k,toV(n))});
@@ -944,6 +949,8 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
    else if(t)out.push(T.unc.replace('{n}',t.n));
    {const D=Math.abs(v.dthr-v.dnom)/2,n=Math.max(1,+v.passes);out.push(T.depth.replace('{t}',f3(D)).replace('{p}',n).replace('{a}',f3(D*Math.sqrt(1/n))).replace('{b}',f3(D*(1-Math.sqrt((n-1)/n)))))}out.push(v.side==1?T.checkF:T.checkM);out.push(T.runout)}
   if([4,5,6,7,8].includes(m)&&(!(+v.cx>0)||(m!=6&&!(+v.cz>0))))out.push(L.noSafe);
+  {const zs=m==4||(m==7&&!v.hand)?+q.zr:m==7?null:null;let face=0;if(ltPart){const i=ltPart.ro.findIndex(r=>r>0);if(i>=0)face=partZ(i)}
+   if(zs!=null&&zs>face+0.05)out.push('<b>'+L.inside.replace('{z}',f3(ltZs(zs)))+'</b>')}
 }
  const p=Math.abs(q.pitch||0),dx=q.xb!==undefined&&q.start?Math.abs(q.xb-q.start[1]):0;let mm=0;
  if(m==4)mm=v.len*v.passes;if(m==7)mm=v.len*v.passes*v.starts;if(m==5)mm=dx*v.passes;if(m==6)mm=dx;if(m==3)mm=v.len;if(m==8)mm=(v.rz+v.rx)*1.2*v.passes;
