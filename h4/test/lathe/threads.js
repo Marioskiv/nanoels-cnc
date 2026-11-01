@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 (async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:1280,height:800}});
  const errs=[];p.on('pageerror',e=>errs.push(String(e)));
  await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
- const r=await p.evaluate(()=>{const out=[];let n=0;
+ const r=await p.evaluate(()=>{const out=[];let n=0;ltGd={z:gdOff('z'),x:gdOff('x'),boot:st.boot}; // zeros set (guard.js tests the guard)
   const eq=(got,want,what,tol=0.0005)=>{n++;if(!(Math.abs(got-want)<=tol))out.push(what+': got '+got+', want '+want)};
   const ok=(c,what)=>{n++;if(!c)out.push(what)};
   const row=name=>LTTHR.find(t=>t[0]==name);

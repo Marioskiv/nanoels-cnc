@@ -242,6 +242,13 @@ program runs.
   passes that were finished. *Touch Ø → X0* corrects the part Ø while nothing was cut. The part is kept in the
   tablet, in a frame that zeroing does not move; after an H4 restart the app asks to check it. Work done from the
   H4 keys is not known to the app: *New part* starts again.
+  **Touch-off guard**: an operation that uses the zeros (Turning, Facing, Thread, Sphere: Z0 and Ø → X0; Parting:
+  Ø → X0) does not START until they were set from this screen since the last event that can spoil them - the first
+  use, an H4 restart, **Tool changed** (button next to the zeros), a **New part** (Z0 on its face; on a part not cut
+  yet *Touch Z0* also moves the part's face there). The buttons still to press are marked and the note under the
+  form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
+  positions) and asks once: *The zeros are right*. Feed, Constant feed and Taper start where the tool stands and are
+  not held.
   **Threads** (*Male* = bolt, *Female* = nut): choose the standard from the list - ISO metric coarse (M1.6 - M64)
   and fine (ISO 261 / 262), UNC and UNF, G pipe (BSP, 55°, ISO 228-1), Tr trapezoidal (30°, ISO 2904) - or **My own
   metric thread…** (the page's keypad asks the nominal Ø and the pitch, e.g. M20 × 1.25). For metric threads the

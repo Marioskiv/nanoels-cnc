@@ -153,7 +153,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltfields .step,.ltg .step{display:grid;grid-template-columns:36px 1fr 36px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--tile)}
 .ltfields .step button,.ltg .step button{border:0;background:transparent;font-size:20px;padding:0;color:var(--fg)}
 .ltfields .step .numv,.ltg .step .numv{border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0;background:transparent;color:var(--fg);text-align:center;font:600 18px ui-monospace,monospace;width:100%;min-width:0;padding:6px 0;cursor:text}
-.ltzero{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.ltzero>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:6px 10px;font-weight:700}
+.ltzero{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.ltzero>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:6px 10px;font-weight:700}.ltzero>button.need{border:2px solid var(--warn,#e8a33a);color:var(--warn,#e8a33a)}.ltgdok{margin-left:6px;border:1px solid var(--line);border-radius:8px;background:var(--tile);color:var(--fg);padding:3px 8px;font-weight:700}
 .ltzero .ltxin{margin-left:auto;color:var(--dim)}.ltzero .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ltzero .seg button{border:0;border-radius:0;background:var(--tile);color:var(--fg);padding:6px 8px;font-size:12px}
 .ltzero .seg button.on{background:var(--or);color:#111;font-weight:700}.ltturn{font-size:14px;color:var(--dim);font-weight:600}
 .lthead{display:flex;align-items:center;gap:8px}.lthead h3{flex:1;min-width:0}.lthead .ltpre{width:auto;max-width:48%;padding:4px 8px}
@@ -330,7 +330,7 @@ const DEMO=/[?&]demo\b/.test(location.search);
 if(DEMO)(function(){
  const S={x:-21,z:-2,c:0,fo:100,ro:100,state:'Idle',running:false,paused:false,progress:0,homed:[0,0,0],jog:{x:0,z:0,c:0,t:0},
   log:['Demo: a simulated machine, no H4 is connected.'],t:Date.now(),benchN:0,bench:'',program:'',steps:0,
-  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}],ang:0,mode:4,lzv:0,lxv:0,on:false,lt:{pitch:0.1,measure:0,starts:1,passes:8,cone:1,aux:1,setup:0,op:0,zl:40,zr:0,xl:-18,xr:-20}};
+  files:[{name:'demo_spiral.ngc'},{name:'demo_F_test.ngc'}],ang:0,mode:4,lzv:0,lxv:0,on:false,dz:0,dx:0,lt:{pitch:0.1,measure:0,starts:1,passes:8,cone:1,aux:1,setup:0,op:0,zl:40,zr:0,xl:-18,xr:-20}};
  const lines=['(demo program)','G21 G90 G94 G8','G0 Z5','G0 X40 C0','G1 Z-0.5 F200','G93'];
  for(let i=0;i<=720;i+=6)lines.push('G1 X'+(40-i/24).toFixed(3)+' C'+i+' F'+(60).toFixed(1));
  lines.push('G94','G0 Z5','M2');const text={'demo_spiral.ngc':lines.join('\n'),
@@ -350,7 +350,7 @@ if(DEMO)(function(){
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
-   restart:'',lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360),zm:S.z,xm:S.x,done:S.lt.done||0}),boot:1,
+   restart:'',lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360),zm:S.z+S.dz,xm:S.x+S.dx,done:S.lt.done||0}),boot:1,
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
    diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
@@ -374,8 +374,8 @@ if(DEMO)(function(){
   if(p=='/lathe'&&arg('do')=='view'){S.lzv=+arg('z');S.lxv=+arg('x');return ok('View set')}
   if(p=='/lathe'){if(S.on||S.running)return no('The machine is ON or moving: stop it (OFF) first.');
    if(arg('do')=='goto'){S[arg('axis')]=+arg('v');return ok('Moving')}if(arg('do')=='halt')return ok('Stopped');
-   if(arg('do')=='z0'){S.z=0;add('Demo: Z0');return ok('Z0')}if(arg('do')=='x0'){S.x=0;add('Demo: X0');return ok('X0')}
-   if(arg('do')=='dia'){S.x=-(+arg('d'))/2;add('Demo: X0 from Ø '+arg('d'));return ok('X0')}
+   if(arg('do')=='z0'){S.dz+=S.z;S.z=0;add('Demo: Z0');return ok('Z0')}if(arg('do')=='x0'){S.dx+=S.x;S.x=0;add('Demo: X0');return ok('X0')}
+   if(arg('do')=='dia'){S.dx+=S.x+(+arg('d'))/2;S.x=-(+arg('d'))/2;add('Demo: X0 from Ø '+arg('d'));return ok('X0')}
    if(arg('do')=='start'){if(S.mode==9)return no('G-code mode: use the G-code tab.');S.on=true;S.lp=0;S.lt.op=0;add('Demo: lathe ON');return ok('ON')}
    const L=S.lt,n=k=>arg(k)===null?undefined:(arg(k)===''?null:+arg(k));
    if(n('mode')!==undefined)S.mode=n('mode');if(n('pitch')!==undefined)L.pitch=n('pitch');for(const k of ['starts','passes','cone','aux'])if(n(k)!==undefined)L[k]=n(k);
@@ -741,7 +741,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Zero on the part',step2:'2 · ',z0:'Touch Z0',dia:'Touch Ø → X0',help:'How?',
   helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Touch Z0</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Touch Ø → X0</b> with that number (the tool still touches that diameter). The H4 then knows where the centre is.<br>X values are diameters or radii, and Z is negative towards the chuck as on lathes (or both as on the original H4), as chosen once in <i>Settings, Appearance, Lathe X / Lathe Z</i>; the H4\'s own display shows the same.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
   zx:'Z (length)',xx:'X (diameter Ø)',xxr:'X (radius R)',cx:'Cut',
-  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',busy:'Stop the H4 first (OFF).',
+  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',gd:{tool:'Tool changed',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set from this screen yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
   goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',safe:'First the tool goes to the safe place Z {z}, {x} (X first, then Z); after a normal end it goes back there.',safeNeg:'A safe distance cannot be negative.',approach:'TO THE SAFE PLACE',safeStop:'Stopped before the end: move the tool away with the keys.',fromTool:'Starts where the tool stands at START.',
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{safeX:'The safe Ø must be outside the part (larger for external work, smaller for internal).',safeZ:'The safe Z must be to the right of the start (smaller Z).',same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.',thrM:'For a male thread the final Ø must be smaller than the part Ø.',thrF:'For a female thread the final Ø must be larger than the hole Ø.',sph:'Radius X cannot be more than the part radius (it would pass the centre).'},
@@ -774,7 +774,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Μηδέν στο κομμάτι',step2:'2 · ',z0:'Άγγιγμα Z0',dia:'Άγγιγμα Ø → X0',help:'Πώς;',
   helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Άγγιγμα Z0</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Άγγιγμα Ø → X0</b> γράφοντας τον αριθμό (το κοπτικό ακουμπά ακόμα αυτή τη διάμετρο). Το H4 ξέρει τότε πού είναι το κέντρο.<br>Οι τιμές X είναι διάμετροι ή ακτίνες και το Z είναι αρνητικό προς το τσοκ όπως στους τόρνους (ή και τα δύο όπως στο αρχικό H4), όπως το διάλεξες μία φορά στις <i>Ρυθμίσεις, Εμφάνιση, Τόρνος X / Τόρνος Z</i>· η οθόνη του H4 δείχνει τα ίδια.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
   zx:'Z (μήκος)',xx:'X (διάμετρος Ø)',xxr:'X (ακτίνα R)',cx:'Κοπή',
-  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',busy:'Σταμάτησε πρώτα το H4 (OFF).',
+  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',gd:{tool:'Άλλαξα κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα από αυτή την οθόνη',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
   goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',safe:'Πρώτα το κοπτικό πηγαίνει στη θέση ασφαλείας Z {z}, {x} (πρώτα X, μετά Z)· μετά από κανονικό τέλος γυρίζει εκεί.',safeNeg:'Η απόσταση ασφαλείας δεν μπορεί να είναι αρνητική.',approach:'ΣΤΗ ΘΕΣΗ ΑΣΦΑΛΕΙΑΣ',safeStop:'Σταμάτησε πριν το τέλος: απομάκρυνε το κοπτικό με τα πλήκτρα.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{safeX:'Η ασφαλής Ø πρέπει να είναι έξω από το κομμάτι (μεγαλύτερη στο εξωτερικό, μικρότερη στο εσωτερικό).',safeZ:'Το ασφαλές Z πρέπει να είναι δεξιά από την αρχή (μικρότερο Z).',same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.',thrM:'Στο αρσενικό η τελική Ø πρέπει να είναι μικρότερη από την Ø του κομματιού.',thrF:'Στο θηλυκό η τελική Ø πρέπει να είναι μεγαλύτερη από την Ø της τρύπας.',sph:'Η ακτίνα X δεν μπορεί να είναι πάνω από την ακτίνα του κομματιού (θα περνούσε το κέντρο).'},
@@ -898,8 +898,8 @@ function ltArrow(k,right){
  return right?'data-d="1">+':'data-d="-1">−'}
 function ltLabel(f,m){const L=ltT(),t=f[0]=='dnom'&&ltV[m].side==1?L.f.dbore:L.f[f[0]];return ltIsD(f[0])&&ltRad()?t.replace(/Ø/g,'R'):t}
 // The form is built once per mode, language or X kind; a change of a value only rewrites that value.
-function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
- const zero=`<div class="ltzero"><b>${L.step1}</b><button type="button" data-z="z0">${L.z0}</button><button type="button" data-z="dia">${L.dia}</button><button type="button" class="lthelpb" data-h="1">${L.help}</button><button type="button" class="ltpartb" data-part="1">${ltPart?L.part.short.replace('{d}',ltPart.d).replace('{l}',ltPart.len):L.part.title}</button>
+function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;const gd=gdState();ltGdKey=JSON.stringify(gd);
+ const zero=`<div class="ltzero"><b>${L.step1}</b><button type="button" data-z="z0"${gd.z?' class="need"':''}>${L.z0}</button><button type="button" data-z="dia"${gd.x?' class="need"':''}>${L.dia}</button><button type="button" data-gd="tool">${L.gd.tool}</button><button type="button" class="lthelpb" data-h="1">${L.help}</button><button type="button" class="ltpartb" data-part="1">${ltPart?L.part.short.replace('{d}',ltPart.d).replace('{l}',ltPart.len):L.part.title}</button>
 </div>
   <div class="lthelp"${ltHelp?'':' hidden'}>${L.helpText}</div>`;
  const fld=f=>f[1]=='s'
@@ -927,8 +927,10 @@ $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button'
   T.prep=t?{n:t.n,int:int?1:0,lo:t.lo,hi:t.hi,mid:t.mid,c:t.iso?(int?'6H':'6g'):''}:null;ltPre[4]='';ltSave();ltOp=4;ltForm();if(st.lathe)ltShow();return}
  if(b.dataset.h){ltHelp=!ltHelp;const h=$('ltForm').querySelector('.lthelp');if(h)h.hidden=!ltHelp;return}
  if(b.dataset.z){if(st.on){msg(L.busy);return}
-  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltSave();if(ltPart&&!ltPart.cut){ltPart.d=d;ltPart.ro=ltPart.ro.map(()=>d/2);partSave();partFill(ltCur());ltForm()}msg(L.zeroDone)}catch(err){msg(err.message)}});return}
-  try{await post('/lathe?do='+b.dataset.z);msg(L.zeroDone)}catch(err){msg(err.message)}return}
+  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltSave();await gdTouched('x');if(ltPart&&!ltPart.cut){ltPart.d=d;ltPart.ro=ltPart.ro.map(()=>d/2);partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
+  // Z0 on a part not cut yet moves the part's face there (the part is declared with its face at Z0)
+  try{await post('/lathe?do='+b.dataset.z);await gdTouched('z');if(ltPart&&!ltPart.cut){ltPart.z0=0-partOff();partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}return}
+ if(b.dataset.gd){if(b.dataset.gd=='tool'){gdEvent('tool',true,true);msg(L.gd.toolDone)}else gdConfirm();ltForm();return}
  if(st.on)return;
  const sg=b.closest('.seg');if(sg){const i=+b.dataset.i;
   v[sg.dataset.k]=i;if(m!=7)ltPre[m]='';
@@ -997,6 +999,8 @@ function ltCheck(){const L=ltT(),m=ltCur(),v=ltV[m],E=L.err,F=LTF[m].filter(ltSh
  return partCheck(ltPlan(),m)}
 let ltLast={};const ltPut=(id,html)=>{if(ltLast[id]!==html){ltLast[id]=html;const e=$(id);if(e)e.innerHTML=html}};
 function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=ltV[m],q=ltPlan(),out=[],err=ltCheck(),f3=x=>(+x).toFixed(3);
+ if(JSON.stringify(gdState())!==ltGdKey){ltForm();return} // the zero buttons' marks follow the guard
+ {const g=gdNote(m,true);if(g)out.push('<b class="bad">'+g+'</b>')}
  if(err)out.push('<b class="bad">'+err+'</b>');
  else{if(q.start&&q.start[0]!=null)out.push(L.goTo.replace('{z}',f3(ltZs(q.start[0]))).replace('{x}',ltXs(q.start[1])));
   const sp=ltSafe(q);if(sp)out.push(L.safe.replace('{z}',f3(ltZs(sp.z==null?st.z:sp.z))).replace('{x}',sp.x==null?'—':ltXs(sp.x)));
@@ -1070,6 +1074,7 @@ async function ltGoto(ax,v){await post('/lathe?do=goto&axis='+ax+'&v='+(+v).toFi
 async function ltRetract(sp){try{if(sp.x!=null)await ltGoto('x',sp.x);if(sp.z!=null)await ltGoto('z',sp.z)}catch(e){msg(e.message)}}
 async function ltStartGo(){const L=ltT();if(st.on)return;if(st.lathe&&st.lathe.measure){msg(L.inch);return}
  const err=ltCheck();if(err){msg(err);return}
+ if(gdNote(ltCur(),false)){msg(L.gd.refuse);return}
  const q=ltPlan(),p=new URLSearchParams();for(const [k,v] of Object.entries(q))if(k!='start'&&k!='xb')p.set(k,v===''?'':(typeof v=='number'?+v.toFixed(5):v));
  ltAbort=false;ltJob=null;
  try{await post('/lathe?'+p.toString());await ltSleep(300);
@@ -1137,7 +1142,7 @@ function partSave(){try{localStorage.setItem('h4part',JSON.stringify(ltPart))}ca
 const partOff=()=>st.lathe&&st.lathe.zm!=null?st.z-st.lathe.zm:0;            // display Z minus machine Z
 const partZ=i=>ltPart.z0+i*PSTEP+partOff(),partJaw=()=>ltPart?partZ(ltPart.ro.length-1):null;
 function partNew(d,len,bore){const n=Math.max(2,Math.round(len/PSTEP)+1);
- ltPart={d,len,bore,boot:st.boot,z0:0-partOff(),ro:Array(n).fill(d/2),ri:Array(n).fill(bore/2),thr:[],cut:0};partSave()}
+ ltPart={d,len,bore,boot:st.boot,z0:0-partOff(),ro:Array(n).fill(d/2),ri:Array(n).fill(bore/2),thr:[],cut:0};partSave();gdEvent('part',true,false)}
 // largest outside radius over a Z range (display, H4 frame), or null when the range misses the part
 function partRMax(za,zb){if(!ltPart)return null;const a=Math.min(za,zb),b=Math.max(za,zb);let r=null;
  for(let i=0;i<ltPart.ro.length;i++){const z=partZ(i);if(z>=a-1e-9&&z<=b+1e-9&&ltPart.ro[i]>0)r=Math.max(r||0,ltPart.ro[i])}return r}
@@ -1183,6 +1188,29 @@ function partSheet(){const L=ltT(),P=L.part,c=ltPart||{d:30,len:60,bore:0},row=(
   if(k=='none'){ltPart=null;partSave();sheetClose();ltForm();if(st.lathe)ltShow();return}
   if(k=='new'){if(!(vals.d>0&&vals.len>0&&vals.bore>=0&&vals.bore<vals.d)){msg(P.bad);return}partNew(vals.d,vals.len,vals.bore);sheetClose();partFill(ltCur());ltForm();if(st.lathe)ltShow();msg(P.made);return}
   ltPad(P[k],vals[k],false,n=>{if(n==='')return;vals[k]=+n;b.textContent=+n})}}
+// ---------------------------------------------------------------- Touch-off guard.
+// START of an operation that uses the zeros waits until they were set (or confirmed) since the last event that can
+// spoil them: the first use, an H4 restart, a tool change (button), a new part (Z0: its face). The H4 reports the
+// work and machine positions (st.z / st.lathe.zm), so the zero's offset (work - machine) is known: a zero changed
+// from the H4 keys is noticed too, and then asks once whether the zeros are right. Kept in this tablet.
+let ltGd={},ltGdKey='';try{ltGd=JSON.parse(localStorage.getItem('h4guard')||'{}')||{}}catch(e){}
+const gdSave=()=>{try{localStorage.setItem('h4guard',JSON.stringify(ltGd))}catch(e){}};
+const gdOff=a=>st.lathe&&st.lathe[a+'m']!=null&&st[a]!=null?+st[a]-st.lathe[a+'m']:null;
+function gdEvent(why,z,x){ltGd.why=why;ltGd.boot=st.boot;if(z)ltGd.z=null;if(x)ltGd.x=null;gdSave()}
+// the zero's offset once the H4 has it: the second status read after the H4 took the zero (at most 3 s)
+async function gdTouched(a){const p0=polls,t0=Date.now();
+ while(polls<p0+2&&Date.now()-t0<3000)await ltSleep(100);
+ ltGd[a]=gdOff(a);if(ltGd.boot==null)ltGd.boot=st.boot;gdSave()}
+function gdConfirm(){for(const a of ['z','x'])if(ltGd[a]!=null)ltGd[a]=gdOff(a);gdSave()}
+// per axis: 'need' (touch it), 'changed' (changed on the H4: confirm), '' (fine)
+function gdState(){if(st.boot!=null&&ltGd.boot!=null&&st.boot!=ltGd.boot)gdEvent('boot',true,true);
+ const r={};for(const a of ['z','x']){const o=gdOff(a);r[a]=ltGd[a]==null?'need':o!=null&&Math.abs(o-ltGd[a])>0.002?'changed':''}return r}
+const gdAxes=m=>[4,5,7,8].includes(m)?['z','x']:m==6?['x']:[];  // the operations that use the zeros
+// what the guard says for this operation ('' = START allowed); html with the confirm button when asked
+function gdNote(m,html){const L=ltT().gd,g=gdState(),ax=gdAxes(m),need=ax.filter(a=>g[a]=='need'),chg=ax.filter(a=>g[a]=='changed');
+ if(need.length)return L.need.replace('{w}',need.map(a=>L[a]).join(L.and)).replace('{why}',L.why[ltGd.why||'first']);
+ if(chg.length)return L.changed.replace('{a}',chg.map(a=>a.toUpperCase()).join(L.and))+(html?` <button type="button" class="ltgdok" data-gd="ok">${L.ok}</button>`:'');
+ return ''}
 function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart.boot){ltPart.boot=st.boot;partSave();msg(ltT().part.boot)}}
 // View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
 let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};
