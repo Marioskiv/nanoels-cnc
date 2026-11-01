@@ -249,6 +249,12 @@ program runs.
   form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
   positions) and asks once: *The zeros are right*. Feed, Constant feed and Taper start where the tool stands and are
   not held.
+  **Speed and feed**: under Turning, Facing, Parting, Sphere and Taper the note gives a starting point for the
+  material and tool chosen there (aluminium, mild steel, stainless, brass / bronze, plastic; carbide or HSS): the
+  spindle rpm for the operation's largest Ø (1000 Vc / π Ø, at most the lathe's 1000 rpm; Parting at 60 % of Vc),
+  the feed for roughing / finishing and, when the depth per pass is deep for the material, the number of passes
+  (*Set n passes*). Conservative workshop values for a light lathe, not a standard's table; the spindle is set by
+  hand. Not for threads.
   **Sequence** (recipe): fill a form as usual and add it as a step with its tool number (*Sequence* → *+ Add this
   one*); steps can be moved up / down, given another tool, edited in their form (✎, then *Save the form into step
   k*) or removed. *Run the sequence* loads step 1 into its form; each step is started with START as usual - nothing
