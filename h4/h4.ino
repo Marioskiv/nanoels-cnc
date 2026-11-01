@@ -239,6 +239,8 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define PREF_CNC_ORIGIN_POS_Z "zpc" // the GCODE mode's own zero (see cncZeroActive)
 #define PREF_CNC_ORIGIN_POS_X "xpc"
 #define PREF_CNC_ORIGIN_POS_A1 "a1pc"
+#define PREF_LATHE_Z_VIEW "lzv" // how the lathe modes show Z and X (latheview.ino)
+#define PREF_LATHE_X_VIEW "lxv"
 #define PREF_POS_GLOBAL_A1 "a1pg"
 #define PREF_MOTOR_POS_A1 "a1pm"
 #define PREF_DISABLED_A1 "a1d"
@@ -559,6 +561,16 @@ volatile int mode = -1; // mode of operation (ELS, multi-start ELS, asynchronous
 // kept like the H4 keeps its zero (originPos, relative to the motor steps, no homing needed); originPos is the
 // active one and otherOriginPos the other, swapped when the mode changes between the two families.
 volatile bool cncZeroActive = false; // originPos is the GCODE mode's zero
+// How the lathe modes show Z and X (latheview.ino): only the display changes, never the motion.
+#define LATHE_Z_ISO 0 // Z0 on the face, negative towards the chuck, as on lathes (ISO)
+#define LATHE_Z_H4 1  // as the original H4: positive towards the chuck
+#define LATHE_X_DIA 0 // diameter, positive
+#define LATHE_X_RAD 1 // radius, positive
+#define LATHE_X_H4 2  // as the original H4: radius from X0, growing towards the centre
+int latheZView = LATHE_Z_ISO;
+int latheXView = LATHE_X_DIA;
+int savedLatheZView = LATHE_Z_ISO;
+int savedLatheXView = LATHE_X_DIA;
 // latheOriginOf(), cncOriginOf(), swapZeros(): zeros.ino
 int nextMode = 0; // mode value that should be applied asap
 bool nextModeFlag = false; // whether nextMode needs attention
@@ -649,6 +661,17 @@ byte customCharLimUpDown[] = {
   B01110,
   B00100,
   B11111,
+  B00000
+};
+const int customCharDiaCode = 7; // Ø, before X in the diameter view (latheview.ino)
+byte customCharDia[] = {
+  B00001,
+  B01110,
+  B10011,
+  B10101,
+  B11001,
+  B01110,
+  B10000,
   B00000
 };
 const int customCharLimLeftRightCode = 6;
@@ -884,7 +907,7 @@ int printAxisPos(Axis* a) {
   if (a->rotational) {
     return printDegrees(getAxisPosDu(a));
   }
-  return printDeciMicrons(getAxisPosDu(a), 3);
+  return printDeciMicrons(latheViewDu(a, getAxisPosDu(a)), 3);
 }
 
 int printAxisStopDiff(Axis* a, bool addTrailingSpace) {
@@ -892,7 +915,7 @@ int printAxisStopDiff(Axis* a, bool addTrailingSpace) {
   if (a->rotational) {
     count = printDegrees(getAxisStopDiffDu(a));
   } else {
-    count = printDeciMicrons(getAxisStopDiffDu(a), 3);
+    count = printDeciMicrons(latheViewLengthDu(a, getAxisStopDiffDu(a)), 3);
   }
   if (addTrailingSpace) {
     count += lcd.print(' ');
@@ -902,7 +925,7 @@ int printAxisStopDiff(Axis* a, bool addTrailingSpace) {
 
 int printAxisPosWithName(Axis* a, bool addTrailingSpace) {
   if (!a->active || a->disabled) return 0;
-  int count = lcd.print(a->name);
+  int count = lcd.print(latheViewName(a));
   count += printAxisPos(a);
   if (addTrailingSpace) {
     count += lcd.print(' ');
@@ -1011,7 +1034,7 @@ void updateDisplay() {
     lcdHashLine3 = LCD_HASH_INITIAL;
   }
 
-  long newHashLine0 = isOn + (z.leftStop - z.rightStop) + (x.leftStop - x.rightStop) + spindlePosSync + moveStep + mode + measure + setupIndex * 10;
+  long newHashLine0 = isOn + (z.leftStop - z.rightStop) + (x.leftStop - x.rightStop) + spindlePosSync + moveStep + mode + measure + setupIndex * 10 + latheXView * 7919;
   if (lcdHashLine0 != newHashLine0) {
     lcdHashLine0 = newHashLine0;
     charIndex = 0;
@@ -1075,7 +1098,7 @@ void updateDisplay() {
   long zDisplayPos = z.pos + z.originPos;
   long xDisplayPos = x.pos + x.originPos;
   long a1DisplayPos = a1.pos + a1.originPos;
-  long newHashLine2 = zDisplayPos + xDisplayPos + a1DisplayPos + measure + z.disabled + x.disabled + mode;
+  long newHashLine2 = zDisplayPos + xDisplayPos + a1DisplayPos + measure + z.disabled + x.disabled + mode + latheZView * 7919 + latheXView * 104729;
   if (lcdHashLine2 != newHashLine2) {
     lcdHashLine2 = newHashLine2;
     charIndex = 0;
@@ -1094,7 +1117,7 @@ void updateDisplay() {
   }
   bool spindleStopped = micros() > spindleEncTime + 100000;
   long newHashLine3 = z.pos + (showAngle ? spindlePos : -1) + (showTacho ? rpm : -2) + measure + (numpadResult > 0 ? numpadResult : -1) + mode * 5 + dupr +
-      (mode == MODE_CONE ? round(coneRatio * 10000) : 0) + turnPasses + opIndex + setupIndex + gcodeProgramIndex + gcodeProgramCount + spindleStopped * 3 + (isOn ? 139 : -117) + (inNumpad ? 10 : 0) + (auxForward ? 17 : -31) +
+      (mode == MODE_CONE ? round(coneRatio * 10000) : 0) + latheZView * 7 + latheXView * 13 + turnPasses + opIndex + setupIndex + gcodeProgramIndex + gcodeProgramCount + spindleStopped * 3 + (isOn ? 139 : -117) + (inNumpad ? 10 : 0) + (auxForward ? 17 : -31) +
       (z.leftStop == LONG_MAX ? 123 : z.leftStop) + (z.rightStop == LONG_MIN ? 1234 : z.rightStop) +
       (x.leftStop == LONG_MAX ? 1235 : x.leftStop) + (x.rightStop == LONG_MIN ? 123456 : x.rightStop) + gcodeCommandHash + (long)(intptr_t)cncStatusText +
       (mode == MODE_A1 ? a1.pos + a1.originPos + (a1.leftStop == LONG_MAX ? 123 : a1.leftStop) + (a1.rightStop == LONG_MIN ? 1234 : a1.rightStop) + a1.disabled : 0) + x.pos + z.pos;
@@ -1174,12 +1197,12 @@ void updateDisplay() {
         if (zOffset != 0) {
           charIndex += lcd.print(" ");
           charIndex += lcd.print(z.name);
-          charIndex += printDeciMicrons(stepsToDu(&z, zOffset), 2);
+          charIndex += printDeciMicrons(latheViewDu(&z, stepsToDu(&z, zOffset)), 2);
         }
         if (xOffset != 0) {
           charIndex += lcd.print(" ");
-          charIndex += lcd.print(x.name);
-          charIndex += printDeciMicrons(stepsToDu(&x, xOffset), 2);
+          charIndex += lcd.print(latheViewName(&x));
+          charIndex += printDeciMicrons(latheViewDu(&x, stepsToDu(&x, xOffset)), 2);
         }
         charIndex += lcd.print("?");
       } else if (isOn && numpadResult == 0) {
@@ -2731,6 +2754,9 @@ void setup() {
   a1.savedPosGlobal = a1.posGlobal = pref.getLong(PREF_POS_GLOBAL_A1);
   a1.savedOriginPos = a1.originPos = pref.getLong(PREF_ORIGIN_POS_A1);
   a1.savedCncOriginPos = a1.otherOriginPos = pref.getLong(PREF_CNC_ORIGIN_POS_A1, a1.originPos);
+  savedLatheZView = latheZView = pref.getInt(PREF_LATHE_Z_VIEW, LATHE_Z_ISO);
+  savedLatheXView = latheXView = pref.getInt(PREF_LATHE_X_VIEW, LATHE_X_DIA);
+  if (!latheViewValid(latheZView, latheXView)) latheZView = savedLatheZView = LATHE_Z_ISO, latheXView = savedLatheXView = LATHE_X_DIA;
   a1.savedMotorPos = a1.motorPos = pref.getLong(PREF_MOTOR_POS_A1);
   a1.savedLeftStop = a1.leftStop = pref.getLong(PREF_LEFT_STOP_A1, LONG_MAX);
   a1.savedRightStop = a1.rightStop = pref.getLong(PREF_RIGHT_STOP_A1, LONG_MIN);
@@ -2781,6 +2807,7 @@ void setup() {
   lcd.createChar(customCharLimDownCode, customCharLimDown);
   lcd.createChar(customCharLimUpDownCode, customCharLimUpDown);
   lcd.createChar(customCharLimLeftRightCode, customCharLimLeftRight);
+  lcd.createChar(customCharDiaCode, customCharDia);
 
   Serial.begin(115200);
 
@@ -2821,7 +2848,7 @@ bool saveIfChanged() {
       spindlePos == savedSpindlePos && spindlePosAvg == savedSpindlePosAvg && spindlePosSync == savedSpindlePosSync && savedSpindlePosGlobal == spindlePosGlobal && showAngle == savedShowAngle && showTacho == savedShowTacho && moveStep == savedMoveStep &&
       mode == savedMode && measure == savedMeasure && x.pos == x.savedPos && latheOriginOf(&x) == x.savedOriginPos && cncOriginOf(&x) == x.savedCncOriginPos && x.posGlobal == x.savedPosGlobal && x.motorPos == x.savedMotorPos && x.leftStop == x.savedLeftStop && x.rightStop == x.savedRightStop && x.disabled == x.savedDisabled &&
       a1.pos == a1.savedPos && latheOriginOf(&a1) == a1.savedOriginPos && cncOriginOf(&a1) == a1.savedCncOriginPos && a1.posGlobal == a1.savedPosGlobal && a1.motorPos == a1.savedMotorPos && a1.leftStop == a1.savedLeftStop && a1.rightStop == a1.savedRightStop && a1.disabled == a1.savedDisabled &&
-      coneRatio == savedConeRatio && turnPasses == savedTurnPasses && savedAuxForward == auxForward) return false;
+      coneRatio == savedConeRatio && turnPasses == savedTurnPasses && savedAuxForward == auxForward && latheZView == savedLatheZView && latheXView == savedLatheXView) return false;
 
   Preferences pref;
   pref.begin(PREF_NAMESPACE);
@@ -2856,6 +2883,8 @@ bool saveIfChanged() {
   if (a1.posGlobal != a1.savedPosGlobal) pref.putLong(PREF_POS_GLOBAL_A1, a1.savedPosGlobal = a1.posGlobal);
   if (latheOriginOf(&a1) != a1.savedOriginPos) pref.putLong(PREF_ORIGIN_POS_A1, a1.savedOriginPos = latheOriginOf(&a1));
   if (cncOriginOf(&a1) != a1.savedCncOriginPos) pref.putLong(PREF_CNC_ORIGIN_POS_A1, a1.savedCncOriginPos = cncOriginOf(&a1));
+  if (latheZView != savedLatheZView) pref.putInt(PREF_LATHE_Z_VIEW, savedLatheZView = latheZView);
+  if (latheXView != savedLatheXView) pref.putInt(PREF_LATHE_X_VIEW, savedLatheXView = latheXView);
   if (a1.motorPos != a1.savedMotorPos) pref.putLong(PREF_MOTOR_POS_A1, a1.savedMotorPos = a1.motorPos);
   if (a1.leftStop != a1.savedLeftStop) pref.putLong(PREF_LEFT_STOP_A1, a1.savedLeftStop = a1.leftStop);
   if (a1.rightStop != a1.savedRightStop) pref.putLong(PREF_RIGHT_STOP_A1, a1.savedRightStop = a1.rightStop);
@@ -3503,7 +3532,8 @@ bool processNumpadResult(int keyCode) {
     a = &a1;
     sign = (keyCode == B_MODE_GEARS || keyCode == B_MODE_FACE) ? -1 : 1;
   }
-  long pos = a->pos + (a->rotational ? numpadResult * 10 : newDu) / a->screwPitch * a->motorSteps * sign;
+  // With X shown as a diameter, a number typed for X is a diameter (latheview.ino); numpad + A always is one.
+  long pos = a->pos + (a->rotational ? numpadResult * 10 : latheTypedDu(a, newDu, keyCode == B_A)) / a->screwPitch * a->motorSteps * sign;
 
   // Potentially assign a new value to a limit. Treat newDu as a relative distance from current position.
   if (keyCode == B_STOPL) {
