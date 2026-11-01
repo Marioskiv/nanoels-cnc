@@ -133,7 +133,8 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltdro{grid-area:dro}.ltview{grid-area:view}.card.ltpanel{grid-area:form}  /* landscape: readouts and drawing left, the form the full height on the right */
 .ltview{position:relative;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .ltsimb{position:absolute;top:8px;right:8px;z-index:2;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg);font-weight:700;padding:6px 12px}
-.ltview svg{flex:1;min-height:0;width:100%}
+.ltview svg{flex:1;min-height:0;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.ltvbtns{position:absolute;top:8px;left:8px;z-index:2;display:flex;gap:6px}.ltvbtns button{border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg);font-weight:700;padding:6px 10px}.ltvbtns button.on{background:var(--or);color:#111}
 .ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
 .ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
 .ltside{display:contents}
@@ -229,7 +230,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 
 <section class="scr lt" data-tab="lathe" hidden>
 <div class="ltops" id="ltOps"></div>
-<div class="ltmain"><div class="ltview"><button type="button" class="ltsimb" id="ltSim"></button><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
+<div class="ltmain"><div class="ltview"><div class="ltvbtns"><button type="button" id="ltVAll"></button><button type="button" id="ltVClose"></button></div><button type="button" class="ltsimb" id="ltSim"></button><svg id="ltSvg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg><div class="ltleg" id="ltLeg"></div></div>
 <div class="ltside"><div class="ltdro">
 <div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
 <div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
@@ -748,7 +749,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    out:'The measured Ø {d} is outside {lo} – {hi}: the thread will not fit as the standard asks.',depth:'Thread depth {t} mm in {p} passes: the first {a} mm, the last {b} mm (less deep each pass, the same material each time).',
    prep:'Preparation',prepFor:'Preparation for the {n} thread ({c}): Ø {lo} – {hi}, aim at {mid}. Then measure it and go to Thread.',prepOut:'The final Ø is outside {lo} – {hi}.',
    checkM:'Try it with a nut (or a ring gauge); if tight, run START again with the final Ø 0.05 smaller.',checkF:'Try it with a bolt (or a plug gauge); if tight, run START again with the final Ø 0.05 larger.',unc:'{n}: inch thread: nominal sizes only, check with a nut / bolt.',runout:'The H4 stops the tool at the end of the length: leave a relief groove there.'},
-  coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',
+  coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',vAll:'All',vClose:'Close',passOf:'Pass {k} of {n}',
   inside:'The start (Z {z}) is inside the part: at every pass the tool goes in straight there - it needs a tool that also cuts on its side (grooving or neutral).',
   part:{title:'Part',short:'Part Ø{d}×{l}',help:'With the face at Z0 (touch Z0 first). The length is measured from the face to the jaws. The part Ø of the forms then comes from here, and what an operation started here takes off is taken off the part.',d:'Part Ø mm',len:'Out of the jaws mm',bore:'Bore Ø mm (0: solid)',new:'New part',none:'No part',bad:'Part Ø and length above 0, bore smaller than the part.',made:'Part set: face at Z0.',jaw:'This reaches the jaws ({d} mm left, at least 2 mm needed).',wall:'The final Ø reaches the bore: it would cut through the tube.',boot:'The H4 restarted: check the part (Part, New part) - its position may have changed.'},noSafe:'Safe distance 0: from where it stands the tool goes straight (both axes) to the start: make sure nothing is in the way.',
   ok:'OK',cancel:'Cancel',clear:'Empty',
@@ -775,7 +776,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    out:'Η μετρημένη Ø {d} είναι έξω από {lo} – {hi}: το σπείρωμα δεν θα ταιριάξει όπως ορίζει το πρότυπο.',depth:'Βάθος σπειρώματος {t} mm σε {p} περάσματα: το πρώτο {a} mm, το τελευταίο {b} mm (λιγότερο βάθος σε κάθε πέρασμα, ίδια ποσότητα υλικού κάθε φορά).',
    prep:'Προετοιμασία',prepFor:'Προετοιμασία για σπείρωμα {n} ({c}): Ø {lo} – {hi}, στόχος {mid}. Μετά μέτρησε και πήγαινε στο Σπείρωμα.',prepOut:'Η τελική Ø είναι έξω από {lo} – {hi}.',
    checkM:'Δοκίμασε με παξιμάδι (ή δακτύλιο ελέγχου)· αν σφίγγει, ξανά ΕΚΚΙΝΗΣΗ με τελική Ø 0,05 μικρότερη.',checkF:'Δοκίμασε με βίδα (ή πείρο ελέγχου)· αν σφίγγει, ξανά ΕΚΚΙΝΗΣΗ με τελική Ø 0,05 μεγαλύτερη.',unc:'{n}: ιντσάτο σπείρωμα: μόνο ονομαστικές τιμές, έλεγχος με παξιμάδι / βίδα.',runout:'Το H4 σταματά το κοπτικό στο τέλος του μήκους: άφησε εκεί αυλάκι εξόδου.'},
-  coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',
+  coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',vAll:'Όλο',vClose:'Κοντινό',passOf:'Πέρασμα {k} από {n}',
   inside:'Η αρχή (Z {z}) είναι μέσα στο κομμάτι: σε κάθε πέρασμα το κοπτικό μπαίνει εκεί κάθετα — χρειάζεται κοπτικό που κόβει και στο πλάι (αυλακωτής ή ουδέτερο).',
   part:{title:'Κομμάτι',short:'Κομμάτι Ø{d}×{l}',help:'Με το πρόσωπο στο Z0 (πρώτα Άγγιγμα Z0). Το μήκος μετριέται από το πρόσωπο ως τις σιαγόνες. Η Ø κομματιού των φορμών παίρνεται από εδώ, και ό,τι αφαιρεί μια κατεργασία που ξεκίνησε εδώ αφαιρείται από το κομμάτι.',d:'Ø κομματιού mm',len:'Έξω από τις σιαγόνες mm',bore:'Ø τρύπας mm (0: συμπαγές)',new:'Νέο κομμάτι',none:'Χωρίς κομμάτι',bad:'Ø και μήκος πάνω από 0, τρύπα μικρότερη από το κομμάτι.',made:'Το κομμάτι ορίστηκε: πρόσωπο στο Z0.',jaw:'Φτάνει στις σιαγόνες (μένουν {d} mm, χρειάζονται τουλάχιστον 2).',wall:'Η τελική Ø φτάνει στην τρύπα: θα τρυπούσε τον σωλήνα.',boot:'Το H4 επανεκκίνησε: έλεγξε το Κομμάτι (Κομμάτι, Νέο κομμάτι) — η θέση του μπορεί να άλλαξε.'},noSafe:'Απόσταση ασφαλείας 0: από εκεί που στέκεται, το κοπτικό πηγαίνει ευθεία (και οι δύο άξονες) στην αρχή: βεβαιώσου ότι δεν υπάρχει εμπόδιο.',
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
@@ -841,10 +842,10 @@ let ltViewSeen='';function ltViewChanged(){const k=ltZv()+','+ltXv();if(k==ltVie
 function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
  for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}
  $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<button type="button" class="ltop" data-m="${m}"><svg viewBox="0 0 28 22" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></button>`).join('');
- $('ltSim').textContent='▶ '+L.sim;$('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
+ $('ltSim').textContent='▶ '+L.sim;ltVwBtns();$('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
  const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--dim)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
  $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
-$('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;partFill(ltOp);ltForm();if(st.lathe)ltShow()});
+$('ltOps').addEventListener('click',e=>{const b=e.target.closest('.ltop');if(!b||st.on)return;ltOp=+b.dataset.m;partFill(ltOp);ltVw={mode:ltVw.mode=='close'?'close':'auto',zoom:1,dz:0,dx:0,S:ltVw.S};ltForm();if(st.lathe)ltShow()});
 // The buttons beside a value show where its point moves in the drawing (chuck on the left, face on the right, centre
 // line at the top, outside at the bottom; the H4's ↑ key also goes towards the centre):
 //  Z places (start, stop): ◀ towards the chuck, ▶ towards the face (in the H4 frame, whatever the Z view);
@@ -1131,16 +1132,50 @@ function partSheet(){const L=ltT(),P=L.part,c=ltPart||{d:30,len:60,bore:0},row=(
   if(k=='new'){if(!(vals.d>0&&vals.len>0&&vals.bore>=0&&vals.bore<vals.d)){msg(P.bad);return}partNew(vals.d,vals.len,vals.bore);sheetClose();partFill(ltCur());ltForm();if(st.lathe)ltShow();msg(P.made);return}
   ltPad(P[k],vals[k],false,n=>{if(n==='')return;vals[k]=+n;b.textContent=+n})}}
 function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart.boot){ltPart.boot=st.boot;partSave();msg(ltT().part.boot)}}
+// The tool as the operation uses it, drawn with its tip (the point the H4 moves) at 0,0; the outside is down, the
+// centre line up. Outside turning: insert from below; inside: boring bar from the right; thread: 60° tip;
+// parting: the blade (w pixels wide); sphere: round nose.
+function ltToolShape(m,inner,w){const holder='fill="var(--dim)"',ins='fill="var(--fg)"';
+ if(m==7)return inner?`<path d="M0 0 L-6 -10 L6 -10 Z" ${ins}/><rect x="-4" y="-16" width="70" height="6" ${holder}/>`
+  :`<path d="M0 0 L-6 10 L6 10 Z" ${ins}/><rect x="-6" y="10" width="12" height="30" ${holder}/>`;
+ if(m==6)return inner?`<rect x="0" y="-12" width="${w}" height="12" ${ins}/><rect x="0" y="-18" width="70" height="6" ${holder}/>`
+  :`<rect x="0" y="0" width="${w}" height="34" ${ins}/><rect x="${w}" y="14" width="10" height="20" ${holder}/>`;
+ if(m==8)return `<circle cx="0" cy="5" r="5" ${ins}/><rect x="-5" y="8" width="16" height="30" ${holder}/>`;
+ if(inner)return `<path d="M0 0 L-6 -12 L10 -12 Z" ${ins}/><rect x="-2" y="-18" width="70" height="6" ${holder}/>`;
+ return `<path d="M0 0 L-8 22 L16 22 Z" ${ins}/><rect x="-6" y="22" width="22" height="26" ${holder}/>`}
+// View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
+let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};
+function ltVwSet(mode){ltVw={mode,zoom:1,dz:0,dx:0,S:ltVw.S};ltVwBtns();ltDraw()}
+function ltVwBtns(){const L=ltT();$('ltVAll').textContent='⤢ '+L.vAll;$('ltVClose').textContent='⊙ '+L.vClose;
+ $('ltVAll').classList.toggle('on',ltVw.mode=='all');$('ltVClose').classList.toggle('on',ltVw.mode=='close')}
+(function(){const sv=$('ltSvg'),pts=new Map();let last=null,tap=0;
+ const span=()=>{const a=[...pts.values()];return a.length<2?null:{d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2}};
+ const at=()=>{const a=[...pts.values()];return a.length==1?{x:a[0].x,y:a[0].y}:span()};
+ sv.addEventListener('pointerdown',e=>{sv.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});last=at();
+  if(pts.size==1){const now=performance.now();if(now-tap<300){ltVwSet('auto');tap=0}else tap=now}});
+ sv.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const c=at();if(!c||!last)return;
+  const S=ltVw.S||1;
+  if(pts.size>=2&&last.d&&c.d){ltVw.zoom=Math.max(.2,Math.min(30,ltVw.zoom*c.d/last.d))}
+  ltVw.dz+=(c.x-last.x)/S;ltVw.dx+=(c.y-last.y)/S;last=c;ltDraw()});
+ const up=e=>{pts.delete(e.pointerId);last=at()};sv.addEventListener('pointerup',up);sv.addEventListener('pointercancel',up);
+ sv.addEventListener('wheel',e=>{e.preventDefault();ltVw.zoom=Math.max(.2,Math.min(30,ltVw.zoom*(e.deltaY<0?1.15:1/1.15)));ltDraw()},{passive:false});
+ $('ltVAll').addEventListener('click',()=>ltVwSet(ltVw.mode=='all'?'auto':'all'));
+ $('ltVClose').addEventListener('click',()=>ltVwSet(ltVw.mode=='close'?'auto':'close'))})();
 function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoundingClientRect(),G=ltGeo(),A=ltAnim&&ltAnim.t>=0?ltAnim:null;
  // the drawing fills the view whatever its shape (1 unit = 1 screen pixel)
  const W=Math.max(300,Math.round(r.width)||600),H=Math.max(150,Math.round(r.height)||300),vb='0 0 '+W+' '+H;if(sv.getAttribute('viewBox')!=vb)sv.setAttribute('viewBox',vb);
+ // What is in view: 'auto' the operation (its cuts, path and the tool), 'all' also the whole part and the jaws,
+ // 'close' about 24 mm around the tool, following it; then the operator's pinch zoom and drag (ltVw.zoom, dz, dx).
  const zs=[0,st.z],xs=[st.x];if(G.dia)xs.push(0);if(G.surf!=null)xs.push(G.surf);
- if(ltPart){zs.push(partZ(0),partJaw()+4);xs.push(-ltPart.d/2)}
+ if(ltPart){xs.push(-ltPart.d/2);if(ltVw.mode=='all')zs.push(partZ(0),partJaw()+4)}
  for(const c of G.cuts)for(const [z,x] of c.pts){zs.push(z);xs.push(x)}for(const [z,x] of G.path){zs.push(z);xs.push(x)}
  if(G.zlo!=null)zs.push(G.zlo,G.zhi);
  let z0=Math.min(...zs),z1=Math.max(...zs),x0=Math.min(...xs),x1=Math.max(...xs);
  const zr_=Math.max(10,z1-z0),xr_=Math.max(5,x1-x0);z0-=zr_*.12;z1+=zr_*.3;x0-=xr_*.3;x1+=G.dia?xr_*.12:xr_*.6;
- const S=Math.min((W-80)/(z1-z0),(H-40)/(x1-x0)),px=z=>W-30-(z-z0)*S,py=x=>H-20-(x-x0)*S,g=[],P=p=>p.map(([z,x])=>px(z).toFixed(1)+','+py(x).toFixed(1)).join(' ');
+ let S=Math.min((W-80)/(z1-z0),(H-40)/(x1-x0)),zc=(z0+z1)/2,xc=(x0+x1)/2;
+ if(ltVw.mode=='close'){const span=24;S=Math.min(W,H)/span;zc=A?A.z:st.z;xc=A?A.x:st.x}
+ S*=ltVw.zoom;zc+=ltVw.dz;xc+=ltVw.dx;ltVw.S=S;
+ const px=z=>W/2-(z-zc)*S,py=x=>H/2-(x-xc)*S,g=[],P=p=>p.map(([z,x])=>px(z).toFixed(1)+','+py(x).toFixed(1)).join(' ');
  for(let x=20;x<W;x+=40)g.push(`<line x1="${x}" y1="6" x2="${x}" y2="${H-6}" stroke="var(--tileb)" stroke-width="1"/>`);
  // the part: from its face (Z0) to the chuck, from its outside to the centre line (or to the top when X0 is on the surface)
  const top=G.dia?py(0):6,surfY=py(G.surf!=null?G.surf:Math.min(st.x,0)),chuck=px(z1-zr_*.08);
@@ -1165,7 +1200,11 @@ function ltDraw(){const l=st.lathe;if(!l)return;const sv=$('ltSvg'),r=sv.getBoun
  let ly=-99;for(const x of (G.xmarks||[]).slice().sort((a,b)=>py(a)-py(b))){const t=ltXs(x),y=Math.max(py(x)-3,ly+13);ly=y;g.push(`<text x="8" y="${y}" fill="${AXC.X}" font-size="11" font-weight="700">${t}</text><line x1="6" y1="${py(x)}" x2="${W-6}" y2="${py(x)}" stroke="${AXC.X}" stroke-dasharray="2 5" opacity=".6"/>`)}
  if(G.safe)g.push(`<circle cx="${px(G.safe[0])}" cy="${py(G.safe[1])}" r="5" fill="none" stroke="${AXC.Z}" stroke-width="2"/>`);
  // the tool: where the simulation has it, else where the H4 has it
- const tz=A?A.z:st.z,tx=A?A.x:st.x;g.push(`<g transform="translate(${px(tz)},${py(tx)})"><path d="M0 0 L-8 22 L16 22 Z" fill="var(--fg)"/><rect x="-6" y="22" width="22" height="26" fill="var(--dim)"/></g>`);
+ const tz=A?A.z:st.z,tx=A?A.x:st.x,tm=st.on?st.mode:ltCur(),tv=ltV[tm]||{},inner=tv.side==1&&!(tm==8),k=Math.max(1,Math.min(2.4,S/10));
+ g.push(`<g transform="translate(${px(tz)},${py(tx)}) scale(${k})">${ltToolShape(tm,inner,tm==6?Math.max(2,2*S/k):0)}</g>`);
+ // the pass the simulation or the H4 is at
+ const np=G.passes||1,cp=A?Math.min(np,A.pass):(st.on&&[4,5,6,7,8].includes(st.mode)?Math.min(np,+l.op||0):0);
+ if(cp>0)g.push(`<text x="10" y="${H-10}" fill="var(--fg)" font-size="13" font-weight="700">${ltT().passOf.replace('{k}',cp).replace('{n}',np)}</text>`);
  ltPut('ltSvg',g.join(''))}
 // ▶: moves the tool along the path (about 10 s for the whole job), taking the material off pass by pass.
 function ltSimRun(){if(ltAnim){ltAnim=null;ltDraw();return}const G=ltGeo(),p=G.path;if(p.length<2)return;
