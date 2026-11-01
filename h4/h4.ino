@@ -151,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.16"
+#define FW_VERSION "1.17"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -592,6 +592,7 @@ bool auxForward = true; // True for external, false for external thread
 bool savedAuxForward = false; // value of auxForward saved in Preferences
 
 long opIndex = 0; // Index of an automation operation
+volatile uint32_t latheDoneCount = 0; // pass modes that ended normally (not by OFF / STOP): the app takes the material off
 bool opIndexAdvanceFlag = false; // Whether user requested to move to the next pass
 long opSubIndex = 0; // Sub-index of an automation operation
 int opDuprSign = 1; // 1 if dupr was positive when operation started, -1 if negative
@@ -3958,6 +3959,7 @@ void modeTurn(Axis* main, Axis* aux) {
     stepToFinal(main, mainPos);
     stepToFinal(aux, auxPos);
     if (main->pos == mainPos && aux->pos == auxPos) {
+      latheDoneCount = latheDoneCount + 1; // the operation ended normally (the app updates its part)
       setIsOnFromLoop(false);
       beep();
     }
@@ -4060,6 +4062,7 @@ void modeCut() {
       }
     }
   } else {
+    latheDoneCount = latheDoneCount + 1; // the operation ended normally (the app updates its part)
     setIsOnFromLoop(false);
     beep();
   }
@@ -4132,6 +4135,7 @@ void modeEllipse(Axis* main, Axis* aux) {
   } else if (opIndex == turnPasses + 1) {
     stepToFinal(aux, auxStartStop);
     if (aux->pos == auxStartStop) {
+      latheDoneCount = latheDoneCount + 1; // the operation ended normally (the app updates its part)
       setIsOnFromLoop(false);
       beep();
     }

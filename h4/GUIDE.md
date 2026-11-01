@@ -225,6 +225,14 @@ program runs.
   as the H4's own setup steps need; the H4 then moves the tool to the start point by itself and cuts, and refuses
   as it does from the keys. Taper, feed and parting start where the tool stands. **STOP** turns it OFF. Inch
   measure: set the values on the H4 keys.
+  **Part** (button in the zero row): declare the part once - part Ø, how far it sticks out of the jaws (measured
+  from the face, after *Touch Z0*), bore Ø for a tube. The drawing then shows the real part and the jaws; the forms
+  take the part Ø from it (the largest over the operation's length); an operation that would come closer than 2 mm
+  to the jaws, or turn through a tube's wall, does not start. When an operation started from this screen ends, the
+  H4 reports it (firmware 1.17: `lathe.done`) and the app takes that material off the part - after a STOP only the
+  passes that were finished. *Touch Ø → X0* corrects the part Ø while nothing was cut. The part is kept in the
+  tablet, in a frame that zeroing does not move; after an H4 restart the app asks to check it. Work done from the
+  H4 keys is not known to the app: *New part* starts again.
   **Threads** (*Male* = bolt, *Female* = nut): choose the standard (e.g. M10 × 1.5); for metric threads the page
   shows the ISO 965 tolerance of what to make first - a male thread's part Ø (class 6g, e.g. M10 × 1.5: 9.732 -
   9.968) or a female thread's hole Ø (class 6H, 8.376 - 8.676, with the drill) - and fills in the middle of it.

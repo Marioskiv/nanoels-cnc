@@ -262,7 +262,11 @@ void handleStatus() {
       ",\"aux\":" + String(auxForward ? 1 : 0) + ",\"setup\":" + String(setupIndex) + ",\"op\":" + String(opIndex) +
       ",\"ang\":" + String(spindleModulo(spindlePos) * 360 / ENCODER_STEPS_FLOAT, 1) +
       ",\"zl\":" + stopJson(&z, z.leftStop, z.leftStop != LONG_MAX) + ",\"zr\":" + stopJson(&z, z.rightStop, z.rightStop != LONG_MIN) +
-      ",\"xl\":" + stopJson(&x, x.leftStop, x.leftStop != LONG_MAX) + ",\"xr\":" + stopJson(&x, x.rightStop, x.rightStop != LONG_MIN) + "}";
+      ",\"xl\":" + stopJson(&x, x.leftStop, x.leftStop != LONG_MAX) + ",\"xr\":" + stopJson(&x, x.rightStop, x.rightStop != LONG_MIN) +
+      // for the app's part: operations ended normally, and the tool in a frame that zeroing does not move
+      ",\"done\":" + String((unsigned long)latheDoneCount) +
+      ",\"zm\":" + String(stepsToDu(&z, z.pos + z.machineOffset) / divisor, 4) + ",\"xm\":" + String(stepsToDu(&x, x.pos + x.machineOffset) / divisor, 4) + "}";
+  json += ",\"boot\":" + String((unsigned long)bootNumber); // changes at every start (safety.ino)
   json += ",\"running\":" + String(cncRunActive() ? 1 : 0);
   json += ",\"fsTotal\":" + String((unsigned long)fsTotalBytes);
   json += ",\"fsUsed\":" + String((unsigned long)fsUsedBytes);
