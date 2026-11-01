@@ -23,6 +23,8 @@ void stepToContinuous(Axis* a, long p) { a->pos = p; a->posGlobal = p + a->origi
 void stepToFinal(Axis* a, long p) { long d = p - a->pos; if (d > 20) d = 20; if (d < -20) d = -20; stepToContinuous(a, a->pos + d); }
 void markAxisOrigin(Axis* a) { if (a->leftStop != LONG_MAX) a->leftStop -= a->pos; if (a->rightStop != LONG_MIN) a->rightStop -= a->pos; a->originPos += a->pos; a->pos = 0; }
 void markOrigin() { markAxisOrigin(&z); markAxisOrigin(&x); spindlePos = spindlePosAvg = 0; spindlePosSync = 0; }
+#define MODE_THREAD 7
+int mode = 0;
 long auxSafeDistance, startOffset;
 #include "modes.inc" // made by extract.sh
 long toPos(double mm) { return lround(mm * 1000); }
@@ -30,7 +32,7 @@ double disp(Axis* a) { return (a->pos + a->originPos) / 1000.0; }
 int main(int argc, char** argv) {
   // mode pitch starts passes cone aux zl zr xl xr startZ startX   (stops: "-" = none; display mm, H4 frame)
   if (argc < 13) { fprintf(stderr, "args\n"); return 2; }
-  int mode = atoi(argv[1]); dupr = lround(atof(argv[2]) * 10000); starts = atoi(argv[3]); turnPasses = atoi(argv[4]);
+  mode = atoi(argv[1]); dupr = lround(atof(argv[2]) * 10000); starts = atoi(argv[3]); turnPasses = atoi(argv[4]);
   coneRatio = atof(argv[5]); auxForward = atoi(argv[6]);
   auto st = [](const char* s, long def) { return std::string(s) == "-" ? def : toPos(atof(s)); };
   z.leftStop = st(argv[7], LONG_MAX); z.rightStop = st(argv[8], LONG_MIN); x.leftStop = st(argv[9], LONG_MAX); x.rightStop = st(argv[10], LONG_MIN);
@@ -48,7 +50,7 @@ int main(int argc, char** argv) {
     else if (mode == 3) { modeCone(); if (it > 4000000) isOn = false; }
     else if (mode == 8) modeEllipse(&z, &x);
     double dz = disp(&z), dx = disp(&x);
-    if (fabs(dz - lz) > 1e-9 || fabs(dx - lx) > 1e-9) { printf("%s[%.3f,%.3f,%ld]", first ? "" : ",", dz, dx, opIndex); first = false; lz = dz; lx = dx; }
+    if (fabs(dz - lz) > 1e-9 || fabs(dx - lx) > 1e-9) { printf("%s[%.3f,%.3f,%ld,%ld]", first ? "" : ",", dz, dx, opIndex, opSubIndex); first = false; lz = dz; lx = dx; }
   }
   printf("]\n");
   return 0;

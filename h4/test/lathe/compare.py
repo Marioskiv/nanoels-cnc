@@ -28,15 +28,30 @@ for i, pl in enumerate(plans):
     args = [SIM, str(m), str(q.get('pitch', 0)), str(q.get('starts', 1)), str(q.get('passes', 1)), str(q.get('cone', 0)), str(q.get('aux', 1)),
             num(q.get('zl')), num(q.get('zr')), num(q.get('xl')), num(q.get('xr')), str(pl['st']['z']), str(pl['st']['x'])]
     h4 = json.loads(subprocess.run(args, capture_output=True, text=True).stdout)
-    h4 = [p for p in h4 if p[2] >= 1] if m in (4,5,6,7) else h4
+    h4 = [p for p in h4 if p[2] >= 1] if m in (4, 5, 6, 7) else h4
     if m == 8: h4 = h4[1:]  # the first move leaves wherever the tool stands
-    h4p = thin([[a, b] for a, b, _ in h4])
+    h4p = thin([[p[0], p[1]] for p in h4])
     page = [[a, b] for a, b, c in pl['path']]
     # page path starts from the tool position; H4 path starts after the first move: compare the H4 against the page and back
     d1 = polydist(h4p, page) if len(page) > 0 else (None, None)
     d2 = polydist(thin(page), [[pl['st']['z'], pl['st']['x']]] + h4p)
-    passes_h4 = sorted(set(round(b, 3) for a, b, k in h4 if k >= 1))
     bad = (d1[0] or 0) > 0.05 or d2[0] > 0.05
+    # the depth of every pass, exactly (0.002 mm): X while Z cuts along the middle (turning, threads) or Z while X
+    # cuts across the middle (facing)
+    if m in (4, 5, 7):
+        zr, zl, xr, xl = float(q['zr']), float(q['zl']), float(q['xr']), float(q['xl'])
+        if m == 5:
+            mid = (xr + xl) / 2
+            h4lv = sorted(set(round(p[0], 3) for p in h4 if abs(p[1] - mid) < 0.01 and p[3] == 2))
+            pglv = sorted(set(round(a, 3) for a, b, c in pl['path'] if c))
+        else:
+            mid = (zr + zl) / 2
+            h4lv = sorted(set(round(p[1], 3) for p in h4 if abs(p[0] - mid) < 0.01 and p[3] == 2))
+            pglv = sorted(set(round(b, 3) for a, b, c in pl['path'] if c))
+        lv = len(h4lv) == len(pglv) and all(abs(a - b) <= 0.002 for a, b in zip(h4lv, pglv))
+        if not lv:
+            print('   pass depths differ: H4', h4lv, 'page', pglv)
+        bad = bad or not lv
     fails += bad
     print('FAIL' if bad else 'ok  ', 'mode', m, pl['vals'], 'H4->page %.3f page->H4 %.3f mm' % (d1[0] or 0, d2[0]))
 print('lathe page vs H4: %d plans, %d failures' % (len(plans), fails))

@@ -96,6 +96,9 @@ g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/zeros_test" zeros_test.cpp
 # how the lathe modes show Z and X: ISO / original H4, diameter / radius (latheview.ino)
 g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/latheview_test" latheview_test.cpp
 "$OUT/latheview_test" || fail=$((fail + 1))
+# the depth of each thread pass: smaller and smaller, the same material each pass (threadpass.ino)
+g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/threadpass_test" threadpass_test.cpp
+"$OUT/threadpass_test" || fail=$((fail + 1))
 fail=$((fail + jfail))
 # real CAM programs (test/cam): as written, and through the polar converter
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp

@@ -195,7 +195,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
  .ltfields .seg button{padding:5px 2px;font-size:12px}.ltfields .sel{padding:4px 6px}.ltinfo{font-size:11.5px}.ltnow{font-size:11px}.ltstart{min-width:150px;padding:11px 12px}
  .ltdro{gap:4px}.ltsp{padding:3px 8px}.ltsp .v{font-size:17px}.ltside{gap:6px}.card.ltpanel{padding:8px;gap:6px}}
 /* X group heading: a shortcut to the setting Ø / R (Settings, Appearance). */
-.ltg h4{display:flex;justify-content:space-between;align-items:center;gap:6px}.ltxr{padding:1px 7px;font:600 11px system-ui;border-radius:6px;border:1px solid var(--line);background:var(--tile);color:var(--fg)}
+.ltg h4{display:flex;justify-content:flex-start;align-items:center;gap:6px}.ltg h4 .ltxr:first-of-type{margin-left:auto}.ltxr{padding:1px 7px;font:600 11px system-ui;border-radius:6px;border:1px solid var(--line);background:var(--tile);color:var(--fg)}
 /* Lathe form: large - / + buttons for the finger, on every screen size (they override the compact sizes above). */
 .ltg .step,.ltfields .step{grid-template-columns:48px 1fr 48px!important}
 .ltg .step button:not(.numv),.ltfields .step button:not(.numv){font-size:30px!important;font-weight:700;line-height:1;min-height:40px;touch-action:manipulation}
@@ -734,7 +734,8 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{safeX:'The safe Ø must be outside the part (larger for external work, smaller for internal).',safeZ:'The safe Z must be to the right of the start (smaller Z).',same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',len:'The length must be more than 0.',thrM:'For a male thread the final Ø must be smaller than the part Ø.',thrF:'For a female thread the final Ø must be larger than the hole Ø.',sph:'Radius X cannot be more than the part radius (it would pass the centre).'},
   thr:{blankM:'{n} male, tolerance 6g: turn the part to Ø {lo} – {hi} (aim at {mid}), measure it and write it above.',blankF:'{n} female, tolerance 6H: bore the hole to Ø {lo} – {hi} (aim at {mid}; drill {drill}), measure it and write it above.',
-   out:'The measured Ø {d} is outside {lo} – {hi}: the thread will not fit as the standard asks.',depth:'Thread depth {t} mm in {p} passes (H4: same depth each pass, the last ones cut more: more passes for a better finish).',
+   out:'The measured Ø {d} is outside {lo} – {hi}: the thread will not fit as the standard asks.',depth:'Thread depth {t} mm in {p} passes: the first {a} mm, the last {b} mm (less deep each pass, the same material each time).',
+   prep:'Preparation',prepFor:'Preparation for the {n} thread ({c}): Ø {lo} – {hi}, aim at {mid}. Then measure it and go to Thread.',prepOut:'The final Ø is outside {lo} – {hi}.',
    checkM:'Try it with a nut (or a ring gauge); if tight, run START again with the final Ø 0.05 smaller.',checkF:'Try it with a bolt (or a plug gauge); if tight, run START again with the final Ø 0.05 larger.',unc:'{n}: inch thread: nominal sizes only, check with a nut / bolt.',runout:'The H4 stops the tool at the end of the length: leave a relief groove there.'},
   coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',noSafe:'Safe distance 0: from where it stands the tool goes straight (both axes) to the start: make sure nothing is in the way.',
   ok:'OK',cancel:'Cancel',clear:'Empty',
@@ -758,7 +759,8 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{safeX:'Η ασφαλής Ø πρέπει να είναι έξω από το κομμάτι (μεγαλύτερη στο εξωτερικό, μικρότερη στο εσωτερικό).',safeZ:'Το ασφαλές Z πρέπει να είναι δεξιά από την αρχή (μικρότερο Z).',same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',len:'Το μήκος πρέπει να είναι πάνω από 0.',thrM:'Στο αρσενικό η τελική Ø πρέπει να είναι μικρότερη από την Ø του κομματιού.',thrF:'Στο θηλυκό η τελική Ø πρέπει να είναι μεγαλύτερη από την Ø της τρύπας.',sph:'Η ακτίνα X δεν μπορεί να είναι πάνω από την ακτίνα του κομματιού (θα περνούσε το κέντρο).'},
   thr:{blankM:'{n} αρσενικό, ανοχή 6g: τόρνευσε το κομμάτι σε Ø {lo} – {hi} (στόχος {mid}), μέτρησέ το και γράψε το επάνω.',blankF:'{n} θηλυκό, ανοχή 6H: άνοιξε την τρύπα σε Ø {lo} – {hi} (στόχος {mid}· τρυπάνι {drill}), μέτρησέ την και γράψε την επάνω.',
-   out:'Η μετρημένη Ø {d} είναι έξω από {lo} – {hi}: το σπείρωμα δεν θα ταιριάξει όπως ορίζει το πρότυπο.',depth:'Βάθος σπειρώματος {t} mm σε {p} περάσματα (H4: ίδιο βάθος κάθε πέρασμα, τα τελευταία κόβουν περισσότερο: περισσότερα περάσματα για καλύτερο φινίρισμα).',
+   out:'Η μετρημένη Ø {d} είναι έξω από {lo} – {hi}: το σπείρωμα δεν θα ταιριάξει όπως ορίζει το πρότυπο.',depth:'Βάθος σπειρώματος {t} mm σε {p} περάσματα: το πρώτο {a} mm, το τελευταίο {b} mm (λιγότερο βάθος σε κάθε πέρασμα, ίδια ποσότητα υλικού κάθε φορά).',
+   prep:'Προετοιμασία',prepFor:'Προετοιμασία για σπείρωμα {n} ({c}): Ø {lo} – {hi}, στόχος {mid}. Μετά μέτρησε και πήγαινε στο Σπείρωμα.',prepOut:'Η τελική Ø είναι έξω από {lo} – {hi}.',
    checkM:'Δοκίμασε με παξιμάδι (ή δακτύλιο ελέγχου)· αν σφίγγει, ξανά ΕΚΚΙΝΗΣΗ με τελική Ø 0,05 μικρότερη.',checkF:'Δοκίμασε με βίδα (ή πείρο ελέγχου)· αν σφίγγει, ξανά ΕΚΚΙΝΗΣΗ με τελική Ø 0,05 μεγαλύτερη.',unc:'{n}: ιντσάτο σπείρωμα: μόνο ονομαστικές τιμές, έλεγχος με παξιμάδι / βίδα.',runout:'Το H4 σταματά το κοπτικό στο τέλος του μήκους: άφησε εκεί αυλάκι εξόδου.'},
   coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',noSafe:'Απόσταση ασφαλείας 0: από εκεί που στέκεται, το κοπτικό πηγαίνει ευθεία (και οι δύο άξονες) στην αρχή: βεβαιώσου ότι δεν υπάρχει εμπόδιο.',
   ok:'OK',cancel:'Άκυρο',clear:'Κενό',
@@ -837,7 +839,7 @@ function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;
  const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[m==7&&f[0]=='side'?(o=='ext'?'male':'female'):o]}</button>`).join('')}</div></div>`
   :`<div class="f"><label data-l="${f[0]}">${ltLabel(f,m)}</label><div class="step"><button type="button" data-k="${f[0]}" data-d="-1">−</button><button type="button" class="numv" data-k="${f[0]}">${ltFmt(ltDisp(f[0],v[f[0]]),f[3])}</button><button type="button" data-k="${f[0]}" data-d="1">+</button></div></div>`;
- const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}${g=='x'?'<button type="button" class="ltxr" title="Ø / R" onclick="tab(\'settings\');setShow(\'look\')">Ø / R ⚙</button>':''}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
+ const grp=(g,title,cls)=>{const fs=F.filter(f=>f[5]==g&&ltShown(f));return fs.length?`<div class="ltg ${cls}"><h4>${title}${g=='x'?(m==7?`<button type="button" class="ltxr" data-prep="1">${L.thr.prep} ›</button>`:'<button type="button" class="ltxr" title="Ø / R" onclick="tab(\'settings\');setShow(\'look\')">Ø / R ⚙</button>'):''}</h4><div class="ltgf">${fs.map(fld).join('')}</div></div>`:''};
  const pre=LTPRE[m]?`<select id="ltPre" class="sel ltpre" aria-label="${L.f.preset}"><option value="">${L.f.preset}…</option>${LTPRE[m].map((p,i)=>`<option value="${i}"${(m==7&&v.thr!==''&&v.thr!=null?String(v.thr):ltPre[m])===String(i)?' selected':''}>${p[0]}</option>`).join('')}</select>`:'';
  $('ltForm').innerHTML=`${zero}<div class="lthead"><h3>${L.step2}${L.t[m]}</h3>${pre}</div><div class="ltgroups">${grp('z',L.zx,'ltgz')}${grp('x',ltRad()?L.xxr:L.xx,'ltgx')}</div>${grp('c',L.cx,'ltgc')}<div class="ltinfo" id="ltInfo"></div>`;
  $('ltForm').querySelectorAll('.ltgz').forEach(e=>e.style.setProperty('--c',AXC.Z));$('ltForm').querySelectorAll('.ltgx').forEach(e=>e.style.setProperty('--c',AXC.X));
@@ -848,6 +850,12 @@ function ltSet(m,k,val){const f=LTF[m].find(f=>f[0]==k);ltV[m][k]=val;
  const b=document.querySelector('#ltForm .numv[data-k="'+k+'"]');if(b)b.textContent=ltFmt(ltDisp(k,val),f[3]);
  const p=$('ltPre');if(p&&!keep)p.value='';ltInfo();ltDraw()}
 $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const L=ltT(),m=ltCur(),v=ltV[m];
+ // Thread preparation: the Turning form, set to make the part (male) or the hole (female) the thread needs, over
+ // the thread's length; the tolerance stays shown there. START there does the turning; then back to Thread.
+ if(b.dataset.prep){if(st.on)return;const t=v.thr!==''&&v.thr!=null?ltThr(+v.thr,v.side==1):null,T=ltV[4],int=v.side==1;
+  T.side=int?1:0;T.za=v.za;T.len=v.len;T.dfin=t?t.mid:+v.dnom;
+  if(int?!(T.dstock<T.dfin):!(T.dstock>T.dfin))T.dstock=+(T.dfin+(int?-2:2)).toFixed(3);
+  T.prep=t?{n:t.n,int:int?1:0,lo:t.lo,hi:t.hi,mid:t.mid}:null;ltPre[4]='';ltSave();ltOp=4;ltForm();if(st.lathe)ltShow();return}
  if(b.dataset.h){ltHelp=!ltHelp;const h=$('ltForm').querySelector('.lthelp');if(h)h.hidden=!ltHelp;return}
  if(b.dataset.z){if(st.on){msg(L.busy);return}
   if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);ltSave();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
@@ -917,11 +925,14 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
   if(m==6)out.push(L.cutZ.replace('{z}',f3(ltZs(st.z))));
   if(m==0||m==2||m==3)out.push(L.fromTool+(m==3?' '+L.coneStop.replace('{l}',f3(v.len))+' k = '+(+q.cone).toFixed(5):''));
   if(m==3){const dz=(q.pitch<0?-1:1)*v.len,dx=(q.aux?-1:1)*q.cone/2*dz;out.push(L.coneFrom.replace('{a}',ltXs(st.x)).replace('{b}',ltXs(st.x+dx)).replace('{l}',f3(v.len)))}
+  // the note stays while the turning still looks like that preparation (same side, final Ø within 1 mm)
+  if(m==4&&v.prep&&+v.prep.int==(v.side==1?1:0)&&Math.abs(v.dfin-v.prep.mid)<=1){const T=L.thr,P=v.prep,d3=x=>(+x).toFixed(3);out.push(T.prepFor.replace('{n}',P.n).replace('{c}',P.int?'6H':'6g').replace('{lo}',d3(P.lo)).replace('{hi}',d3(P.hi)).replace('{mid}',d3(P.mid)));
+   if(v.dfin<P.lo-1e-6||v.dfin>P.hi+1e-6)out.push('<b class="bad">'+T.prepOut.replace('{lo}',d3(P.lo)).replace('{hi}',d3(P.hi))+'</b>')}
   if(m==7){const T=L.thr,t=v.thr!==''&&v.thr!=null?ltThr(+v.thr,v.side==1):null,d2=x=>(+x).toFixed(3);
    if(t&&t.iso){out.push((t.int?T.blankF:T.blankM).replace('{n}',t.n).replace('{lo}',d2(t.lo)).replace('{hi}',d2(t.hi)).replace('{mid}',d2(t.mid)).replace('{drill}',t.drill));
     if(v.dnom<t.lo-1e-6||v.dnom>t.hi+1e-6)out.push('<b class="bad">'+T.out.replace('{d}',d2(v.dnom)).replace('{lo}',d2(t.lo)).replace('{hi}',d2(t.hi))+'</b>')}
    else if(t)out.push(T.unc.replace('{n}',t.n));
-   out.push(T.depth.replace('{t}',f3(Math.abs(v.dthr-v.dnom)/2)).replace('{p}',v.passes));out.push(v.side==1?T.checkF:T.checkM);out.push(T.runout)}
+   {const D=Math.abs(v.dthr-v.dnom)/2,n=Math.max(1,+v.passes);out.push(T.depth.replace('{t}',f3(D)).replace('{p}',n).replace('{a}',f3(D*Math.sqrt(1/n))).replace('{b}',f3(D*(1-Math.sqrt((n-1)/n)))))}out.push(v.side==1?T.checkF:T.checkM);out.push(T.runout)}
   if([4,5,6,7,8].includes(m)&&(!(+v.cx>0)||(m!=6&&!(+v.cz>0))))out.push(L.noSafe);
 }
  const p=Math.abs(q.pitch||0),dx=q.xb!==undefined&&q.start?Math.abs(q.xb-q.start[1]):0;let mm=0;
@@ -996,7 +1007,8 @@ function ltGeo(){const l=st.lathe,m=st.on?st.mode:ltCur(),v=ltV[m]||{},dia=true,
  if((m==4||m==7)&&zl!=null&&zr!=null&&xl!=null&&xr!=null){
   const ext=intern?false:true,xa=ext?xr:xl,xb=ext?xl:xr,z1=m==7&&(q?q.pitch:l.pitch)<0?zl:zr,z2=z1==zr?zl:zr;
   let xp=xa;P(z1,xa,0);
-  for(let i=1;i<=passes;i++){const xi=xa+(xb-xa)*i/passes;
+  // threads: each pass less deep, the same material each time (threadpass.ino); turning: the same depth
+  for(let i=1;i<=passes;i++){const xi=xa+(xb-xa)*(m==7?Math.sqrt(i/passes):i/passes);
    if(m==4)box(zr,zl,xp,xi,i);
    else{const p=Math.abs(+(q?q.pitch:l.pitch))||1,n=Math.min(200,Math.ceil((zl-zr)/p)),pts=[];
     for(let k=0;k<=n;k++){const z=Math.min(zl,zr+k*p);pts.push([z,xa],[Math.min(zl,z+p/2),xi])}

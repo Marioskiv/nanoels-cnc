@@ -228,9 +228,11 @@ program runs.
   9.968) or a female thread's hole Ø (class 6H, 8.376 - 8.676, with the drill) - and fills in the middle of it.
   Measure what you made and write that in *Part Ø now* / *Hole Ø now*: the thread depth is worked out from it to
   the *Final Ø* (male: the root, d - 1.22687 P; female: the nominal D), and a measured Ø outside the tolerance is
-  flagged. The H4 cuts the same depth each pass (its own thread mode), so the last passes take more: use more
-  passes for a better finish; check with a nut / bolt and run START again with a final Ø 0.05 smaller (male) or
-  larger (female) if it is tight. UNC threads: nominal sizes only. Leave a relief groove at the end of the length.
+  flagged. **Preparation ›** opens Turning set to make that part Ø (male) or bore that hole Ø (female) over the
+  thread's length, with the tolerance shown there too. Each thread pass goes less deep than the one before - the
+  depth after pass k of n is the full depth × √(k/n), so every pass takes about the same material (thread mode of
+  this fork, also from the H4 keys; turning and facing keep the same depth each pass). Check with a nut / bolt and
+  run START again with a final Ø 0.05 smaller (male) or larger (female) if it is tight. UNC threads: nominal sizes only. Leave a relief groove at the end of the length.
   **Taper**: *Large Ø* towards the chuck or at the face (any side, any direction); the H4's taper starts where the
   tool stands, and the page shows the Ø it starts from and ends at.
   **Sphere**: *Convex* is a dome on the end of the part (face side), *Concave* a cove at the face corner; Radius X

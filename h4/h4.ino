@@ -3895,7 +3895,10 @@ void modeTurn(Axis* main, Axis* aux) {
       opIndexAdvanceFlag = false;
       opIndex += starts;
     }
-    long auxPos = auxEndStop - (auxEndStop - auxStartStop) / turnPasses * (turnPasses - ceil(opIndex / float(starts)));
+    // Threads: each pass a smaller depth, the same amount of material each time (threadpass.ino); turning and
+    // facing: the same depth each pass, as on the original H4.
+    long auxPos = mode == MODE_THREAD ? threadPassPos(auxStartStop, auxEndStop, ceil(opIndex / float(starts)), turnPasses)
+        : auxEndStop - (auxEndStop - auxStartStop) / turnPasses * (turnPasses - ceil(opIndex / float(starts)));
     // Bringing X to starting position.
     if (opSubIndex == 0) {
       stepToFinal(aux, auxPos);
