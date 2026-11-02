@@ -111,8 +111,10 @@ G95; a polar milling machine (chuck turned by the C motor) does not need it.
 
 - **No spindle output**: `M3` / `M4` / `M5` / `S` are read and ignored; switch the spindle or router by hand
   (or with its own controller).
-- **No emergency-stop input**: put a real emergency stop in the drivers' power (it must also stop the spindle).
-  After it was pressed, home again: the drivers may have lost their position.
+- **The emergency stop is hardware**: a normally closed button that cuts the drivers' and the spindle's power. A
+  second contact of it can go to A23 together with the driver alarms ([CNC.md](CNC.md#home-switches-limits-and-driver-alarm-wiring)),
+  so that the H4 also stops and says *Driver alarm or E-stop*; the input alone is not an emergency stop. After it
+  was pressed, home again: the drivers may have lost their position.
 - No probe input, no coolant output.
 
 ## 4 Flashing the firmware
@@ -187,6 +189,11 @@ program runs.
   rapid overrides (F / R open a pop-up), Home, Macros (your own one-line G-code buttons, kept in that phone or
   browser), MDI and Files. With the jog lock on, the jog buttons and the wheel do nothing until 🔒 is pressed, and
   lock again 15 s after the last move.
+- **Lathe** (*Τόρνος*), in short: (1) **Part** (Ø, length out of the jaws); (2) **Touch Z0** on the face and
+  **Touch Ø → X0** with the measured Ø (again after an H4 restart, *Tool changed* or *New part*: the screen holds
+  START until then); (3) choose the operation, fill the form (or a standard thread / taper), look at the drawing and
+  **▶ Simulate**; (4) hold **START**; (5) after a turning, *I measured Ø…* and, if needed, the correction pass. For
+  several operations in a row use **Sequence**. The details:
 - **Lathe** (*Τόρνος*): the H4's own lathe modes (feed, turning, facing, taper, thread, parting, sphere, constant
   feed): large X / Z readout, spindle speed and angle, a side view with Z0, the stops and the tool, and what the
   H4 is set to (mode, feed or pitch, passes, starts, cone ratio, external / internal, stops, current pass).
@@ -334,6 +341,11 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
    mm or a driver microstep switch).
 5. **Lost steps on C**: a mark on the chuck, `G0 C3600` then `G0 C0`: the mark must line up. If not, lower the
    C speed / acceleration (high C speeds mean tens of thousands of steps per second).
+   **Driver alarms** (if wired to A23): one driver at a time, watch *Inputs*: running = not active, alarm (e.g.
+   the driver's power off) = active; then set *Driver alarm* on and its polarity, and check that an alarm stops a
+   slow move. **No steps at power-on**: a dial indicator on X and on Z, a mark on the C motor pulley; switch the H4
+   off / on, reset, restart from the page and update the firmware, 10 times each without homing in between: nothing
+   may move.
 6. **Work offset**: touch the tool on the work and set zero: `G10 L20 P1 Z0` (or L1 + D-pad down on the gamepad);
    for a polar machine X 0 is the chuck centre and stays so.
 7. **Self-test**: *Test* the program on the page (section 11).
@@ -441,7 +453,7 @@ next step. A speed above what the pulse length allows is refused in the settings
 ## 14 Limits of this controller
 
 - 3 axes: X, Z and C (A1). No Y axis.
-- No spindle control, probe, coolant or emergency-stop input (section 3.5).
+- No spindle control, probe or coolant; the emergency stop is wired in hardware (section 3.5).
 - G41 / G42 (cutter compensation in the controller), G70-G72 turning cycles, G38 probing, subprograms and
   parameters (`o` words, `#`) are refused. There is no tool table: `G43 H` is accepted with a note, touch off Z
   for every tool.
