@@ -14,5 +14,6 @@ node measure.js "$OUT/page.html" # measure and correct after a turning
 node recipe.js "$OUT/page.html" # sequence of operations (recipe)
 node advice.js "$OUT/page.html" # spindle speed / feed starting point
 node cone.js "$OUT/page.html" # taper by angle, chamfer
+node draw.js "$OUT/page.html" # half section and tool shapes
 node plans.js "$OUT/page.html" "$OUT/plans.json"
 python3 compare.py "$OUT/plans.json" "$OUT/lathe_sim"
