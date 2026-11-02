@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")"
 OUT=${OUT:-/tmp/h4-lathe-test}; mkdir -p "$OUT"
-{ sh extract.sh ../../threadpass.ino "long threadPassPos"; sh extract.sh ../../h4.ino "long posFromSpindle" "long spindleFromPos" "long spindleModulo" "void modeTurn" "void modeCone" "void modeCut" "void modeEllipse"; } > "$OUT/modes.inc"
+{ cat ../../threadpass.ino; sh extract.sh ../../h4.ino "long posFromSpindle" "long spindleFromPos" "long spindleModulo" "void modeTurn" "void modeCone" "void modeCut" "void modeEllipse"; } > "$OUT/modes.inc"
 g++ -O2 -std=c++17 -I"$OUT" -o "$OUT/lathe_sim" lathe_sim.cpp
 cp ../../../android/app/src/main/assets/h4/index.html "$OUT/page.html" # the H4 screen, part of the app
 node threads.js "$OUT/page.html" # thread data and form: ISO 965-1, own thread, G, Tr, UN
@@ -17,3 +17,4 @@ node cone.js "$OUT/page.html" # taper by angle, chamfer
 node draw.js "$OUT/page.html" # half section and tool shapes
 node plans.js "$OUT/page.html" "$OUT/plans.json"
 python3 compare.py "$OUT/plans.json" "$OUT/lathe_sim"
+python3 flank.py "$OUT/lathe_sim" # thread flank infeed: the spindle sync of each pass

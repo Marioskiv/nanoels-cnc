@@ -258,7 +258,7 @@ void handleStatus() {
     return isSet ? String(stepsToDu(a, s + a->originPos) / divisor, 4) : String("null");
   };
   json += ",\"lathe\":{\"pitch\":" + String(dupr / 10000.0, 4) + ",\"measure\":" + String(measure) +
-      ",\"starts\":" + String(starts) + ",\"passes\":" + String(turnPasses) + ",\"cone\":" + String(coneRatio, 5) +
+      ",\"starts\":" + String(starts) + ",\"flank\":" + String(threadFlank ? 1 : 0) + ",\"passes\":" + String(turnPasses) + ",\"cone\":" + String(coneRatio, 5) +
       ",\"aux\":" + String(auxForward ? 1 : 0) + ",\"setup\":" + String(setupIndex) + ",\"op\":" + String(opIndex) +
       ",\"ang\":" + String(spindleModulo(spindlePos) * 360 / ENCODER_STEPS_FLOAT, 1) +
       ",\"zl\":" + stopJson(&z, z.leftStop, z.leftStop != LONG_MAX) + ",\"zr\":" + stopJson(&z, z.rightStop, z.rightStop != LONG_MIN) +
@@ -696,6 +696,7 @@ void handleLathe() {
     }
     setDupr(du);
   }
+  if (server.hasArg("flank")) threadFlank = server.arg("flank").toInt() == 1;
   if (server.hasArg("starts")) setStarts(constrain(server.arg("starts").toInt(), 1, (int)STARTS_MAX));
   if (server.hasArg("passes")) setTurnPasses(constrain(server.arg("passes").toInt(), 1, (int)PASSES_MAX));
   if (server.hasArg("cone")) {

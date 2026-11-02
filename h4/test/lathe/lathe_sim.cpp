@@ -27,6 +27,7 @@ void markOrigin() { markAxisOrigin(&z); markAxisOrigin(&x); spindlePos = spindle
 int mode = 0;
 unsigned long latheDoneCount = 0; // h4.ino: operations ended normally
 long auxSafeDistance, startOffset;
+bool threadFlank = false; // h4.ino: thread flank infeed
 #include "modes.inc" // made by extract.sh
 long toPos(double mm) { return lround(mm * 1000); }
 double disp(Axis* a) { return (a->pos + a->originPos) / 1000.0; }
@@ -38,13 +39,14 @@ int main(int argc, char** argv) {
   auto st = [](const char* s, long def) { return std::string(s) == "-" ? def : toPos(atof(s)); };
   z.leftStop = st(argv[7], LONG_MAX); z.rightStop = st(argv[8], LONG_MIN); x.leftStop = st(argv[9], LONG_MAX); x.rightStop = st(argv[10], LONG_MIN);
   z.pos = toPos(atof(argv[11])); x.pos = toPos(atof(argv[12]));
+  if (argc > 13) threadFlank = atoi(argv[13]) == 1;
   // ON (setIsOnFromLoop(true)): markOrigin, then the operation's counters
   markOrigin(); isOn = true; opDuprSign = dupr >= 0 ? 1 : -1; opDupr = dupr; opIndex = 0; opIndexAdvanceFlag = false; opSubIndex = 0;
   printf("[");
   double lz = 1e9, lx = 1e9; bool first = true;
   for (long it = 0; it < 20000000 && isOn; it++) {
     spindlePos += 4; spindlePosAvg += 4; spindlePosGlobal += 4;
-    if (spindlePosSync != 0) { spindlePosSync = 0; continue; }
+    if (spindlePosSync != 0) { fprintf(stderr, "sync %ld %d\n", opIndex, spindlePosSync); spindlePosSync = 0; continue; }
     if (mode == 4 || mode == 7) modeTurn(&z, &x);
     else if (mode == 5) modeTurn(&x, &z);
     else if (mode == 6) modeCut();

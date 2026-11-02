@@ -51,6 +51,13 @@ const { chromium } = require('playwright');
   // a nominal thread's preparation: no tolerance flag on the exact size
   ltOp=7;ltV[7].thr='G1/2';ltThrUse(ltV[7]);ltForm();document.querySelector('#ltForm [data-prep]').click();
   ok(!document.querySelector('#ltInfo .bad'),'G preparation not flagged');
+  // flank infeed (option): sent with the thread, a note, a warning with a firmware that does not know it
+  ltOp=7;Object.assign(ltV[7],{side:0,thr:'M20 × 2.5',infeed:1});ltThrUse(ltV[7]);ltForm();
+  ok(ltPlan().flank===1,'flank sent');let inf=document.getElementById('ltInfo').textContent;
+  ok(/29[.,]5°/.test(inf)&&/1[.,]3\d\d mm|0[.,]8\d\d mm/.test(inf),'flank note: '+inf.slice(-400));
+  ok(!/firmware 1.18/.test(inf),'no warning when the H4 knows it');
+  const fl=st.lathe.flank;delete st.lathe.flank;ltForm();ok(/firmware 1.18/.test(document.getElementById('ltInfo').textContent),'warning with an older H4');st.lathe.flank=fl;
+  ltV[7].infeed=0;ltForm();ok(ltPlan().flank===0&&!/29[.,]5°: /.test(document.getElementById('ltInfo').textContent),'radial: flank 0');
   return {n,out}});
  await b.close();
  const fails=r.out.concat(errs.map(e=>'page error: '+e));fails.forEach(f=>console.log('FAIL',f));
