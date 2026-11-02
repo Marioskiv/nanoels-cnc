@@ -7,6 +7,8 @@ const { chromium } = require('playwright');
  const errs=[];p.on('pageerror',e=>errs.push(String(e)));
  await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
  const r=await p.evaluate(()=>{const out=[];let n=0;ltGd={z:gdOff('z'),x:gdOff('x'),boot:st.boot}; // zeros set (guard.js tests the guard)
+  // the forms start empty (app 1.33): the values these checks rely on
+  Object.assign(ltV[7],{za:-2,len:20,passes:10});Object.assign(ltV[4],{za:0,len:20,passes:4,feed:0.1,dstock:25,dfin:20});
   const eq=(got,want,what,tol=0.0005)=>{n++;if(!(Math.abs(got-want)<=tol))out.push(what+': got '+got+', want '+want)};
   const ok=(c,what)=>{n++;if(!c)out.push(what)};
   const row=name=>LTTHR.find(t=>t[0]==name);
