@@ -190,8 +190,8 @@ program runs.
   browser), MDI and Files. With the jog lock on, the jog buttons and the wheel do nothing until 🔒 is pressed, and
   lock again 15 s after the last move.
 - **Lathe** (*Τόρνος*), in short: (1) **Part** (Ø, length out of the jaws); (2) **Touch Z0** on the face and
-  **Touch Ø → X0** with the measured Ø (again after an H4 restart, *Tool changed* or *New part*: the screen holds
-  START until then); (3) choose the operation, fill the form (or a standard thread / taper), look at the drawing and
+  **Touch Ø → X0** with the measured Ø (again after *Tool changed* or *New part*;
+  after an H4 restart confirm them: the screen holds START until then); (3) choose the operation, fill the form (or a standard thread / taper), look at the drawing and
   **▶ Simulate**; (4) hold **START**; (5) after a turning, *I measured Ø…* and, if needed, the correction pass. For
   several operations in a row use **Sequence**. The details:
 - **Lathe** (*Τόρνος*): the H4's own lathe modes (feed, turning, facing, taper, thread, parting, sphere, constant
@@ -254,12 +254,19 @@ program runs.
   passes that were finished. *Touch Ø → X0* corrects the part Ø while nothing was cut. The part is kept in the
   tablet, in a frame that zeroing does not move; after an H4 restart the app asks to check it. Work done from the
   H4 keys is not known to the app: *New part* starts again.
+  **No ready-made numbers** (app 1.33): the forms start empty (a dash), only the safe distances (5 mm) and the starts
+  (1) are set; START waits and the note says what is still to fill in. *Touch Ø → X0* fills the part Ø of the
+  outside operations with the measured Ø; a declared *Part* fills it too. An arrow on an empty Z place starts from
+  where the tool stands. The drawing marks where the operation starts (a green flag with an arrow along the first cut).
+  **The zeros stay** where they were touched on the part (Z0 on the face, X0 from the measured Ø): every value is
+  measured from them, also after facing or turning, and the H4 keeps them when switched off.
   **Touch-off guard**: an operation that uses the zeros (Turning, Facing, Thread, Sphere: Z0 and Ø → X0; Parting:
   Ø → X0) does not START until they were set from this screen since the last event that can spoil them - the first
-  use, an H4 restart, **Tool changed** (button next to the zeros), a **New part** (Z0 on its face; on a part not cut
+  use, **Tool changed** (button next to the zeros), a **New part** (Z0 on its face; on a part not cut
   yet *Touch Z0* also moves the part's face there). The buttons still to press are marked and the note under the
   form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
-  positions) and asks once: *The zeros are right*. Feed, Constant feed and Taper start where the tool stands and are
+  positions) and asks once: *The zeros are right*. After an H4 restart the zeros are kept: the note asks to confirm
+  them (*The zeros are right*) or to touch them again. Feed, Constant feed and Taper start where the tool stands and are
   not held.
   **Speed and feed**: under Turning, Facing, Parting, Sphere and Taper the note gives a starting point for the
   material and tool chosen there (aluminium, mild steel, stainless, brass / bronze, plastic; carbide or HSS): the

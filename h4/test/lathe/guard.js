@@ -36,9 +36,15 @@ const { chromium } = require('playwright');
  await click('#ltForm [data-gd="tool"]');await p.waitForTimeout(400);s=await S();ok(s.g.z=='need'&&s.g.x=='need'&&/tool|κοπτικό/.test(s.note4),'tool changed '+s.note4);
  await click('#ltForm [data-z="z0"]');await p.waitForTimeout(1500);await click('#ltForm [data-z="dia"]');await pad('25');await p.waitForTimeout(1500);
  s=await S();ok(s.note4==='','zeros again after the tool change');
- // H4 restart (another boot number): both again
- await p.evaluate(()=>{ltGd.boot=0;gdSave()});await p.waitForTimeout(700);s=await S();ok(s.g.z=='need'&&s.g.x=='need'&&/restart|επανεκκίνησε/.test(s.note4),'restart '+s.note4);
- await click('#ltForm [data-z="z0"]');await p.waitForTimeout(1500);await click('#ltForm [data-z="dia"]');await pad('25');await p.waitForTimeout(1500);
+ // H4 restart (another boot number): the H4 kept the zeros (app 1.33): asks to confirm, START held until then
+ await p.evaluate(()=>{ltGd.boot=0;gdSave()});await p.waitForTimeout(700);s=await S();
+ ok(s.g.z=='changed'&&s.g.x=='changed'&&/restarted|επανεκκίνησε/.test(s.note4)&&/kept|κράτησε/.test(s.note4),'restart: zeros kept, confirm '+s.note4);
+ await p.evaluate(()=>ltStartGo());await p.waitForTimeout(300);ok(!(await p.evaluate(()=>st.on||!!ltJob)),'START held after a restart');
+ await click('#ltInfo [data-gd="ok"]');await p.waitForTimeout(400);s=await S();ok(s.g.z==''&&s.g.x==''&&s.note4==='','restart confirmed: zeros kept');
+ // or touched again (one axis touched clears that one)
+ await p.evaluate(()=>{ltGd.boot=0;gdSave()});await p.waitForTimeout(700);
+ await click('#ltForm [data-z="z0"]');await p.waitForTimeout(1500);s=await S();ok(s.g.z==''&&s.g.x=='changed','restart: Z touched again, X still to confirm');
+ await click('#ltForm [data-z="dia"]');await pad('25');await p.waitForTimeout(1500);s=await S();ok(s.note4==='','restart: both touched again');
  // new part: Z0 on its face only; Z0 then moves the part's face there
  await p.evaluate(()=>{partNew(25,60,0);ltForm()});await p.waitForTimeout(400);s=await S();ok(s.g.z=='need'&&s.g.x=='','new part: only Z0 '+JSON.stringify(s.g));
  const before=await p.evaluate(()=>ltPart.z0);await click('#ltForm [data-z="z0"]');await p.waitForTimeout(1500);
