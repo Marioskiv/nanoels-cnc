@@ -11,10 +11,12 @@
 package com.marioskiv.h4cnc;
 
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -24,6 +26,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -73,12 +76,14 @@ final class UpdateCheck {
                         + "Try again with Auto-rotate on (Huawei: or hold the tablet upright) and wait until Android "
                         + "says the app is installed; Android closes the app meanwhile, that is normal. If it still "
                         + "does not install: Settings, Apps, show system, Package installer, Storage, Clear data, "
-                        + "restart the tablet and try again.",
+                        + "restart the tablet and try again, or close H4 CNC (Settings, Apps, H4 CNC, Force stop) and "
+                        + "open H4CNC.apk from Files.",
                         "Το Android δεν ολοκλήρωσε την εγκατάσταση του H4 CNC " + tried + ": αυτό είναι ακόμα το " + current + ".\n\n"
                         + "Δοκίμασε ξανά με την Αυτόματη περιστροφή ενεργή (Huawei: ή κράτα το tablet κάθετα) και "
                         + "περίμενε να πει το Android ότι εγκαταστάθηκε· στο μεταξύ κλείνει το app, είναι κανονικό. Αν "
                         + "πάλι δεν μπει: Ρυθμίσεις, Εφαρμογές, εμφάνιση συστήματος, Πρόγραμμα εγκατάστασης πακέτων, "
-                        + "Αποθηκευτικός χώρος, Διαγραφή δεδομένων, επανεκκίνηση του tablet και ξανά."))
+                        + "Αποθηκευτικός χώρος, Διαγραφή δεδομένων, επανεκκίνηση του tablet και ξανά· ή κλείσε το H4 CNC "
+                        + "(Ρυθμίσεις, Εφαρμογές, H4 CNC, Αναγκαστική διακοπή) και άνοιξε το H4CNC.apk από τα Αρχεία."))
                 .setPositiveButton(Tr.t(activity, "Try again", "Ξανά"), (d, w) -> check(activity, true))
                 .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null)
                 .show();
@@ -215,7 +220,7 @@ final class UpdateCheck {
                 final String problem = check(activity, apk);
                 activity.runOnUiThread(() -> {
                     progress.dismiss();
-                    if (problem == null) openInstaller(activity, apk, version);
+                    if (problem == null) sessionInstall(activity, apk, version);
                     else if (problem.equals(SIGNED_DIFFERENTLY)) offerUninstall(activity);
                     else tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + problem);
                 });
@@ -246,6 +251,43 @@ final class UpdateCheck {
         } catch (Exception ignored) {
         }
         return null;
+    }
+
+    // App 1.32: Android's install session (PackageInstaller, Android 5 and newer): the app hands the APK to Android,
+    // Android asks "Install?" in a screen of its own task (InstallReceiver) and installs it itself. With the older way
+    // (the installer's screen opened by this app and waiting for its answer) some installers, Huawei's on Android 7,
+    // stayed at "Installing..." when Android stopped this app to replace it. The older way stays as the fallback.
+    private static void sessionInstall(MainActivity activity, File apk, String version) {
+        try {
+            PackageInstaller pi = activity.getPackageManager().getPackageInstaller();
+            PackageInstaller.SessionParams p = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+            p.setAppPackageName(activity.getPackageName());
+            p.setSize(apk.length());
+            int id = pi.createSession(p);
+            PackageInstaller.Session s = pi.openSession(id);
+            try {
+                try (InputStream in = new FileInputStream(apk); OutputStream out = s.openWrite("H4CNC.apk", 0, apk.length())) {
+                    byte[] buf = new byte[65536];
+                    for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+                    s.fsync(out);
+                }
+                Intent cb = new Intent(activity, InstallReceiver.class).setAction(InstallReceiver.ACTION);
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
+                PendingIntent pending = PendingIntent.getBroadcast(activity, id, cb, flags);
+                activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().putString("installTried", version).commit();
+                s.commit(pending.getIntentSender());
+            } catch (Exception e) {
+                s.abandon();
+                throw e;
+            } finally {
+                try {
+                    s.close();
+                } catch (Exception ignored) {
+                }
+            }
+        } catch (Exception e) {
+            openInstaller(activity, apk, version);   // the older way
+        }
     }
 
     @SuppressWarnings("deprecation")

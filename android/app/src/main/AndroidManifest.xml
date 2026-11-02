@@ -26,6 +26,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- the answer of Android's installer to an app update made with an install session (UpdateCheck) -->
+        <receiver
+            android:name=".InstallReceiver"
+            android:exported="false" />
         <!-- the downloaded app update, read only, for Android's installer (UpdateCheck, ApkProvider) -->
         <provider
             android:name=".ApkProvider"
