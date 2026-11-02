@@ -350,7 +350,7 @@ if(DEMO)(function(){
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
-   restart:'',lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({},S.lt,{ang:(S.ang=(S.ang+29)%360),zm:S.z+S.dz,xm:S.x+S.dx,done:S.lt.done||0}),boot:1,
+   restart:'',lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({flank:0},S.lt,{ang:(S.ang=(S.ang+29)%360),zm:S.z+S.dz,xm:S.x+S.dx,done:S.lt.done||0}),boot:1,
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
    diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
@@ -753,7 +753,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    groove:'Before the thread, with a grooving (parting) tool in Parting: a relief groove at the end of the thread length, Ø {g} (a little past the thread), about {w} mm wide. The thread tool then stops inside it.',
    chamferM:'Chamfer 45° at the start of the part down to Ø {c}.',chamferF:'Chamfer 45° at the mouth of the hole up to Ø {c}.',
    spring:'Spring pass (a clean last cut): START again with the same values; the earlier passes go through the air, the last one runs again at the final depth.',
-   cust:'My own metric thread…',custD:'Own thread: nominal Ø (e.g. 20)',custP:'Own thread: pitch mm (e.g. 1.25)',custNote:'{n}: own metric thread; tolerances 6g / 6H from the ISO 965-1 formulas.',
+   flank:'Flank infeed 29.5°: each pass starts a little later on the spindle, so the tool cuts with its leading edge (less chatter, a better finish); the last pass is {s} mm further along the thread. Usual from a 1.5 mm pitch up. Check it in the air first.',flankFw:'Flank infeed needs H4 firmware 1.18 or newer: this H4 would cut radially.',cust:'My own metric thread…',custD:'Own thread: nominal Ø (e.g. 20)',custP:'Own thread: pitch mm (e.g. 1.25)',custNote:'{n}: own metric thread; tolerances 6g / 6H from the ISO 965-1 formulas.',
    g:{mc:'ISO metric coarse',mf:'ISO metric fine',uc:'UNC (inch)',uf:'UNF (inch)',g:'G pipe (BSP, 55°)',t:'Tr trapezoidal (30°)'}},
   coneFrom:'From {a} to {b} over {l} mm (it starts where the tool stands).',cn:{ang:'Half angle α {a}° (included {b}°).',angBtn:'Angle…',chBtn:'Chamfer…',angAsk:'Half angle α (degrees): Ø small comes from it',chAskE:'Chamfer size c mm (Ø large = part Ø {d})',chAskI:'Chamfer size c mm (Ø small = hole Ø {d})',chAng:'Chamfer angle (degrees)',bad:'Not possible with these values.',start:'Chamfer {c} × {a}°: START with the tool {z} mm in front of the face, at Ø {d}.',go:'Take the tool there',front:'First bring the tool in front of the face (Z above 0), in the air.',big:'A chamfer over 1 mm in one pass: in steel better in steps (1 mm, then the full size).'},vAll:'All',vClose:'Close',passOf:'Pass {k} of {n}',
   inside:'The start (Z {z}) is inside the part: at every pass the tool goes in straight there - it needs a tool that also cuts on its side (grooving or neutral).',
@@ -765,7 +765,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    dstock:'Part Ø mm',dfin:'Final Ø mm',depth:'Depth mm',xin:'How far in mm',dfinf:'To Ø mm (0 = centre)',dfinp:'To Ø mm (0 = cut off)',dbig:'Ø large mm',dsmall:'Ø small mm',
    dnom:'Part Ø now (measured) mm',dbore:'Hole Ø now (measured) mm',dthr:'Final Ø (bottom of the thread) mm',rx:'Radius X mm',big:'Large Ø',bigchuck:'to the chuck',bigface:'at the face',male:'Male',female:'Female',
    passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',
-   preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex (dome)',concave:'Concave (cove)',ext:'External',int:'Internal'}},
+   infeed:'Infeed',radial:'Radial',flank:'Flank 29.5°',preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex (dome)',concave:'Concave (cove)',ext:'External',int:'Internal'}},
  el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},
   rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',turning:'γυρίζει',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
@@ -786,7 +786,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    groove:'Πριν το σπείρωμα, με κοπτικό αυλακιού (κοπής) στην Κοπή: αυλάκι εξόδου στο τέλος του μήκους του σπειρώματος, Ø {g} (λίγο πέρα από το σπείρωμα), πλάτος περίπου {w} mm. Το κοπτικό σπειρώματος σταματά μετά μέσα σε αυτό.',
    chamferM:'Λοξότμηση 45° στην αρχή του κομματιού ως Ø {c}.',chamferF:'Λοξότμηση 45° στο στόμιο της τρύπας ως Ø {c}.',
    spring:'Πέρασμα καθαρισμού: ξανά ΕΚΚΙΝΗΣΗ με τις ίδιες τιμές· τα προηγούμενα περάσματα περνούν στον αέρα, το τελευταίο ξανά στο τελικό βάθος.',
-   cust:'Δικό μου μετρικό σπείρωμα…',custD:'Δικό μου σπείρωμα: ονομαστική Ø (π.χ. 20)',custP:'Δικό μου σπείρωμα: βήμα mm (π.χ. 1,25)',custNote:'{n}: δικό σου μετρικό σπείρωμα· ανοχές 6g / 6H από τους τύπους του ISO 965-1.',
+   flank:'Πλάγια είσοδος 29,5°: κάθε πέρασμα ξεκινά λίγο αργότερα στην περιστροφή, ώστε το κοπτικό να κόβει με την μπροστινή κόψη (λιγότερο τρέμουλο, καλύτερο φινίρισμα)· το τελευταίο πέρασμα είναι {s} mm πιο μπροστά στο σπείρωμα. Συνηθίζεται από βήμα 1,5 mm και πάνω. Δοκίμασέ το πρώτα στον αέρα.',flankFw:'Η πλάγια είσοδος θέλει firmware H4 1.18 ή νεότερο: αυτό το H4 θα έκοβε ίσια.',cust:'Δικό μου μετρικό σπείρωμα…',custD:'Δικό μου σπείρωμα: ονομαστική Ø (π.χ. 20)',custP:'Δικό μου σπείρωμα: βήμα mm (π.χ. 1,25)',custNote:'{n}: δικό σου μετρικό σπείρωμα· ανοχές 6g / 6H από τους τύπους του ISO 965-1.',
    g:{mc:'ISO μετρικά χοντρά',mf:'ISO μετρικά ψιλά',uc:'UNC (ίντσες)',uf:'UNF (ίντσες)',g:'G σωλήνα (BSP, 55°)',t:'Tr τραπεζοειδή (30°)'}},
   coneFrom:'Από {a} σε {b} σε {l} mm (ξεκινά από εκεί που στέκεται το κοπτικό).',cn:{ang:'Μισή γωνία α {a}° (ολική {b}°).',angBtn:'Γωνία…',chBtn:'Λοξότμηση…',angAsk:'Μισή γωνία α (μοίρες): από αυτή βγαίνει η μικρή Ø',chAskE:'Λοξότμηση: μέγεθος c mm (μεγάλη Ø = Ø κομματιού {d})',chAskI:'Λοξότμηση: μέγεθος c mm (μικρή Ø = Ø τρύπας {d})',chAng:'Γωνία λοξότμησης (μοίρες)',bad:'Δεν γίνεται με αυτές τις τιμές.',start:'Λοξότμηση {c} × {a}°: ΕΚΚΙΝΗΣΗ με το κοπτικό {z} mm μπροστά από το πρόσωπο, στην Ø {d}.',go:'Πήγαινε το κοπτικό εκεί',front:'Φέρε πρώτα το κοπτικό μπροστά από το πρόσωπο (Z πάνω από 0), στον αέρα.',big:'Λοξότμηση πάνω από 1 mm σε ένα πέρασμα: σε χάλυβα καλύτερα σε βήματα (1 mm, μετά όλο).'},vAll:'Όλο',vClose:'Κοντινό',passOf:'Πέρασμα {k} από {n}',
   inside:'Η αρχή (Z {z}) είναι μέσα στο κομμάτι: σε κάθε πέρασμα το κοπτικό μπαίνει εκεί κάθετα — χρειάζεται κοπτικό που κόβει και στο πλάι (αυλακωτής ή ουδέτερο).',
@@ -798,7 +798,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    dstock:'Ø κομματιού mm',dfin:'Τελική Ø mm',depth:'Βάθος mm',xin:'Πόσο μέσα mm',dfinf:'Έως Ø mm (0 = κέντρο)',dfinp:'Έως Ø mm (0 = αποκοπή)',dbig:'Ø μεγάλη mm',dsmall:'Ø μικρή mm',
    dnom:'Ø κομματιού τώρα (μετρημένη) mm',dbore:'Ø τρύπας τώρα (μετρημένη) mm',dthr:'Τελική Ø (πάτος σπειρώματος) mm',rx:'Ακτίνα X mm',big:'Μεγάλη Ø',bigchuck:'προς το τσοκ',bigface:'στο πρόσωπο',male:'Αρσενικό',female:'Θηλυκό',
    passes:'Περάσματα',starts:'Αρχές',dir:'Φορά',hand:'Σπείρωμα',side:'Πλευρά',shape:'Μορφή',
-   preset:'Τυποποιημένο',left:'← προς το τσοκ',right:'→ από το τσοκ',rh:'Δεξιό',lh:'Αριστερό',convex:'Κυρτό (θόλος)',concave:'Κοίλο (γούβα)',ext:'Εξωτερικό',int:'Εσωτερικό'}}};
+   infeed:'Είσοδος',radial:'Ίσια',flank:'Πλάγια 29,5°',preset:'Τυποποιημένο',left:'← προς το τσοκ',right:'→ από το τσοκ',rh:'Δεξιό',lh:'Αριστερό',convex:'Κυρτό (θόλος)',concave:'Κοίλο (γούβα)',ext:'Εξωτερικό',int:'Εσωτερικό'}}};
 const LTOPS=[[0,'<rect class="ic-s" x="2" y="8" width="24" height="9" rx="1"/><path class="ic-l" d="M25 4 L6 4 M10 1 L6 4 L10 7" stroke-width="2"/>'],
  [4,'<rect class="ic-s" x="2" y="9" width="24" height="10" rx="1"/><rect class="ic-c" x="12" y="6" width="14" height="3"/><path class="ic-l" d="M27 3 L12 3" stroke-width="1.6"/>'],
  [5,'<rect class="ic-s" x="2" y="4" width="20" height="16" rx="1"/><rect class="ic-c" x="22" y="4" width="4" height="16"/><path class="ic-l" d="M28 2 L28 21" stroke-width="1.6"/>'],
@@ -859,7 +859,7 @@ const LTF={0:[['feed','n',0.1,3,0.01,'c'],['dir','s',0,['left','right'],0,'c'],[
    ['passes','n',4,0,1,'c'],['feed','n',0.08,3,0.01,'c']],
  3:[['len','n',30,3,1,'z'],['dbig','n',40,3,0.5,'x'],['dsmall','n',30,3,0.5,'x'],['side','s',0,['ext','int'],0,'c'],['big','s',0,['bigchuck','bigface'],0,'c'],['dir','s',0,['left','right'],0,'c'],['feed','n',0.08,3,0.01,'c']],
  7:[['za','n',-2,3,1,'z'],['len','n',20,3,1,'z'],['cz','n',5,1,1,'z'],['dnom','n',10,3,0.01,'x'],['dthr','n',8.16,3,0.01,'x'],['cx','n',5,1,1,'x'],
-   ['pitch','n',1.5,3,0.05,'c'],['side','s',0,['ext','int'],0,'c'],['hand','s',0,['rh','lh'],0,'c'],['starts','n',1,0,1,'c'],['passes','n',10,0,1,'c']],
+   ['pitch','n',1.5,3,0.05,'c'],['side','s',0,['ext','int'],0,'c'],['hand','s',0,['rh','lh'],0,'c'],['starts','n',1,0,1,'c'],['passes','n',10,0,1,'c'],['infeed','s',0,['radial','flank'],0,'c']],
  6:[['dstock','n',25,3,0.5,'x'],['dfinp','n',0,3,0.5,'x'],['cx','n',5,1,1,'x'],['side','s',0,['ext','int'],0,'c'],['passes','n',1,0,1,'c'],['feed','n',0.04,3,0.01,'c']],
  8:[['za','n',0,3,0.5,'z'],['rz','n',12,3,0.5,'z'],['cz','n',5,1,1,'z'],['dstock','n',24,3,0.5,'x'],['rx','n',12,3,0.5,'x'],['cx','n',5,1,1,'x'],['shape','s',0,['convex','concave'],0,'c'],['passes','n',12,0,1,'c'],['feed','n',0.07,3,0.01,'c']]};
 let ltOp=-1,ltPre={},ltV={},ltHelp=false;try{ltV=JSON.parse(localStorage.getItem('h4lathe3')||'{}')}catch(e){}
@@ -982,7 +982,7 @@ function ltPlan(){const m=ltCur(),v=ltV[m],q={mode:m},lo=Math.min,hi=Math.max,di
  if(m==5){const xb=dia?R(v.dfinf):v.xin;q.pitch=(xb>=X0?1:-1)*v.feed;q.passes=v.passes;q.aux=1;q.zr=v.za;q.zl=v.za+v.zdep;q.xr=lo(X0,xb);q.xl=hi(X0,xb);q.start=[v.za,X0];q.xb=xb}
  // the H4's cone: X follows Z; aux 1 = the diameter grows towards the chuck (whichever way Z goes)
  if(m==3){q.pitch=(v.dir?-1:1)*v.feed;q.cone=Math.abs(v.dbig-v.dsmall)/v.len;q.aux=v.big==1?0:1;q.xl=q.xr='';const z=st.z||0;if(v.dir){q.zr=z-v.len;q.zl=''}else{q.zl=z+v.len;q.zr=''}}
- if(m==7){const xa=R(v.dnom),xb=R(v.dthr);q.pitch=(v.hand?-1:1)*v.pitch;q.starts=v.starts;q.passes=v.passes;q.aux=in_?0:1;q.zr=v.za;q.zl=v.za+v.len;q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.hand?q.zl:q.zr,xa];q.xb=xb}
+ if(m==7){const xa=R(v.dnom),xb=R(v.dthr);q.pitch=(v.hand?-1:1)*v.pitch;q.starts=v.starts;q.passes=v.passes;q.flank=v.infeed==1?1:0;q.aux=in_?0:1;q.zr=v.za;q.zl=v.za+v.len;q.xr=lo(xa,xb);q.xl=hi(xa,xb);q.start=[v.hand?q.zl:q.zr,xa];q.xb=xb}
  if(m==6){const xb=dia?R(v.dfinp):(in_?-v.depth:v.depth);q.pitch=(xb>=X0?1:-1)*v.feed;q.passes=v.passes;q.xr=lo(X0,xb);q.xl=hi(X0,xb);q.start=[null,X0];q.xb=xb}
  // negative pitch: the H4 ends each pass at the face, so the convex form is a dome on the end of the part
  if(m==8){q.pitch=-v.feed;q.passes=v.passes;q.aux=v.shape?0:1;q.zr=v.za;q.zl=v.za+v.rz;q.xr=X0;q.xl=X0+v.rx;q.start=[v.za,X0]}
@@ -1028,6 +1028,7 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
    // relief groove a little past the root (male) / the major Ø (female), about two pitches wide; chamfer to that Ø
    {const P=Math.abs(+v.pitch)||0,g=+v.dthr+(int?0.2:-0.2),w=Math.max(1,Math.ceil(2*P*2)/2);
     out.push(T.groove.replace('{g}',d2(g)).replace('{w}',w.toFixed(1)));out.push((int?T.chamferF:T.chamferM).replace('{c}',d2(v.dthr)))}
+   if(v.infeed==1){out.push(T.flank.replace('{s}',f3(Math.abs(v.dthr-v.dnom)/2*0.5657727781877702)));if(st.lathe&&st.lathe.flank===undefined)out.push('<b class="bad">'+T.flankFw+'</b>')}
    out.push(int?T.checkF:T.checkM);out.push(T.spring)}
   if([4,5,6,7,8].includes(m)&&(!(+v.cx>0)||(m!=6&&!(+v.cz>0))))out.push(L.noSafe);
   {const zs=m==4||(m==7&&!v.hand)?+q.zr:m==7?null:null;let face=0;if(ltPart){const i=ltPart.ro.findIndex(r=>r>0);if(i>=0)face=partZ(i)}

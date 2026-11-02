@@ -151,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.17"
+#define FW_VERSION "1.18"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -3862,6 +3862,7 @@ long spindleModulo(long value) {
 }
 
 long auxSafeDistance, startOffset;
+bool threadFlank = false; // threads: flank infeed (threadpass.ino), set by the app with each thread START
 void modeTurn(Axis* main, Axis* aux) {
   if (main->movingManually || aux->movingManually || turnPasses <= 0 ||
       main->leftStop == LONG_MAX || main->rightStop == LONG_MIN ||
@@ -3910,7 +3911,10 @@ void modeTurn(Axis* main, Axis* aux) {
       stepToFinal(aux, auxPos);
       if (aux->pos == auxPos) {
         opSubIndex = 1;
-        spindlePosSync = spindleModulo(spindlePosGlobal - spindleFromPos(main, main->posGlobal) + startOffset * (opIndex - 1));
+        // flank infeed: the pass starts later on the spindle by its depth * tan 29.5 degrees along the thread
+        long flank = mode == MODE_THREAD && threadFlank ? threadFlankSync(labs(auxPos - auxStartStop) * aux->screwPitch / aux->motorSteps,
+            labs(dupr) * starts, ENCODER_STEPS_INT) : 0;
+        spindlePosSync = spindleModulo(spindlePosGlobal - spindleFromPos(main, main->posGlobal) + startOffset * (opIndex - 1) + flank);
         return; // Instead of jumping to the next step, let spindlePosSync get to 0 first.
       }
     }

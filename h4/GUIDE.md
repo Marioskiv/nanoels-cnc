@@ -292,6 +292,11 @@ program runs.
   a nut / bolt and run START again with a final Ø 0.05 smaller (male) or larger (female) if it is tight; START again
   with the same values is a spring pass (the earlier passes run in the air). Both rely on the H4 keeping the thread
   in step with the spindle between runs: check it in the air first (two runs, the same groove).
+  **Infeed** (firmware 1.18): *Radial* (as before) or *Flank 29.5°*: each pass also moves along the thread by its
+  depth × tan 29.5°, in the direction of the cut, so the tool cuts with its leading edge (less chatter, a better
+  finish; usual from a 1.5 mm pitch up). The H4 does it by starting each pass that much later on the spindle: the
+  tool's Z start and stops stay the same. Sent with every thread START from this screen; after an H4 restart the
+  thread mode from the H4 keys is radial. Check it in the air first (two runs, the same groove).
   **Taper**: *Large Ø* towards the chuck or at the face (any side, any direction); the H4's taper starts where the
   tool stands, and the page shows the Ø it starts from and ends at.
   **Taper by angle, chamfer**: the note under Taper shows the half angle α (and the included angle); *Angle…* sets

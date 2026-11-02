@@ -38,6 +38,15 @@ int main() {
     }
   }
   check(threadPassPos(0, 1000, 0, 10) == 0, "pass 0", 0, 0, 0);
+  // flank infeed: depth * tan(29.5 deg) along the thread, as spindle encoder steps of one lead
+  check(threadFlankSync(0, 15000, 2400) == 0 && threadFlankSync(500, 0, 2400) == 0 && threadFlankSync(-5, 15000, 2400) == 0, "flank: nothing", 0, 0, 0);
+  check(threadFlankSync(15000, 15000, 2400) == lround(0.5657727781877702 * 2400), "flank: depth = lead", threadFlankSync(15000, 15000, 2400), 0, 0);
+  for (long lead : {5000L, 15000L, 25400L, 40000L})
+    for (long d = 0; d <= 20000; d += 37) {
+      long s = threadFlankSync(d, lead, 2400);
+      double mm = s / 2400.0 * lead; // back to du along the thread
+      check(fabs(mm - d * 0.5657727781877702) <= lead / 2400.0, "flank: shift = depth * tan 29.5", d, lead, s);
+    }
   check(threadPassPos(0, 1000, 1, 4) == 500, "first of 4: half the depth", 0, 0, threadPassPos(0, 1000, 1, 4));
   check(threadPassPos(0, 1000, 5, 0) == 1000, "no passes", 0, 0, 0);
   printf("threadpass: %d checks, %d failures\n", checks, fails);
