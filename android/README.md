@@ -43,9 +43,10 @@ Older Androids (up to 7.1) lack the root certificate of GitHub's download server
 needed public roots itself (ISRG Root X1 / X2, DigiCert Global Root G2, with the full chain and host name checked),
 so updates download there too. On such a device install 1.15 once by hand.
 
-**Huawei tablets with Android 7 (EMUI 5):** hold the tablet **upright (portrait)** while Android installs the app,
-the first time and at every update. Held sideways (landscape), Huawei's installer stays at "Installing..." and
-never finishes (found on a MediaPad T3 7 and a MediaPad M3 Lite 10).
+**Huawei tablets with Android 7 (EMUI 5):** turn **Auto-rotate** on (or hold the tablet upright) while Android
+installs the app, the first time and at every update. With the rotation locked in landscape, Huawei's installer
+stays at "Installing..." and never finishes (found on a MediaPad T3 7 and a MediaPad M3 Lite 10); with Auto-rotate
+on it finishes also with the tablet mounted sideways on the machine.
 
 ## H4 firmware updates
 
@@ -93,4 +94,5 @@ address is lost). For updates in place, make one key once and give it to GitHub 
 (Settings > Secrets and variables > Actions): `ANDROID_KEYSTORE_BASE64` (the keystore file in base64) and
 `ANDROID_KEYSTORE_PASSWORD`, key alias `h4cnc`. The key never goes into the repository.
 
-Copyright (c) 2026 Marioskiv. MIT licence.
+Copyright (c) 2026 Marioskiv. The app's Java code: MIT licence; the H4 screen it carries
+(`app/src/main/assets/h4/index.html`, from the firmware's page): GPL-3.0-or-later, like the firmware.

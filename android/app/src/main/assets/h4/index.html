@@ -346,7 +346,7 @@ if(DEMO)(function(){
   if(S.on){const L=S.lt;S.lp=(S.lp||0)+dt/3;if(S.lp>=1){S.lp=0;L.op++;if(L.op>=L.passes){S.on=false;L.done=(L.done||0)+1;if(L.xr!=null)S.x=L.xr;if(L.zr!=null)S.z=L.zr;add('Demo: lathe passes done')}}
    if(L.zl!=null&&L.zr!=null)S.z=L.zr+(L.zl-L.zr)*(S.lp||0)}}
  function status(){tick();const st=S.running?(S.paused?'Hold':'Run'):'Idle';
-  return {state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,rpm:0,
+  return {state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
@@ -1272,7 +1272,7 @@ function recNote(out){if(ltRec.cur<0)return;const L=ltT().rc,n=ltRec.steps.lengt
  let h='<b>'+L.now.replace('{k}',k+1).replace('{n}',n).replace('{s}',recLabel(sp)).replace('{t}',sp.t)+'</b>';
  if(ltRec.fin)h+=k+1<n?` <button type="button" class="ltgdok" data-rc="next">${L.next}</button>`:' <b>'+L.done+'</b>';
  h+=` <button type="button" class="ltgdok" data-rc="end">${L.end}</button>`;out.push(h)}
-function recClick(a){const L=ltT().rc;if(st.on)return;
+function recClick(a){if(st.on)return;
  if(a=='open')return recSheet();
  if(a=='next'){recLoad(ltRec.cur+1);return}
  if(a=='end'){ltRec.cur=-1;ltRec.fin=false;recSave();ltForm();return}}
