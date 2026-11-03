@@ -189,8 +189,10 @@ program runs.
   rapid overrides (F / R open a pop-up), Home, Macros (your own one-line G-code buttons, kept in that phone or
   browser), MDI and Files. With the jog lock on, the jog buttons and the wheel do nothing until 🔒 is pressed, and
   lock again 15 s after the last move.
-- **Lathe** (*Τόρνος*), in short: (1) **Part** (Ø, length out of the jaws; the operations on the part wait for it); (2) **Touch Z0** on the face and
-  **Touch Ø → X0** with the measured Ø (again after *Tool changed* or *New part*;
+- **Lathe** (*Τόρνος*), in short. The screen is laid out in that order: on the left *where the tool is now* (Z, X
+  from the zero) and the drawing; on the right **1 · Part** (its size before any cut), **2 · Zero** and **3 · Operation**
+  (only what this cut does). (1) **Part** (Ø, length out of the jaws; the operations on the part wait for it); (2) **Touch Z0** on the face and
+  **Touch Ø → X0** with the measured Ø (again after *New tool* or *New part*;
   after an H4 restart confirm them: the screen holds START until then); (3) choose the operation, fill the form (or a standard thread / taper), look at the drawing and
   **▶ Simulate**; (4) hold **START**; (5) after a turning, *I measured Ø…* and, if needed, the correction pass. For
   several operations in a row use **Sequence**. The details:
@@ -265,7 +267,7 @@ program runs.
   measured from them, also after facing or turning, and the H4 keeps them when switched off.
   **Touch-off guard**: an operation that uses the zeros (Turning, Facing, Thread, Sphere: Z0 and Ø → X0; Parting:
   Ø → X0) does not START until they were set from this screen since the last event that can spoil them - the first
-  use, **Tool changed** (button next to the zeros), a **New part** (Z0 on its face; on a part not cut
+  use, **New tool** (button next to the zeros), a **New part** (Z0 on its face; on a part not cut
   yet *Touch Z0* also moves the part's face there). The buttons still to press are marked and the note under the
   form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
   positions) and asks once: *The zeros are right*. After an H4 restart the zeros are kept: the note asks to confirm
