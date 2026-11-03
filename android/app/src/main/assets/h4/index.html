@@ -26,6 +26,9 @@ main{grid-area:m;position:relative;min-height:0;overflow:hidden}
 .tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.on{color:var(--or)}.tabs button.on::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--or)}
 .tabs .dot{position:absolute;top:4px;left:calc(50% + 8px);width:9px;height:9px;border-radius:5px;background:var(--bad)}.tabs .pct{position:absolute;top:3px;left:calc(50% + 10px);font:700 10px ui-monospace,monospace;font-style:normal;color:var(--ok)}
+/* a long press on a button never selects or copies its name (START is held) */
+button,label,.seg,.ltax,.ltsp,.ltdroh,.ltleg,#tabs{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.ltstart{touch-action:none}
 button,input[type=submit]{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--btn);color:var(--fg);cursor:pointer;min-width:0}
 button:active{filter:brightness(1.4)}button:disabled{opacity:.4}
 input[type=text],input[type=password],input[type=number],select{font:inherit;padding:7px;border-radius:6px;border:1px solid var(--line);background:var(--in);color:var(--fg);width:100%;min-width:0}
@@ -1473,6 +1476,7 @@ function ltSimRun(){if(ltAnim){ltAnim=null;ltDraw();return}const G=ltGeo(),p=G.p
   if(d<T)requestAnimationFrame(step);else setTimeout(()=>{ltAnim=null;ltDraw()},1500)};
  requestAnimationFrame(step)}
 $('ltSim').addEventListener('click',ltSimRun);
+document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('button,label,.seg'))e.preventDefault()});
 window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
