@@ -76,6 +76,15 @@ public class MainActivity extends Activity {
                 return r != null ? r : super.shouldInterceptRequest(view, url);
             }
 
+            // Android 8 and newer: the screen's browser part ended (crash or memory); without this the app closes.
+            // It is noted and the app opens again.
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                ExitWatch.rendererGone(android.os.Build.VERSION.SDK_INT >= 26 && detail.didCrash());
+                recreate();
+                return true;
+            }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (!demo && url != null && url.startsWith("http")) FirmwareUpdate.check(MainActivity.this, address, false);
@@ -109,6 +118,7 @@ public class MainActivity extends Activity {
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
         if (address == null) askAddress(null);
         else open();
+        ExitWatch.start(this);         // why the app closed last time, and the watch of this run
         UpdateCheck.maybeCheck(this);  // 15 s after the app opens, at most every 12 h (and says when an install did not go through)
     }
 
@@ -239,6 +249,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        ExitWatch.visible(true);
         web.onResume();
         pad.resume();
     }
@@ -247,14 +258,22 @@ public class MainActivity extends Activity {
     protected void onPause() {
         pad.pause();  // stops any jog at once
         web.onPause();
+        ExitWatch.visible(false);
         super.onPause();
     }
 
     @Override
     protected void onDestroy() {
+        if (isFinishing()) ExitWatch.closed();   // closed by the user: nothing to report next time
         pad.pause();
         web.destroy();
         super.onDestroy();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        ExitWatch.trim(level);
     }
 
     // Called by the page (window.H4App).
