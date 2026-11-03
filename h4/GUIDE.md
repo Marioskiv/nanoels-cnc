@@ -176,13 +176,14 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
    WiFi, firmware update, lasting log) - since firmware 1.16 the full screen is no longer stored in the H4.
 
 The page **never scrolls**: every screen fits the phone or tablet, upright or turned. Screens are chosen with the
-**tabs** (at the bottom when upright, on the left when turned; or swipe left / right; the phone's Back key goes to the
-screen before). What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
+**button at the top left** that names the screen you are on: a tap rolls the list of screens down under it, a choice
+rolls it up again (or swipe left / right; the phone's Back key goes to the screen before). Axes are always in the
+order **Z, X, C**, as in the lathe drawing, on the H4's own keys and on the gamepad's sticks. What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
 On a tablet turned sideways the parts of a screen sit side by side. **STOP** is always at the top right. Messages
 also appear for a few seconds; a red dot on *Machine* means a new message, *G-code* shows the progress while a
 program runs.
 
-- **Control**: X / Z / C in work coordinates with the machine position under them and a ZERO per axis (it asks
+- **Control**: Z / X / C in work coordinates with the machine position under them and a ZERO per axis (it asks
   first; on a polar machine X0 must stay the chuck centre); the step (.001 ... 10, or **Cont**) and the **jog
   lock** 🔒; the **jog buttons** X−/X+, Z+/Z−, C+/C− (a tap is one step; with *Cont* the axis moves while the
   button is held and stops when it is released) or a **jog wheel** (tap an axis, turn); START / HOLD, feed and
@@ -225,7 +226,7 @@ program runs.
   At START the tool first goes there, X first, then Z, then the H4 runs the operation; after a normal end it goes
   back there. A left-hand thread (it starts at the chuck end) goes out to the safe X, then along Z to its start from
   outside. STOP stops these moves too, and after a STOP nothing moves by itself. Feed, constant feed and taper start
-  where the tool stands. Pick an operation at the top and fill its form: Z values
+  where the tool stands. Pick the operation with its button in step 3 (its list rolls down under it) and fill its form: Z values
   (green: start, length) and X values (orange: part Ø and final Ø) side by side, or a preset. **In the forms Z is
   always a positive number of mm from the face towards the chuck**, in every Z view: start 10, length 30 = from 10 to
   40 mm into the part (the H4's display and the drawing's lines show that place as Z -10 … -40 in the ISO view).
@@ -329,10 +330,9 @@ program runs.
   (`h4/test/lathe/run.sh`: every point of the H4 path on the drawing, within 0.05 mm).
 - **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
-- **H4 keys**: the H4 display and keys, and the gamepad.
 - **Machine**: positions, Home All and the inputs; diagnostics; messages.
 - **Settings**: *Appearance* (language English / Ελληνικά for the Lathe screen, theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
-  off; in the Android app also the screen orientation: automatic, landscape or portrait), one page per group of
+  off; in the Android app also the screen orientation: automatic, landscape or portrait), *Gamepad* (speeds, reverse an axis), one page per group of
   machine settings, WiFi, firmware; in the Android app also *App update* (the app's version and a button that
   looks for a newer one at once; the app also looks by itself each time it opens).
 
@@ -397,7 +397,7 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 
 ## 10 Jogging and the gamepad
 
-- H4 keys or the page's keys: the arrows move X and Z, held keys stop when released or when the page loses its
+- The H4's keys or the page's jog buttons (Z across: ← towards the chuck is Z−; X up and down: ↑ is X−): they move Z and X, held keys stop when released or when the page loses its
   connection.
 - PS4 / PS5 gamepad, with the layout of a LinuxCNC `gamepad.hal`: **hold L1** to move; left stick Z, right stick
   X, L2 / R2 C, R1 fast, L1 + Share Home All, L1 + D-pad down touch off Z, Options STOP, PS unlock (`$X`),
