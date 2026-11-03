@@ -9,8 +9,10 @@ const { chromium } = require('playwright');
  await p.evaluate(()=>{const t=[...document.querySelectorAll('[data-t]')].find(b=>/lathe/i.test(b.dataset.t));t.click()});await p.waitForTimeout(400);
  const fails=[];let n=0;const ok=(c,w)=>{n++;if(!c)fails.push(w)};
  const svg=()=>p.evaluate(()=>document.getElementById('ltSvg').innerHTML);
- // no part: hatched block below, outside view above
- let s=await p.evaluate(()=>{ltPart=null;ltOp=4;ltForm();ltDraw();return document.getElementById('ltSvg').innerHTML});
+ // no part: an operation on the part asks for it (app 1.35); a taper (from the tool) draws a hatched block
+ let s=await p.evaluate(()=>{ltPart=null;ltOp=4;ltForm();ltDraw();return document.getElementById('ltSvg').innerHTML+'|'+ltCheck()});
+ ok(!/ltHatch/.test(s)&&/Part/.test(s),'turning without a part asks for the Part: '+s.slice(0,200));
+ s=await p.evaluate(()=>{ltPart=null;ltOp=3;Object.assign(ltV[3],{len:10,dbig:20,dsmall:18,feed:0.1});ltForm();ltDraw();return document.getElementById('ltSvg').innerHTML});
  ok(/pattern id="ltHatch"/.test(s)&&/url\(#ltHatch\)/.test(s),'hatched section without a part');
  // a tube with a thread: section polygon, outside half, hidden bore, teeth
  s=await p.evaluate(()=>{partNew(40,60,20);ltPart.thr.push({zr:0-partOff(),zl:20-partOff(),a:20,b:18.773,p:2,ext:true});partSave();ltVw.mode='all';ltForm();ltDraw();return document.getElementById('ltSvg').innerHTML});

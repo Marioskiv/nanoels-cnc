@@ -189,7 +189,7 @@ program runs.
   rapid overrides (F / R open a pop-up), Home, Macros (your own one-line G-code buttons, kept in that phone or
   browser), MDI and Files. With the jog lock on, the jog buttons and the wheel do nothing until 🔒 is pressed, and
   lock again 15 s after the last move.
-- **Lathe** (*Τόρνος*), in short: (1) **Part** (Ø, length out of the jaws); (2) **Touch Z0** on the face and
+- **Lathe** (*Τόρνος*), in short: (1) **Part** (Ø, length out of the jaws; the operations on the part wait for it); (2) **Touch Z0** on the face and
   **Touch Ø → X0** with the measured Ø (again after *Tool changed* or *New part*;
   after an H4 restart confirm them: the screen holds START until then); (3) choose the operation, fill the form (or a standard thread / taper), look at the drawing and
   **▶ Simulate**; (4) hold **START**; (5) after a turning, *I measured Ø…* and, if needed, the correction pass. For
@@ -224,7 +224,9 @@ program runs.
   back there. A left-hand thread (it starts at the chuck end) goes out to the safe X, then along Z to its start from
   outside. STOP stops these moves too, and after a STOP nothing moves by itself. Feed, constant feed and taper start
   where the tool stands. Pick an operation at the top and fill its form: Z values
-  (green: start, length) and X values (orange: part Ø and final Ø) side by side, or a preset.
+  (green: start, length) and X values (orange: part Ø and final Ø) side by side, or a preset. **In the forms Z is
+  always a positive number of mm from the face towards the chuck**, in every Z view: start 10, length 30 = from 10 to
+  40 mm into the part (the H4's display and the drawing's lines show that place as Z -10 … -40 in the ISO view).
   The side view draws the part from its zero (face at Z0, its diameter), the material that comes off and the
   tool's path pass by pass; **▶ Simulate** runs the tool along it. Presets: metric and UNC threads, Morse and other tapers, spheres; every value stays editable, with the
   page's own number pad. Filling the form moves nothing and sends nothing. **Hold START**: the page sends the values
@@ -237,8 +239,9 @@ program runs.
   towards the face; Z lengths **◀** longer / **▶** shorter; diameters **▲** smaller / **▼** larger; the sphere's
   radius X **▲** more / **▼** less. Safe distances, passes, feed, pitch and starts keep − / +. A turning or thread start inside the part
   is pointed out: the tool goes in straight there at every pass (it needs a tool that also cuts on its side).
-  **The drawing**: it shows the operation (cuts, tool path, tool) at the largest size that fits; **⤢ All** also the
-  whole part and the jaws; **⊙ Close** about 24 mm around the tool, following it in the simulation and while the H4
+  **The drawing**: with a Part it always shows the whole part out of the jaws at the same scale (a changed value
+  moves the cut, the scale stays), with the face (Z0), the jaws and the centre line (X0) named; without a Part
+  (feed, taper) the operation at the largest size that fits; **⤢ All** also the upper half; **⊙ Close** about 24 mm around the tool, following it in the simulation and while the H4
   works. Two fingers zoom, one finger moves the drawing, a double tap goes back. While the simulation or the H4 runs it
   shows *Pass k of n*.
   The part is drawn as a half section, as on a drawing: below the centre line cut open (hatched material, the bore,

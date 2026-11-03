@@ -8,7 +8,8 @@ const { chromium } = require('playwright');
  const open=async(init)=>{const p=await b.newPage({viewport:{width:1280,height:800}});p.on('pageerror',e=>errs.push(String(e)));
   await p.addInitScript(i=>{localStorage.setItem('h4look',JSON.stringify({lang:'en'}));if(i)localStorage.setItem('h4lathe3',i)},init||'');
   await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
-  await p.evaluate(()=>{[...document.querySelectorAll('[data-t]')].find(b=>/lathe/i.test(b.dataset.t)).click()});await p.waitForTimeout(300);return p};
+  await p.evaluate(()=>{[...document.querySelectorAll('[data-t]')].find(b=>/lathe/i.test(b.dataset.t)).click()});await p.waitForTimeout(300);
+  await p.evaluate(()=>{ltPart={d:100,len:250,bore:0,boot:st.boot,z0:0-partOff(),ro:Array(2501).fill(50),ri:Array(2501).fill(0),thr:[],cut:0};partSave()});return p};
  // a first start: every operation's numbers empty, but the safe distances and the starts
  let p=await open();
  let r=await p.evaluate(()=>{const o={};for(const m in LTF)for(const f of LTF[m])if(f[1]=='n')o[m+'.'+f[0]]=ltV[m][f[0]];return o});

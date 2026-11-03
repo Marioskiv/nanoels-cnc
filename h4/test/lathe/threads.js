@@ -6,6 +6,8 @@ const { chromium } = require('playwright');
 (async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:1280,height:800}});
  const errs=[];p.on('pageerror',e=>errs.push(String(e)));
  await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
+ // app 1.35: the operations on the part need the Part (a large one: it does not limit these checks)
+ await p.evaluate(()=>{ltPart={d:100,len:250,bore:0,boot:st.boot,z0:0-partOff(),ro:Array(2501).fill(50),ri:Array(2501).fill(0),thr:[],cut:0};partSave()});
  const r=await p.evaluate(()=>{const out=[];let n=0;ltGd={z:gdOff('z'),x:gdOff('x'),boot:st.boot}; // zeros set (guard.js tests the guard)
   // the forms start empty (app 1.33): the values these checks rely on
   Object.assign(ltV[7],{za:-2,len:20,passes:10});Object.assign(ltV[4],{za:0,len:20,passes:4,feed:0.1,dstock:25,dfin:20});

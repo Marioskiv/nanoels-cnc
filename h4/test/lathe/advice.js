@@ -7,6 +7,8 @@ const { chromium } = require('playwright');
  const errs=[];p.on('pageerror',e=>errs.push(String(e)));
  await p.addInitScript(()=>localStorage.setItem('h4look',JSON.stringify({lang:'en'})));
  await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
+ // app 1.35: the operations on the part need the Part (a large one: it does not limit these checks)
+ await p.evaluate(()=>{ltPart={d:100,len:250,bore:0,boot:st.boot,z0:0-partOff(),ro:Array(2501).fill(50),ri:Array(2501).fill(0),thr:[],cut:0};partSave()});
  await p.evaluate(()=>{const t=[...document.querySelectorAll('[data-t]')].find(b=>/lathe/i.test(b.dataset.t));t.click()});await p.waitForTimeout(400);
  const fails=[];let n=0;const ok=(c,w)=>{n++;if(!c)fails.push(w)};
  const set=(m,v,extra)=>p.evaluate(([m,v,extra])=>{Object.assign(ltV,extra||{});ltOp=m;Object.assign(ltV[m],v);ltForm();return document.getElementById('ltInfo').textContent},[m,v,extra]);
