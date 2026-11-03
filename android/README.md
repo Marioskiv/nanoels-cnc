@@ -50,6 +50,14 @@ installs the app, the first time and at every update. With the rotation locked i
 stays at "Installing..." and never finishes (found on a MediaPad T3 7 and a MediaPad M3 Lite 10); with Auto-rotate
 on it finishes also with the tablet mounted sideways on the machine.
 
+## When the app closed by itself
+
+From app 1.34 the app notes every 10 s that it runs, whether it is on screen and the tablet's free memory, and
+writes down any error in its own code. If it ended while on screen without being closed by the user, the next start
+says what was seen last: an error (with where in the code), the screen's browser part (WebView) gone, or Android
+closing it - with little free memory: memory (close other apps); with plenty: the maker's power saving (Huawei:
+Phone Manager, Battery, Protected apps: H4 CNC on). Kept only in the tablet; a photo of that message tells the cause.
+
 ## H4 firmware updates
 
 When the app opens the H4 page it compares the H4's firmware with the newest `firmware-v...` release here (at most
