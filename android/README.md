@@ -1,7 +1,7 @@
 # H4 CNC — Android app
 
 A small app for the NanoEls H4 CNC fork: it holds **the H4 screen** (files, Start / Pause / STOP, positions, Home
-All, MDI, the H4 keys and display, the lathe screen, settings, firmware update) and reads a **PS4 / PS5 gamepad**
+All, MDI, the lathe screen, settings, firmware update) and reads a **PS4 / PS5 gamepad**
 through Android itself, so no browser setting is needed. Android 5.0 and newer.
 
 Since app 1.18 the screen is part of the app (`app/src/main/assets/h4/index.html`), not of the firmware: the app
