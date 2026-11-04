@@ -331,8 +331,8 @@ program runs.
 - **G-code**: *Run* (start / pause / resume / **STOP**, overrides, one-line MDI), *Files* (upload, draw, test,
   delete) and *Path* (the drawing of the program).
 - **Machine**: positions, Home All and the inputs; diagnostics; messages.
-- **Settings**: *Appearance* (language English / Ελληνικά for the Lathe screen, theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
-  off; in the Android app also the screen orientation: automatic, landscape or portrait), *Gamepad* (speeds, reverse an axis), one page per group of
+- **Settings**: *Appearance* (language English / Ελληνικά for every screen, theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
+  off; in the Android app also the screen orientation: automatic, landscape or portrait), *Gamepad* (speeds, sticks, reverse an axis, what each button does), one page per group of
   machine settings, WiFi, firmware; in the Android app also *App update* (the app's version and a button that
   looks for a newer one at once; the app also looks by itself each time it opens).
 
@@ -399,16 +399,19 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 
 - The H4's keys or the page's jog buttons (Z across: ← towards the chuck is Z−; X up and down: ↑ is X−): they move Z and X, held keys stop when released or when the page loses its
   connection.
-- PS4 / PS5 gamepad, with the layout of a LinuxCNC `gamepad.hal`: **hold L1** to move; left stick Z, right stick
-  X, L2 / R2 C, R1 fast, L1 + Share Home All, L1 + D-pad down touch off Z, Options STOP, PS unlock (`$X`),
-  D-pad up / down / left (without L1) feed override +10 / -10 / 100 %.
+- PS4 / PS5 gamepad. **What each button does is set in Settings, Gamepad**: for every button an action alone and
+  one while the **safety button** (*Hold to move*) is held; which axis each stick moves (left stick left / right,
+  right stick up / down). Nothing moves without the safety button; Home All, touch-off Z0 and Resume are offered
+  only with it held; a map without a STOP or a safety button is refused. **Defaults** gives the layout of a
+  LinuxCNC `gamepad.hal`: **hold L1** to move; left stick Z, right stick X, L2 / R2 C, R1 fast, L1 + Share Home
+  All, L1 + D-pad down touch off Z, Options STOP, PS unlock (`$X`), D-pad up / down / left feed override
+  +10 / -10 / 100 %.
   - **Android app** (recommended): pair the gamepad with the phone, open the app. See
     [android/README.md](../android/README.md).
-  - Chrome on a phone or computer: the page reads the gamepad after a one-time browser setting (see the
-    *Gamepad* box on the page).
+  - Chrome on a phone or computer: the page reads the gamepad after a one-time browser setting (see *Settings, Gamepad*).
   - Without a phone: a plain ESP32 as a Bluetooth pendant, see [h4_ps4_pendant](../h4_ps4_pendant/README.md).
 - On the page: the jog buttons or wheel of the *Control* screen (see section 6).
-- Jogging respects the soft limits once homed. Speeds are set in the page's *Gamepad* box (also for the jog
+- Jogging respects the soft limits once homed. Speeds are set in *Settings, Gamepad* (also for the jog
   buttons with *Cont*).
 
 ## 11 Self-test and diagnostics
@@ -459,7 +462,7 @@ next step. A speed above what the pulse length allows is refused in the settings
 | A line is refused | the message names the line and the reason; change the CAM post or the program |
 | Page does not open | the address on the H4 display; the phone on the same WiFi; restart the H4 |
 | "WiFi lost" on the display | the H4 lost the network; it reconnects by itself, programs on the H4 keep running |
-| Gamepad does nothing | hold L1; in Chrome see the *Gamepad* box; in the app check that it is paired |
+| Gamepad does nothing | hold the safety button (L1 by default); in Chrome see *Settings, Gamepad*; in the app check that it is paired |
 | Motion slows down or stutters | *Test* the file; *Diagnostics*: step buffer ran empty, interrupt late or too long |
 
 ## 14 Limits of this controller
