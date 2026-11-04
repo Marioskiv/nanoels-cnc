@@ -85,7 +85,7 @@ light flashes quickly. Then the PS button alone connects it. The layout is the o
 | D-pad up / down (without L1) | feed override +10 / -10 % (10-200 %) |
 | D-pad left | feed override back to 100 % |
 
-Speeds and reversed axes: the page's *Gamepad* box. The gamepad's state and any refusal of the H4 are shown
+Speeds, sticks, reversed axes and what each button does: *Settings, Gamepad* (the same map in the app and in Chrome; Defaults = the layout above). The gamepad's state and any refusal of the H4 are shown
 there; a refusal also rumbles the gamepad.
 
 Safety: the app sends the wanted speeds every 0.1 s; the H4 turns them into short jogs (0.05 s pieces, never

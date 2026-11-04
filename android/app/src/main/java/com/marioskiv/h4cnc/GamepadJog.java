@@ -1,9 +1,7 @@
-// PS4 / PS5 (or any Android) gamepad -> the H4's /jog, with the layout of the LinuxCNC gamepad.hal.
-// https://github.com/Marioskiv/nanoels-cnc
-// Copyright (c) 2026 Marioskiv
-// SPDX-License-Identifier: MIT
-//
-//   L1 (hold)          jog enable (deadman): nothing moves without it; releasing it stops at once
+// PS4 / PS5 (or any Android) gamepad -> the H4's /jog. What each button does comes from the page (Settings,
+// Gamepad): an action alone and one while the safety button is held. The default is the layout of the LinuxCNC
+// gamepad.hal:
+//   L1 (hold)          safety (deadman): nothing moves without it; releasing it stops at once
 //   R1 (hold)          fast speed
 //   Left stick <->     Z (right = +Z)
 //   Right stick up/dn  X (down = +X)
@@ -12,7 +10,8 @@
 //   L1 + D-pad down    touch off Z (G10 L20 P0 Z0)
 //   Options            STOP
 //   PS                 unlock ($X)
-//   D-pad up / down    feed override +10 / -10 % (without L1); D-pad left: 100 %
+//   D-pad up / down    feed override +10 / -10 %; D-pad left: 100 %
+// The page refuses a map without a STOP or a safety button; here a map without a safety button is not used either.
 //
 // The wanted speeds go to http://<H4>/jog every 100 ms while moving; the H4 turns them into short jogs and stops
 // by itself 0.3 s after the last request. Releasing sends speed 0 three times. All requests go out one after the
@@ -26,6 +25,7 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.InputStream;
@@ -33,8 +33,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -54,13 +56,61 @@ class GamepadJog {
     // settings from the page's Gamepad box
     private volatile double speed = 400, fast = 1000, cFactor = 6;
     private volatile boolean revX, revZ, revC;
+    private volatile String stickL = "z", stickR = "x";
+    // button name -> {alone, with the safety button held}
+    private volatile Map<String, String[]> map = defaults();
+
+    private static Map<String, String[]> defaults() {
+        Map<String, String[]> m = new HashMap<>();
+        m.put("l1", new String[]{"enable", ""});
+        m.put("r1", new String[]{"fast", ""});
+        m.put("l2", new String[]{"cp", ""});
+        m.put("r2", new String[]{"cm", ""});
+        m.put("options", new String[]{"stop", "stop"});
+        m.put("ps", new String[]{"unlock", ""});
+        m.put("share", new String[]{"", "home"});
+        m.put("up", new String[]{"fup", ""});
+        m.put("down", new String[]{"fdn", "z0"});
+        m.put("left", new String[]{"f100", ""});
+        return m;
+    }
+
+    // the page's names of the buttons
+    private static String name(int k) {
+        switch (k) {
+            case KeyEvent.KEYCODE_BUTTON_A: return "cross";
+            case KeyEvent.KEYCODE_BUTTON_B: return "circle";
+            case KeyEvent.KEYCODE_BUTTON_X: return "square";
+            case KeyEvent.KEYCODE_BUTTON_Y: return "triangle";
+            case KeyEvent.KEYCODE_BUTTON_L1: return "l1";
+            case KeyEvent.KEYCODE_BUTTON_R1: return "r1";
+            case KeyEvent.KEYCODE_BUTTON_L2: return "l2";
+            case KeyEvent.KEYCODE_BUTTON_R2: return "r2";
+            case KeyEvent.KEYCODE_BUTTON_SELECT: return "share";
+            case KeyEvent.KEYCODE_BUTTON_START: return "options";
+            case KeyEvent.KEYCODE_BUTTON_MODE: return "ps";
+            case KeyEvent.KEYCODE_BUTTON_THUMBL: return "l3";
+            case KeyEvent.KEYCODE_BUTTON_THUMBR: return "r3";
+            case KeyEvent.KEYCODE_DPAD_UP: return "up";
+            case KeyEvent.KEYCODE_DPAD_DOWN: return "down";
+            case KeyEvent.KEYCODE_DPAD_LEFT: return "left";
+            case KeyEvent.KEYCODE_DPAD_RIGHT: return "right";
+            default: return "";
+        }
+    }
+
+    private static final int[] KEYS = {KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_X,
+            KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_L2,
+            KeyEvent.KEYCODE_BUTTON_R2, KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START,
+            KeyEvent.KEYCODE_BUTTON_MODE, KeyEvent.KEYCODE_BUTTON_THUMBL, KeyEvent.KEYCODE_BUTTON_THUMBR,
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT};
 
     // gamepad state (main thread)
     private int deviceId = -1;
     private String deviceName = "";
     private final Set<Integer> down = new HashSet<>();
     private float lx, ry, l2, r2;
-    private boolean hatDown, hatUp, hatLeft, legacyTriggers;
+    private boolean hatDown, hatUp, hatLeft, hatRight, legacyTriggers;
 
     // sending (main thread)
     private boolean running, moving;
@@ -89,6 +139,23 @@ class GamepadJog {
             revX = o.optBoolean("ix", false);
             revZ = o.optBoolean("iz", false);
             revC = o.optBoolean("ic", false);
+            stickL = o.optString("sl", "z");
+            stickR = o.optString("sr", "x");
+            JSONObject m = o.optJSONObject("map");
+            if (m != null) {
+                Map<String, String[]> n = new HashMap<>();
+                boolean enable = false, stop = false;
+                for (java.util.Iterator<String> it = m.keys(); it.hasNext(); ) {
+                    String k = it.next();
+                    JSONArray a = m.optJSONArray(k);
+                    if (a == null) continue;
+                    String[] v = {a.optString(0, ""), a.optString(1, "")};
+                    n.put(k, v);
+                    if ("enable".equals(v[0])) enable = true;
+                    if ("stop".equals(v[0])) stop = true;
+                }
+                map = enable && stop ? n : defaults();  // never a map without the safety button or a STOP
+            }
         } catch (Exception ignored) {
         }
     }
@@ -136,36 +203,71 @@ class GamepadJog {
             r2 = Math.max(e.getAxisValue(MotionEvent.AXIS_RTRIGGER), e.getAxisValue(MotionEvent.AXIS_GAS));
         }
         float hy = e.getAxisValue(MotionEvent.AXIS_HAT_Y), hx = e.getAxisValue(MotionEvent.AXIS_HAT_X);
-        boolean hd = hy > 0.5f, hu = hy < -0.5f, hl = hx < -0.5f;
+        boolean hd = hy > 0.5f, hu = hy < -0.5f, hl = hx < -0.5f, hr = hx > 0.5f;
         if (hd && !hatDown) pressed(KeyEvent.KEYCODE_DPAD_DOWN);
         if (hu && !hatUp) pressed(KeyEvent.KEYCODE_DPAD_UP);
         if (hl && !hatLeft) pressed(KeyEvent.KEYCODE_DPAD_LEFT);
+        if (hr && !hatRight) pressed(KeyEvent.KEYCODE_DPAD_RIGHT);
         hatDown = hd;
         hatUp = hu;
         hatLeft = hl;
+        hatRight = hr;
         return true;
     }
 
-    private boolean l1() {
-        return down.contains(KeyEvent.KEYCODE_BUTTON_L1);
+    private boolean isDown(int k) {
+        if (k == KeyEvent.KEYCODE_DPAD_UP) return hatUp || down.contains(k);
+        if (k == KeyEvent.KEYCODE_DPAD_DOWN) return hatDown || down.contains(k);
+        if (k == KeyEvent.KEYCODE_DPAD_LEFT) return hatLeft || down.contains(k);
+        if (k == KeyEvent.KEYCODE_DPAD_RIGHT) return hatRight || down.contains(k);
+        return down.contains(k);
     }
 
-    // A button just pressed.
+    private String alone(int k) {
+        String[] a = map.get(name(k));
+        return a == null ? "" : a[0];
+    }
+
+    // a hold action (safety, fast, C+, C-): is one of its buttons held
+    private boolean held(String action) {
+        for (int k : KEYS) if (action.equals(alone(k)) && isDown(k)) return true;
+        return false;
+    }
+
+    // how far a C+ / C- action is pressed: the triggers give 0 .. 1, the other buttons 0 or 1
+    private float amount(String action, float left, float right) {
+        float r = 0;
+        for (int k : KEYS) {
+            if (!action.equals(alone(k))) continue;
+            float v = k == KeyEvent.KEYCODE_BUTTON_L2 ? left : k == KeyEvent.KEYCODE_BUTTON_R2 ? right : isDown(k) ? 1 : 0;
+            r = Math.max(r, v);
+        }
+        return r;
+    }
+
+    private static boolean isHold(String a) {
+        return "enable".equals(a) || "fast".equals(a) || "cp".equals(a) || "cm".equals(a);
+    }
+
+    // A button just pressed: its action with the safety button held (when it has one), else its own one.
     private void pressed(int k) {
-        if (k == KeyEvent.KEYCODE_BUTTON_START) {
-            post("/cmd?do=stop", false);
-        } else if (k == KeyEvent.KEYCODE_BUTTON_MODE) {
-            post("/mdi?line=" + enc("$X"), false);
-        } else if (k == KeyEvent.KEYCODE_BUTTON_SELECT && l1()) {
-            post("/cmd?do=home", false);
-        } else if (k == KeyEvent.KEYCODE_DPAD_DOWN && l1()) {
-            post("/mdi?line=" + enc("G10 L20 P0 Z0"), false);
-        } else if (k == KeyEvent.KEYCODE_DPAD_UP && !l1()) {
-            post("/cmd?do=ovr&code=145", false);  // feed +10 %
-        } else if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
-            post("/cmd?do=ovr&code=146", false);  // feed -10 %
-        } else if (k == KeyEvent.KEYCODE_DPAD_LEFT && !l1()) {
-            post("/cmd?do=ovr&code=144", false);  // feed 100 %
+        String[] m = map.get(name(k));
+        if (m == null) return;
+        boolean en = held("enable");
+        String a = en && !m[1].isEmpty() ? m[1] : isHold(m[0]) ? "" : m[0];
+        boolean needsSafety = "resume".equals(a) || "home".equals(a) || "z0".equals(a);
+        if (needsSafety && !en) return;
+        switch (a) {
+            case "stop": post("/cmd?do=stop", false); break;
+            case "pause": post("/cmd?do=pause", false); break;
+            case "resume": post("/cmd?do=resume", false); break;
+            case "home": post("/cmd?do=home", false); break;
+            case "z0": post("/mdi?line=" + enc("G10 L20 P0 Z0"), false); break;
+            case "unlock": post("/mdi?line=" + enc("$X"), false); break;
+            case "fup": post("/cmd?do=ovr&code=145", false); break;  // feed +10 %
+            case "fdn": post("/cmd?do=ovr&code=146", false); break;  // feed -10 %
+            case "f100": post("/cmd?do=ovr&code=144", false); break;  // feed 100 %
+            default: break;
         }
     }
 
@@ -191,18 +293,20 @@ class GamepadJog {
             deviceId = -1;
             down.clear();
             lx = ry = l2 = r2 = 0;
-            hatDown = hatUp = hatLeft = false;
+            hatDown = hatUp = hatLeft = hatRight = false;
         }
-        double sp = down.contains(KeyEvent.KEYCODE_BUTTON_R1) ? fast : speed;
-        double vz = (revZ ? -1 : 1) * dz(lx, DEAD_Z) * sp;
-        double vx = (revX ? -1 : 1) * dz(ry, DEAD_X) * sp;
+        double sp = held("fast") ? fast : speed;
+        double sl = dz(lx, DEAD_Z), sr = dz(ry, DEAD_X);
+        double vz = (revZ ? -1 : 1) * ("z".equals(stickL) ? sl : "z".equals(stickR) ? sr : 0) * sp;
+        double vx = (revX ? -1 : 1) * ("x".equals(stickL) ? sl : "x".equals(stickR) ? sr : 0) * sp;
         float left = l2, right = r2;
         if (legacyTriggers) {  // RX / RY read 0 (= half pressed) until first touched: trust them only with the button
             if (!down.contains(KeyEvent.KEYCODE_BUTTON_L2)) left = 0;
             if (!down.contains(KeyEvent.KEYCODE_BUTTON_R2)) right = 0;
         }
-        double vc = (revC ? -1 : 1) * (dz(left, DEAD_TRIGGER) - dz(right, DEAD_TRIGGER)) * sp * cFactor;
-        boolean want = l1() && (vx != 0 || vz != 0 || vc != 0);
+        double vc = (revC ? -1 : 1) * (dz(amount("cp", left, right), DEAD_TRIGGER) - dz(amount("cm", left, right), DEAD_TRIGGER)) * sp * cFactor;
+        boolean en = held("enable");
+        boolean want = en && (vx != 0 || vz != 0 || vc != 0);
         if (want) {
             if (now - lastSendMs >= SEND_MS && jogsInFlight == 0) {
                 moving = true;
@@ -217,7 +321,7 @@ class GamepadJog {
         if (now - lastStateMs >= 250) {
             lastStateMs = now;
             String s = deviceId == -1 ? "No gamepad: connect it by Bluetooth (Share + PS to pair), then press a button."
-                    : deviceName + (want ? " · moving" : l1() ? " · L1 held" : " · hold L1 to move")
+                    : deviceName + (want ? " · moving" : en ? " · safety held" : " · hold the safety button to move")
                     + (error.isEmpty() ? "" : " · " + error);
             if (!s.equals(lastState)) {
                 lastState = s;
@@ -311,6 +415,7 @@ class GamepadJog {
         handler.removeCallbacks(tick);
         down.clear();
         lx = ry = l2 = r2 = 0;
+        hatDown = hatUp = hatLeft = hatRight = false;
         if (moving || stops > 0) {
             post("/jog?x=0&z=0&c=0", true);
             moving = false;

@@ -148,6 +148,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltleg{display:flex;gap:12px;flex-wrap:wrap;padding:5px 10px;border-top:1px solid var(--tileb);font-size:12px;color:var(--dim)}
 .ltleg i{display:inline-block;width:12px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px}
 .ltside{display:contents}
+.fr.gpr,.fr.gph{flex-shrink:0;grid-template-columns:minmax(80px,.7fr) 1fr 1fr;gap:6px;align-items:center}.gph span{font-size:12px;color:var(--dim)}.gpr select{min-width:0;width:100%}
 .ltdro{display:grid;grid-template-columns:1fr 1fr;gap:6px}.ltdroh{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--dim)}
 .ltstep{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:13px;padding:3px 8px;border:1px solid var(--line);border-radius:10px;margin-bottom:4px}.ltstep>b{font-size:14px}.ltstep>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:5px 9px;font-weight:700}.ltstep>button.need{border:2px solid var(--warn,#e8a33a);color:var(--warn,#e8a33a)}.ltstep .ltpv{font-weight:700;font-size:14px}.ltstep>button small{display:block;font-size:11px;font-weight:500;color:var(--dim)}
 .ltax{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 12px;padding:5px 10px 5px 12px;border-radius:12px;
@@ -289,17 +290,21 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="slist"><div class="pg" id="slist"></div><div class="pgc"></div></div>
 <div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="sTitle"></span></h2>
 <div class="spage" data-sp="pad" hidden><div class="pg"><div class="small">PS4 / PS5 <button class="info" onclick="infoSheet('pad')">i</button></div><div id="gpstate" class="small">No gamepad.</div>
-<div class="pg"><div class="fr"><label for="gpN">Jog speed (mm/min)</label><input type="number" id="gpN" step="any"></div>
-<div class="fr"><label for="gpF">Speed with R1 (mm/min)</label><input type="number" id="gpF" step="any"></div>
+<div class="fr"><label for="gpN">Jog speed (mm/min)</label><input type="number" id="gpN" step="any"></div>
+<div class="fr"><label for="gpF">Fast jog speed (mm/min)</label><input type="number" id="gpF" step="any"></div>
 <div class="fr"><label for="gpC">C speed = speed x</label><input type="number" id="gpC" step="any"></div>
-<div class="fr chk"><label for="gpIX">Reverse X</label><input type="checkbox" id="gpIX"></div><div class="fr chk"><label for="gpIZ">Reverse Z</label><input type="checkbox" id="gpIZ"></div>
-<div class="fr chk"><label for="gpIC">Reverse C</label><input type="checkbox" id="gpIC"></div></div><div class="pgc"></div>
-<div class="row" id="gpapp" hidden><button onclick="H4App.changeAddress()">H4 address</button></div></div></div>
+<div class="fr"><label for="gpSL">Left stick, left / right</label><select id="gpSL"><option value="z">Z</option><option value="x">X</option><option value="">Nothing</option></select></div>
+<div class="fr"><label for="gpSR">Right stick, up / down</label><select id="gpSR"><option value="x">X</option><option value="z">Z</option><option value="">Nothing</option></select></div>
+<div class="fr chk"><label for="gpIZ">Reverse Z</label><input type="checkbox" id="gpIZ"></div><div class="fr chk"><label for="gpIX">Reverse X</label><input type="checkbox" id="gpIX"></div>
+<div class="fr chk"><label for="gpIC">Reverse C</label><input type="checkbox" id="gpIC"></div>
+<div class="small" id="gpHead">Each button: what it does alone, and what it does while the safety button (Hold to move) is held.</div>
+<div class="small bad" id="gpBad"></div></div><div class="pgc"></div>
+<div class="row"><button onclick="gpDefaults()">Defaults</button><button id="gpapp" hidden onclick="H4App.changeAddress()">H4 address</button></div></div>
 <div class="spage" data-sp="look"><div class="pg">
 <div class="fr"><label for="lkLang">Language / Γλώσσα</label><select id="lkLang"><option value="en">English</option><option value="el">Ελληνικά</option></select></div>
-<div class="fr frw"><label for="lkZv">Lathe Z / Τόρνος Z</label><select id="lkZv"><option value="0">ISO: − to the chuck / − προς το τσοκ</option><option value="1">H4: + to the chuck / + προς το τσοκ</option></select></div>
-<div class="fr frw"><label for="lkXr">Lathe X / Τόρνος X</label><select id="lkXr"><option value="0">Diameter Ø / Διάμετρος Ø</option><option value="1">Radius R / Ακτίνα R</option><option value="2">H4: radius, − outside / ακτίνα, − έξω</option></select></div>
-<div class="small">Lathe Z and X: kept in the H4, the same on its display. / Τόρνος Z και X: τα κρατά το H4, ίδια και στην οθόνη του.</div>
+<div class="fr frw"><label for="lkZv">Lathe Z</label><select id="lkZv"><option value="0">ISO: − to the chuck</option><option value="1">H4: + to the chuck</option></select></div>
+<div class="fr frw"><label for="lkXr">Lathe X</label><select id="lkXr"><option value="0">Diameter Ø</option><option value="1">Radius R</option><option value="2">H4: radius, − outside</option></select></div>
+<div class="small">Lathe Z and X: kept in the H4, the same on its display.</div>
 <div class="fr"><label for="lkTheme">Theme</label><select id="lkTheme"><option value="dark">Dark</option><option value="light">Light</option></select></div>
 <div class="fr"><label for="lkAcc">Accent colour</label><input type="color" id="lkAcc"></div>
 <div class="fr"><label for="lkZ">Z colour</label><input type="color" id="lkZ"></div><div class="fr"><label for="lkX">X colour</label><input type="color" id="lkX"></div>
@@ -408,7 +413,8 @@ if(DEMO)(function(){
  window.h4DemoRequest=url=>{handle(url,{method:'POST'})};
  window.XMLHttpRequest=function(){const x=this;x.upload={};x.open=()=>{};x.send=()=>setTimeout(()=>{x.responseText='Demo: files are not stored.';x.onload&&x.onload()},100)};
 })();
-const $=id=>document.getElementById(id);let st={},selected='',drawn=null,files=[];
+const $=id=>document.getElementById(id);
+let st={},selected='',drawn=null,files=[];
 const isApp=!!window.H4App;
 let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
 async function post(url,body){const r=await fetch(url,{method:'POST',body});const t=await r.text();if(!r.ok)throw new Error(t);return t}
@@ -530,42 +536,197 @@ function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmwar
  x.onload=()=>{$('fwmsg').textContent=x.responseText};x.send(fd)}
 // Gamepad: the layout of the LinuxCNC gamepad.hal. The page sends the wanted speeds to /jog every 100 ms while
 // L1 is held; the H4 turns them into short jogs and stops by itself 0.3 s after the last request.
-const GPD={n:400,f:1000,c:6,ix:false,iz:false,ic:false};let gp=Object.assign({},GPD);
+// ---------------------------------------------------------------- Language of the screens (Settings, Appearance).
+// The page is written in English; in Greek every text on the screen is looked up here (whole texts, then the
+// patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
+// in the list stays as the H4 sent it.
+const I18N={
+ // header, Control
+ 'IDLE':'ΣΕ ΑΝΑΜΟΝΗ','RUN':'ΤΡΕΧΕΙ','HOLD':'ΠΑΥΣΗ','PAUSED':'ΣΕ ΠΑΥΣΗ','STOPPING':'ΣΤΑΜΑΤΑ','ON':'ΑΝΑΜΜΕΝΟ','NO CONNECTION':'ΧΩΡΙΣ ΣΥΝΔΕΣΗ',
+ 'DEMO':'ΔΟΚΙΜΗ','STOP':'STOP','ZERO':'ΜΗΔΕΝ','Cont':'Συνεχ.','step':'βήμα','START':'ΕΚΚΙΝΗΣΗ','RESUME':'ΣΥΝΕΧΕΙΑ','Home':'Home','Macros':'Εντολές',
+ 'MDI':'MDI','Program':'Πρόγραμμα','no program':'κανένα πρόγραμμα','Messages':'Μηνύματα','Demo: a simulated machine, no H4 is connected.':'Δοκιμή: προσομοίωση, δεν είναι συνδεδεμένο H4.',
+ 'Jog lock':'Κλείδωμα jog','Jog is locked: press the lock button first.':'Το jog είναι κλειδωμένο: πάτα πρώτα το κουμπί κλειδαριάς.',
+ // G-code
+ 'Run':'Εκτέλεση','Files':'Αρχεία','Path':'Διαδρομή','Start':'Έναρξη','Pause':'Παύση','Resume':'Συνέχεια','Feed':'Πρόωση','Rapids':'Γρήγορες','Draw':'Σχέδιο','Test':'Έλεγχος',
+ 'Upload':'Ανέβασμα','Upload failed':'Το ανέβασμα απέτυχε','Select a file and press Draw.':'Διάλεξε αρχείο και πάτα Σχέδιο.','Select a file first (G-code, Files).':'Διάλεξε πρώτα αρχείο (G-code, Αρχεία).',
+ 'G-code line, e.g. G0 C90':'Γραμμή G-code, π.χ. G0 C90','e.g. G0 C90':'π.χ. G0 C90','About':'Πληροφορίες','Feed and rapids':'Πρόωση και γρήγορες κινήσεις',
+ 'MDI: one G-code line':'MDI: μία γραμμή G-code','The H4 must be idle. Keep a real emergency stop within reach.':'Το H4 πρέπει να είναι σε αναμονή. Να έχεις κοντά σου πραγματικό κουμπί έκτακτης ανάγκης.',
+ 'Edit…':'Αλλαγή…','Kept in this phone or browser.':'Κρατιούνται σε αυτό το κινητό ή browser.','Unlock ($X)':'Ξεκλείδωμα ($X)','Z up 5 mm':'Z πάνω 5 mm','Touch off Z':'Μηδέν Z εδώ','C to 0°':'C στις 0°',
+ // Machine
+ 'Position':'Θέση','Diagnostics':'Διάγνωση','Home All':'Home All','Clear':'Καθαρισμός','Lasting log':'Μόνιμο ημερολόγιο','No log':'Χωρίς ημερολόγιο','Inputs (terminal A2):':'Είσοδοι (κλέμα A2):',
+ 'used by handwheel 2':'τις χρησιμοποιεί ο χειροτροχός 2','OK':'OK','CHECK':'ΕΛΕΓΞΕ','Restart while moving':'Επανεκκίνηση ενώ κινούνταν','Confirmed':'Επιβεβαιώθηκε',
+ // Settings list and pages
+ 'Appearance · language · Lathe Z / X':'Εμφάνιση · γλώσσα · Τόρνος Z / X','Screen and jog':'Οθόνη και jog','Gamepad':'Χειριστήριο','WiFi':'WiFi','Firmware':'Firmware','App update':'Ενημέρωση app',
+ '‹ Back':'‹ Πίσω','Language':'Γλώσσα','Lathe Z':'Τόρνος Z','Lathe X':'Τόρνος X','ISO: − to the chuck':'ISO: − προς το τσοκ','H4: + to the chuck':'H4: + προς το τσοκ',
+ 'Diameter Ø':'Διάμετρος Ø','Radius R':'Ακτίνα R','H4: radius, − outside':'H4: ακτίνα, − έξω','Lathe Z and X: kept in the H4, the same on its display.':'Τόρνος Z και X: τα κρατά το H4, ίδια και στην οθόνη του.',
+ 'Theme':'Θέμα','Dark':'Σκούρο','Light':'Ανοιχτό','Accent colour':'Χρώμα τονισμού','Z colour':'Χρώμα Z','X colour':'Χρώμα X','C colour':'Χρώμα C','Number size':'Μέγεθος αριθμών',
+ 'Normal':'Κανονικό','Large':'Μεγάλο','Very large':'Πολύ μεγάλο','Back to the original colours':'Πίσω στα αρχικά χρώματα','Kept in this phone or browser only.':'Κρατιούνται μόνο σε αυτό το κινητό ή browser.',
+ 'Jog with':'Jog με','Buttons':'Κουμπιά','Wheel':'Τροχό','Off':'Όχι','On':'Ναι','Screen orientation':'Προσανατολισμός οθόνης','Automatic':'Αυτόματα','Landscape':'Οριζόντια','Portrait':'Κάθετα',
+ 'Jog lock: the jog buttons and the wheel work only after the lock button 🔒 is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with':'Κλείδωμα jog: τα κουμπιά jog και ο τροχός δουλεύουν μόνο αφού πατηθεί η κλειδαριά 🔒, και κλειδώνουν ξανά 15 s μετά την τελευταία κίνηση. Με τα κουμπιά, ένα πάτημα κινεί ένα βήμα· με',
+ 'the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.':'ο άξονας κινείται όσο κρατάς το κουμπί, με την ταχύτητα jog του χειριστηρίου, και σταματά μόλις το αφήσεις.',
+ 'Save and restart':'Αποθήκευση και επανεκκίνηση','Defaults':'Αρχικές τιμές','Save WiFi and restart':'Αποθήκευση WiFi και επανεκκίνηση','WiFi network name':'Όνομα δικτύου WiFi','password (empty = keep)':'κωδικός (κενό = μένει ο ίδιος)',
+ 'DEMO - no H4 connected, nothing moves':'ΔΟΚΙΜΗ - δεν είναι συνδεδεμένο H4, τίποτα δεν κινείται','H4 CNC app':'Εφαρμογή H4 CNC','. It looks for a newer version by itself each time it opens.':'. Ψάχνει μόνη της νεότερη έκδοση κάθε φορά που ανοίγει.',
+ 'Check for an app update':'Έλεγχος για νέα έκδοση του app','A newer version is offered for download; Android installs it over this one and keeps the settings.':'Η νεότερη έκδοση κατεβαίνει· το Android την εγκαθιστά πάνω από αυτή και κρατά τις ρυθμίσεις.',
+ '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
+ 'Could not load the settings.':'Δεν φορτώθηκαν οι ρυθμίσεις.','The H4 firmware is older than this app: update it (Settings, Firmware).':'Το firmware του H4 είναι παλιότερο από το app: ενημέρωσέ το (Ρυθμίσεις, Firmware).',
+ 'H4 address':'Διεύθυνση H4','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
+ // gamepad page
+ 'No gamepad.':'Χωρίς χειριστήριο.','No gamepad: connect it, then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το και πάτα ένα κουμπί.','No gamepad. Connect it, press a button (Chrome: see i).':'Χωρίς χειριστήριο. Σύνδεσέ το, πάτα ένα κουμπί (Chrome: δες i).',
+ 'No gamepad: connect it by Bluetooth (Share + PS to pair), then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το με Bluetooth (Share + PS για ζεύξη) και πάτα ένα κουμπί.',
+ 'Jog speed (mm/min)':'Ταχύτητα jog (mm/min)','Fast jog speed (mm/min)':'Γρήγορη ταχύτητα jog (mm/min)','C speed = speed x':'Ταχύτητα C = ταχύτητα ×','Left stick, left / right':'Αριστερός μοχλός, αριστερά / δεξιά',
+ 'Right stick, up / down':'Δεξιός μοχλός, πάνω / κάτω','Nothing':'Τίποτα','Reverse Z':'Ανάποδα Z','Reverse X':'Ανάποδα X','Reverse C':'Ανάποδα C',
+ 'Each button: what it does alone, and what it does while the safety button (Hold to move) is held.':'Κάθε κουμπί: τι κάνει μόνο του, και τι κάνει όσο κρατάς το κουμπί ασφαλείας («Κράτα για κίνηση»).',
+ 'Alone':'Μόνο του','With safety held':'Με την ασφάλεια πατημένη','Hold to move (safety)':'Κράτα για κίνηση (ασφάλεια)','Fast (while held)':'Γρήγορα (όσο κρατάς)','C+ (while held)':'C+ (όσο κρατάς)','C− (while held)':'C− (όσο κρατάς)',
+ 'Pause (hold)':'Παύση','Resume / continue':'Συνέχεια','Touch off Z0 here':'Μηδέν Z0 εδώ','Feed +10 %':'Πρόωση +10 %','Feed −10 %':'Πρόωση −10 %','Feed 100 %':'Πρόωση 100 %',
+ 'D-pad ▲':'Σταυρός ▲','D-pad ▼':'Σταυρός ▼','D-pad ◀':'Σταυρός ◀','D-pad ▶':'Σταυρός ▶',
+ 'One button must be Hold to move (safety).':'Ένα κουμπί πρέπει να είναι «Κράτα για κίνηση» (ασφάλεια).','One button must be STOP (alone).':'Ένα κουμπί πρέπει να είναι STOP (μόνο του).',
+ 'The safety button cannot have a second action.':'Το κουμπί ασφαλείας δεν μπορεί να έχει δεύτερη λειτουργία.',
+ ' · moving':' · κινείται',' · safety held':' · ασφάλεια πατημένη',' · hold the safety button to move':' · κράτα το κουμπί ασφαλείας για κίνηση','(unknown button layout) ':'(άγνωστη διάταξη κουμπιών) ','Jog: ':'Jog: ',
+ // the machine settings (firmware): groups and names
+ 'Z axis':'Άξονας Z','X axis':'Άξονας X','A1 axis (C)':'Άξονας A1 (C)','Spindle encoder':'Encoder ατράκτου','GCODE mode':'Λειτουργία GCODE','Handwheels':'Χειροτροχοί',
+ 'Home All and driver alarm':'Home All και alarm drivers','Home switch and limits X (A21)':'Διακόπτης home και όρια X (A21)','Home switch and limits Z (A22)':'Διακόπτης home και όρια Z (A22)','Manual stepping':'Χειροκίνητα βήματα',
+ 'Acceleration':'Επιτάχυνση','Backlash':'Τζόγος (backlash)','Connected (terminal A1)':'Συνδεδεμένος (κλέμα A1)','Disable the driver when stopped (open loop)':'Απενεργοποίηση driver όταν σταματά (ανοιχτός βρόχος)',
+ 'Invert direction':'Αντίστροφη φορά','Longest manual travel (mm or degrees)':'Μέγιστη χειροκίνητη διαδρομή (mm ή μοίρες)','Longest manual travel':'Μέγιστη χειροκίνητη διαδρομή','Maximum speed (manual moves, G0)':'Μέγιστη ταχύτητα (χειροκίνητα, G0)',
+ 'Motor steps per screw turn':'Βήματα μοτέρ ανά στροφή βίδας','Rotary (degrees)':'Περιστροφικός (μοίρες)','Start speed':'Ταχύτητα εκκίνησης','Travel per screw turn':'Διαδρομή ανά στροφή βίδας',
+ 'Arc tolerance (G2/G3 cut in straight pieces)':'Ανοχή τόξων (G2/G3 σε ευθύγραμμα κομμάτια)','Corner tolerance, junction deviation':'Ανοχή γωνιών (junction deviation)',
+ 'Direction hold time after a step (LinuxCNC DIRHOLD)':'Χρόνος κράτησης φοράς μετά το βήμα (LinuxCNC DIRHOLD)','Direction set-up time before a step (LinuxCNC DIRSETUP)':'Χρόνος φοράς πριν το βήμα (LinuxCNC DIRSETUP)',
+ 'Optional stop: M1 pauses the program':'Προαιρετική στάση: το M1 σταματά το πρόγραμμα','Pause the program when the spindle stops (off for polar milling)':'Παύση προγράμματος όταν σταματά η άτρακτος (όχι για πολικό φρεζάρισμα)',
+ 'Refuse moves outside the H4 stops':'Άρνηση κινήσεων έξω από τα όρια (stops) του H4','Spindle stopped below':'Άτρακτος σταματημένη κάτω από','Step pulse length':'Διάρκεια παλμού βήματος',
+ 'USB speaks the Grbl protocol (UGS, gSender, CNCjs); WiFi port 23 always does':'Το USB μιλά Grbl (UGS, gSender, CNCjs)· η θύρα WiFi 23 πάντα',
+ 'Handwheel A1 inverted':'Χειροτροχός A1 ανάποδα','Handwheel A1 moves':'Ο χειροτροχός A1 κινεί','Handwheel A2 inverted':'Χειροτροχός A2 ανάποδα','Handwheel A2 moves':'Ο χειροτροχός A2 κινεί',
+ 'Handwheel on terminal A1':'Χειροτροχός στην κλέμα A1','Handwheel on terminal A2':'Χειροτροχός στην κλέμα A2','Handwheel pulses per turn':'Παλμοί χειροτροχού ανά στροφή',
+ 'Alarm connects A23 to GND (off: opens it)':'Το alarm γειώνει το A23 (όχι: το ανοίγει)','Driver alarm / E-stop contact connected (A23)':'Συνδεδεμένα alarm drivers / επαφή E-stop (A23)',
+ 'Home All: Z first, then X':'Home All: πρώτα Z, μετά X','Programs start only after Home All':'Τα προγράμματα ξεκινούν μόνο μετά το Home All',
+ 'HOME: go there after homing':'HOME: πήγαινε εκεί μετά το homing','HOME_FINAL_VEL (0: maximum speed)':'HOME_FINAL_VEL (0: μέγιστη ταχύτητα)','HOME_LATCH_VEL (opposite sign: leave the switch)':'HOME_LATCH_VEL (αντίθετο πρόσημο: φεύγει από τον διακόπτη)',
+ 'HOME_OFFSET: machine coordinate of the switch':'HOME_OFFSET: συντεταγμένη μηχανής του διακόπτη','HOME_SEARCH_VEL, sign = towards the switch':'HOME_SEARCH_VEL, πρόσημο = προς τον διακόπτη',
+ 'Home switch connected':'Διακόπτης home συνδεδεμένος','MAX_LIMIT (machine coordinate)':'MAX_LIMIT (συντεταγμένη μηχανής)','MIN_LIMIT (machine coordinate)':'MIN_LIMIT (συντεταγμένη μηχανής)',
+ 'Soft limits once homed':'Όρια λογισμικού μετά το homing','Switch is normally closed (off: normally open)':'Ο διακόπτης είναι κανονικά κλειστός (όχι: κανονικά ανοιχτός)','The switch also stops everything (limit)':'Ο διακόπτης σταματά και τα πάντα (όριο)',
+ 'Pause between steps':'Παύση ανάμεσα στα βήματα','Time for one manual step':'Χρόνος για ένα χειροκίνητο βήμα','Encoder backlash (counts)':'Τζόγος encoder (παλμοί)','Encoder pulses per turn (PPR)':'Παλμοί encoder ανά στροφή (PPR)',
+ 'steps':'βήματα','degrees':'μοίρες',
+ // answers of the H4
+ 'Moving':'Κινείται','Stopped':'Σταμάτησε','Stopping':'Σταματά','Pausing':'Παύση','Resuming':'Συνεχίζει','Starting':'Ξεκινά','Zero set':'Το μηδέν ορίστηκε','View set':'Η προβολή ορίστηκε',
+ 'Diagnostics cleared':'Η διάγνωση καθαρίστηκε','Deleted':'Διαγράφηκε','Set':'Ορίστηκε','Nothing runs.':'Δεν τρέχει τίποτα.','No answer from the H4':'Δεν απαντά το H4',
+ 'Emergency stop: restart the controller.':'Έκτακτη ανάγκη: κάνε επανεκκίνηση στον ελεγκτή.','No home switch is set up (Machine settings).':'Δεν έχει οριστεί διακόπτης home (Ρυθμίσεις μηχανήματος).',
+ 'Outside the machine\'s limits.':'Έξω από τα όρια του μηχανήματος.','Too far for one move.':'Πολύ μακριά για μία κίνηση.','Turn the machine off first.':'Σβήσε πρώτα το μηχάνημα (OFF).',
+ 'The machine is ON or moving: stop it (OFF) first.':'Το μηχάνημα είναι ON ή κινείται: σταμάτησέ το πρώτα (OFF).','The H4 is ON, moving or in GCODE mode.':'Το H4 είναι ON, κινείται ή είναι σε λειτουργία GCODE.',
+ 'One line, up to 190 characters.':'Μία γραμμή, ως 190 χαρακτήρες.','Unknown command':'Άγνωστη εντολή','Unlocked: moves are allowed before Home All. Take care.':'Ξεκλείδωσε: επιτρέπονται κινήσεις πριν το Home All. Προσοχή.',
+ 'Network name 1-32 characters, password empty or 8-63 characters.':'Όνομα δικτύου 1-32 χαρακτήρες, κωδικός κενός ή 8-63 χαρακτήρες.','Demo: not saved.':'Δοκιμή: δεν αποθηκεύτηκε.','Demo: settings are not saved.':'Δοκιμή: οι ρυθμίσεις δεν αποθηκεύονται.',
+ // questions
+ 'Home All? The axes move to their switches.':'Home All; Οι άξονες πηγαίνουν στους διακόπτες τους.','Go back to the values written in the firmware? The controller restarts.':'Επιστροφή στις τιμές του firmware; Ο ελεγκτής κάνει επανεκκίνηση.',
+ 'Save the machine settings (all pages)? Only while the machine is off. The controller restarts.':'Αποθήκευση των ρυθμίσεων μηχανήματος (όλες οι σελίδες); Μόνο με το μηχάνημα σβηστό. Ο ελεγκτής κάνει επανεκκίνηση.',
+ // the explanations (i)
+ 'Upload a G-code file (.nc .ngc .gcode .tap .txt), choose it with the round button, then START. Draw shows the path, Test reads and plans the whole file on the controller without moving (it tells whether the controller keeps up with the program).':
+  'Ανέβασε αρχείο G-code (.nc .ngc .gcode .tap .txt), διάλεξέ το με το στρογγυλό κουμπί και μετά ΕΚΚΙΝΗΣΗ. Το Σχέδιο δείχνει τη διαδρομή· ο Έλεγχος διαβάζει και σχεδιάζει όλο το αρχείο στον ελεγκτή χωρίς κίνηση (λέει αν ο ελεγκτής προλαβαίνει το πρόγραμμα).',
+ 'Measured by the controller itself since the program started (or Clear): the step interrupt must stay well below the time between two steps at the highest step rate, it should never start late, and the step buffer should never run empty. Run a program in the air at full speed with WiFi in use to see the real limits.':
+  'Μετράει ο ίδιος ο ελεγκτής από την αρχή του προγράμματος (ή από τον Καθαρισμό): η διακοπή βημάτων πρέπει να μένει πολύ κάτω από τον χρόνο ανάμεσα σε δύο βήματα στον μέγιστο ρυθμό, να μην ξεκινά ποτέ αργά, και ο buffer βημάτων να μην αδειάζει ποτέ. Τρέξε πρόγραμμα στον αέρα σε πλήρη ταχύτητα με το WiFi σε χρήση για να δεις τα πραγματικά όρια.',
+ 'PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). What each button does is set on this page: alone, and while the safety button is held. Nothing moves without the safety button; Home All, touch-off and Resume only work with it held; there is always a STOP. Keep the page open in front; it stops when the page is hidden or the WiFi drops.':
+  'Χειριστήριο PS4 / PS5 συνδεδεμένο σε αυτό το κινητό ή υπολογιστή με Bluetooth (ή USB). Τι κάνει κάθε κουμπί ορίζεται σε αυτή τη σελίδα: μόνο του, και όσο κρατάς το κουμπί ασφαλείας. Τίποτα δεν κινείται χωρίς το κουμπί ασφαλείας· Home All, μηδέν και Συνέχεια δουλεύουν μόνο μαζί του· υπάρχει πάντα STOP. Κράτα τη σελίδα ανοιχτή μπροστά· σταματά όταν κρυφτεί ή πέσει το WiFi.',
+ 'Best with the H4 CNC Android app. In Chrome on Android instead, once: chrome://flags, Insecure origins treated as secure, add the H4 address, Enabled, Relaunch.':'Καλύτερα με την εφαρμογή H4 CNC για Android. Στον Chrome του Android, μία φορά: chrome://flags, Insecure origins treated as secure, πρόσθεσε τη διεύθυνση του H4, Enabled, Relaunch.'
+};
+// texts with numbers or names in them: [pattern, Greek with $1 ...]; words inside are looked up again (yes / no ...)
+const I18NW={yes:'ναι',no:'όχι',high:'υψηλό',LOW:'ΧΑΜΗΛΟ','(ok)':'(εντάξει)','(ACTIVE)':'(ΕΝΕΡΓΟ)'};
+const I18NR=[
+ [/^Homed: Z (yes|no) · X (yes|no) · C (yes|no)(.*)$/,(m,a,b,c,r)=>'Home: Z '+I18NW[a]+' · X '+I18NW[b]+' · C '+I18NW[c]+r.replace(/ · machine ([ZX]) /g,' · μηχανή $1 ').replace(' · HOMING',' · HOMING')],
+ [/^Feed (\S+) \/min · spindle (\S+) rpm · step buffer empties: (\S+)(.*)$/,(m,a,b,c,r)=>'Πρόωση '+a+' /min · άτρακτος '+b+' σ.α.λ. · άδειασμα buffer βημάτων: '+c+r.replace(' · EMERGENCY STOP',' · ΕΚΤΑΚΤΗ ΑΝΑΓΚΗ').replace(' · the H4 is not in GCODE mode',' · το H4 δεν είναι σε λειτουργία GCODE')],
+ [/^Free (\S+) MB of (\S+) MB · program memory (.*)$/,(m,a,b,r)=>'Ελεύθερα '+a+' MB από '+b+' MB · μνήμη προγράμματος '+r.replace('without PSRAM: up to','χωρίς PSRAM: ως')],
+ [/^Step interrupt, longest: (\S+) µs(.*)$/,(m,a,r)=>'Διακοπή βημάτων, μέγιστη: '+a+' µs'+r.replace(' (time between steps at the highest rate: ',' (χρόνος ανάμεσα στα βήματα στον μέγιστο ρυθμό: ')],
+ [/^Highest step rate: (\S+) \/s \(limit (\S+) \/s\)$/,'Μέγιστος ρυθμός βημάτων: $1 /s (όριο $2 /s)'],
+ [/^Started late \(over 10 µs\): (\S+) times, latest (\S+) µs$/,'Ξεκίνησε αργά (πάνω από 10 µs): $1 φορές, τελευταία $2 µs'],
+ [/^MCS (\S+)$/,'μηχανή $1'],[/^Step buffer ran empty: (\S+)$/,'Ο buffer βημάτων άδειασε: $1'],[/^Steps given: (\S+)$/,'Βήματα που δόθηκαν: $1'],
+ [/^(A21 home X|A22 home Z|A23 alarm): /,null],   // the inputs line: done word by word below
+ [/^Start (.+) on the machine\?$/,'Έναρξη του $1 στο μηχάνημα;'],[/^Delete (.+)\?$/,'Διαγραφή του $1;'],[/^Update the firmware with (.+)\?$/,'Ενημέρωση firmware με το $1;'],
+ [/^Run (.+) \?$/,'Εκτέλεση: $1 ;'],[/^Set ([XZC]) = 0 here \(active work offset\)\?([\s\S]*)$/,(m,a,r)=>'Μηδέν '+a+' εδώ (ενεργές συντεταγμένες εργασίας);'+r.replace('On a polar machine X0 must stay the chuck centre: zero X only if the tool is exactly there.','Σε πολική μηχανή το X0 πρέπει να μένει το κέντρο του τσοκ: μηδένισε το X μόνο αν το κοπτικό είναι ακριβώς εκεί.')],
+ [/^Deleted (.+)$/,'Διαγράφηκε το $1'],[/^Started (.+)$/,'Ξεκίνησε το $1'],[/^Testing (.+)$/,'Έλεγχος του $1'],[/^Running: (.+)$/,'Τρέχει: $1'],[/^Cannot delete (.+)$/,'Δεν διαγράφεται το $1'],
+ [/^Feed (\d+) %, rapids (\d+) %$/,'Πρόωση $1 %, γρήγορες $2 %'],[/^Saved\. The controller restarts and joins (.+)$/,'Αποθηκεύτηκε. Ο ελεγκτής κάνει επανεκκίνηση και συνδέεται στο $1'],
+ [/^Not allowed: (.+)$/,'Δεν επιτρέπεται: $1'],[/^App version (.*)$/,'Έκδοση app $1'],[/^Refused \((\d+)\)$/,'Αρνήθηκε ($1)'],
+ [/^(.+) · (moving|safety held|hold the safety button to move)( · .*)?$/,(m,a,b,r)=>a+I18N[' · '+b]+(r||'')]
+];
+const I18O=new WeakMap();let i18nBusy=false;
+function i18nWord(s){return s.replace(/\b(yes|no|high|LOW)\b|\((ok|ACTIVE)\)/g,w=>I18NW[w]||w)}
+// one text in the chosen language (the page's own texts are English)
+function tr(s){let el=false;try{el=look.lang=='el'}catch(e){}if(!el||!s)return s;const m=/^(\s*)([\s\S]*?)(\s*)$/.exec(s),t=m[2];if(!t)return s;
+ let r=I18N[t];
+ if(r===undefined)for(const [re,to] of I18NR){if(re.test(t)){r=to===null?t.replace(/A21 home X/,'A21 home X').split(' · ').map(i18nWord).join(' · '):t.replace(re,to);break}}
+ if(r===undefined){const u=/^(.*) \(([^()]*)\)$/.exec(t);if(u&&I18N[u[1]]!==undefined)r=I18N[u[1]]+' ('+(I18N[u[2]]||u[2])+')'}   // a setting with its unit
+ return r===undefined?s:m[1]+r+m[3]}
+function T(s){return tr(s)}
+function i18nNode(n){const cur=n.nodeValue,rec=I18O.get(n),orig=rec&&cur===rec.t?rec.o:cur,t=tr(orig);I18O.set(n,{o:orig,t});if(t!==cur)n.nodeValue=t}
+function i18nAttr(e,a){const k='i18n_'+a,cur=e.getAttribute(a);if(cur==null)return;const orig=e[k]!==undefined&&cur===e[k+'t']?e[k]:cur,t=tr(orig);e[k]=orig;e[k+'t']=t;if(t!==cur)e.setAttribute(a,t)}
+// the Lathe screen's form, drawing and notes have their own lists
+const I18NX='script,style,#ltForm,#ltOps,#ltSvg,#ltInfo,#ltLeg,svg';
+function i18nApply(root){if(!root)return;i18nBusy=true;try{
+ const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const p=n.parentElement;if(p&&!p.closest(I18NX)&&/[A-Za-z]/.test(n.nodeValue+((I18O.get(n)||{}).o||'')))i18nNode(n)}
+ if(root.querySelectorAll)root.querySelectorAll('[placeholder],input[type=submit]').forEach(e=>{if(!e.closest(I18NX)){i18nAttr(e,'placeholder');if(e.type=='submit')i18nAttr(e,'value')}})}finally{i18nBusy=false}}
+new MutationObserver(ms=>{if(i18nBusy)return;i18nBusy=true;try{for(const m of ms){
+ if(m.type=='characterData'){const n=m.target,p=n.parentElement;if(p&&!p.closest(I18NX))i18nNode(n)}
+ else for(const a of m.addedNodes){if(a.nodeType==3){const p=a.parentElement;if(p&&!p.closest(I18NX))i18nNode(a)}else if(a.nodeType==1&&!a.closest(I18NX)){i18nBusy=false;i18nApply(a);i18nBusy=true}}}}finally{i18nBusy=false}})
+ .observe(document.body,{subtree:true,childList:true,characterData:true});
+{const c=window.confirm.bind(window);window.confirm=s=>c(tr(String(s)))}
+// Each button has an action alone and one while the safety button is held (that one wins when set). Hold actions
+// (safety, fast, C+ / C-) work while the button is held; the others when it is pressed. Nothing moves without the
+// safety button; Home All, touch-off and Resume are offered only with it held; there is always a STOP.
+const GPB=[['l1','L1',4],['r1','R1',5],['l2','L2',6],['r2','R2',7],['cross','✕ Cross',0],['circle','○ Circle',1],['square','□ Square',2],['triangle','△ Triangle',3],
+ ['up','D-pad ▲',12],['down','D-pad ▼',13],['left','D-pad ◀',14],['right','D-pad ▶',15],['share','Share',8],['options','Options',9],['ps','PS',16],['l3','L3',10],['r3','R3',11]];
+const GPA=[['','—'],['enable','Hold to move (safety)'],['fast','Fast (while held)'],['cp','C+ (while held)'],['cm','C− (while held)'],['stop','STOP'],['pause','Pause (hold)'],
+ ['resume','Resume / continue'],['home','Home All'],['z0','Touch off Z0 here'],['unlock','Unlock ($X)'],['fup','Feed +10 %'],['fdn','Feed −10 %'],['f100','Feed 100 %']];
+const GPA1=['','enable','fast','cp','cm','stop','pause','unlock','fup','fdn','f100'],GPA2=['','stop','pause','resume','home','z0','unlock','fup','fdn','f100'];
+const GPMAP={l1:['enable',''],r1:['fast',''],l2:['cp',''],r2:['cm',''],options:['stop','stop'],ps:['unlock',''],share:['','home'],up:['fup',''],down:['fdn','z0'],left:['f100','']};
+const GPD={n:400,f:1000,c:6,ix:false,iz:false,ic:false,sl:'z',sr:'x',map:GPMAP};let gp=JSON.parse(JSON.stringify(GPD));
 try{Object.assign(gp,JSON.parse(localStorage.getItem('h4gamepad')||'{}'))}catch(e){}
-const GPF={gpN:'n',gpF:'f',gpC:'c',gpIX:'ix',gpIZ:'iz',gpIC:'ic'};
+if(!gp.map||typeof gp.map!='object')gp.map=JSON.parse(JSON.stringify(GPMAP));
+// what is wrong with a map ('' = fine)
+function gpCheck(m){const a=k=>(m[k]||['',''])[0]||'';const keys=GPB.map(b=>b[0]);
+ if(!keys.some(k=>a(k)=='enable'))return 'One button must be Hold to move (safety).';
+ if(!keys.some(k=>a(k)=='stop'))return 'One button must be STOP (alone).';
+ for(const k of keys){const [x,y]=m[k]||['',''];if(x&&!GPA1.includes(x)||y&&!GPA2.includes(y))return 'Not allowed: '+k;if(x=='enable'&&y)return 'The safety button cannot have a second action.'}
+ return ''}
+function gpSave(){try{localStorage.setItem('h4gamepad',JSON.stringify(gp))}catch(e){}gpToApp()}
+function gpForm(){const o=(list,v)=>list.map(k=>`<option value="${k}"${k===v?' selected':''}>${(GPA.find(a=>a[0]==k)||['',''])[1]}</option>`).join('');
+ const pg=$('gpBad').parentElement;pg.querySelectorAll('.gpr,.gph').forEach(e=>e.remove());$('gpBad').insertAdjacentHTML('beforebegin',`<div class="fr gph"><span></span><span>Alone</span><span>With safety held</span></div>`+GPB.map(([k,n])=>{const [x,y]=gp.map[k]||['',''];
+  return `<div class="fr gpr"><label>${n}</label><select data-gb="${k}" data-gi="0">${o(GPA1,x)}</select><select data-gb="${k}" data-gi="1"${x=='enable'?' disabled':''}>${o(GPA2,y)}</select></div>`}).join(''));
+ $('gpBad').textContent=gpCheck(gp.map);if(window.i18nApply)i18nApply(pg);pagers()}
+$('gpBad').parentElement.addEventListener('change',e=>{const t=e.target.closest('select[data-gb]');if(!t)return;const m=JSON.parse(JSON.stringify(gp.map)),k=t.dataset.gb;
+ m[k]=(m[k]||['','']).slice();m[k][+t.dataset.gi]=t.value;if(m[k][0]=='enable')m[k][1]='';
+ const bad=gpCheck(m);if(bad){$('gpBad').textContent=T(bad);gpForm();$('gpBad').textContent=T(bad);return}   // refused: the old map stays
+ gp.map=m;gpSave();gpForm()});
+function gpDefaults(){gp.map=JSON.parse(JSON.stringify(GPMAP));gp.sl='z';gp.sr='x';$('gpSL').value='z';$('gpSR').value='x';gpSave();gpForm()}
+const GPF={gpN:'n',gpF:'f',gpC:'c',gpIX:'ix',gpIZ:'iz',gpIC:'ic',gpSL:'sl',gpSR:'sr'};
 for(const id in GPF){const el=$(id),k=GPF[id];if(el.type=='checkbox')el.checked=!!gp[k];else el.value=gp[k];
- el.addEventListener('change',()=>{gp[k]=el.type=='checkbox'?el.checked:(parseFloat(el.value)||GPD[k]);
-  try{localStorage.setItem('h4gamepad',JSON.stringify(gp))}catch(e){}gpToApp()})}
+ el.addEventListener('change',()=>{gp[k]=el.type=='checkbox'?el.checked:el.tagName=='SELECT'?el.value:(parseFloat(el.value)||GPD[k]);gpSave()})}
+gpForm();
 // In the H4 CNC Android app the app reads the gamepad itself (no browser setting needed); the page only shows its state.
 const gpApp=isApp;function gpToApp(){if(gpApp)try{H4App.settings(JSON.stringify(gp))}catch(e){}}
-if(gpApp){$('fwApp').classList.remove('nope');$('gpapp').hidden=false;window.h4AppGamepad=t=>{$('gpstate').textContent=t};gpToApp()}
+if(gpApp){$('fwApp').classList.remove('nope');$('gpapp').hidden=false;window.h4AppGamepad=t=>{$('gpstate').textContent=T(t)};gpToApp()}
 let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
 function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
 function gpRumble(){try{gpPad&&gpPad.vibrationActuator&&gpPad.vibrationActuator.playEffect('dual-rumble',{duration:200,strongMagnitude:.5,weakMagnitude:.5})}catch(e){}}
 async function gpSend(x,z,c){gpLast=performance.now();gpBusy=true;
  try{const r=await fetch('/jog?x='+x.toFixed(1)+'&z='+z.toFixed(1)+'&c='+c.toFixed(1),{method:'POST'});
-  if(!r.ok){const t=await r.text();if(t!=gpErr){gpErr=t;msg('Jog: '+t);gpRumble()}}else gpErr=''}catch(e){}
+  if(!r.ok){const t=await r.text();if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}catch(e){}
  gpBusy=false}
 function gpMdi(l){post('/mdi',new URLSearchParams({line:l})).then(msg,e=>{msg(e.message);gpRumble()})}
+// a pressed action (the same in GamepadJog.java)
+function gpDo(a){if(a=='stop')cmd('stop');else if(a=='pause')cmd('pause');else if(a=='resume')cmd('resume');else if(a=='home')cmd('home');
+ else if(a=='z0')gpMdi('G10 L20 P0 Z0');else if(a=='unlock')gpMdi('$X');else if(a=='fup')ovr(145);else if(a=='fdn')ovr(146);else if(a=='f100')ovr(144)}
+const GPHOLD=['enable','fast','cp','cm'];
 function gpLoop(){let pads=[];
  try{pads=navigator.getGamepads?[...navigator.getGamepads()].filter(p=>p&&p.connected):[]}catch(e){}
  const g=pads[0];gpPad=g||null;const now=performance.now();
  if(!g||document.hidden){if(gpMoving||gpStops>0){if(now-gpLast>=100){gpSend(0,0,0);gpStops=gpMoving?3:gpStops-1;gpMoving=false}}
-  $('gpstate').textContent=!window.isSecureContext&&!g?'No gamepad. Connect it, press a button (Chrome: see i).':'No gamepad: connect it, then press a button.';return}
- const b=i=>!!(g.buttons[i]&&g.buttons[i].pressed),val=i=>g.buttons[i]?g.buttons[i].value:0,edge=i=>b(i)&&!gpPrev[i];
- const l1=b(4),sp=b(5)?gp.f:gp.n;
- const vz=(gp.iz?-1:1)*gpDz(g.axes[0]||0,.35)*sp,vx=(gp.ix?-1:1)*gpDz(g.axes[3]||0,.45)*sp;
- const vc=(gp.ic?-1:1)*(gpDz(val(6),.05)-gpDz(val(7),.05))*sp*gp.c;
- if(edge(9))cmd('stop');
- if(edge(16))gpMdi('$X');
- if(l1&&edge(8))cmd('home');
- if(l1&&edge(13))gpMdi('G10 L20 P0 Z0');
- if(!l1&&edge(12))ovr(145);if(!l1&&edge(13))ovr(146);if(!l1&&edge(14))ovr(144); // feed override +10 / -10 / 100 %
+  $('gpstate').textContent=T(!window.isSecureContext&&!g?'No gamepad. Connect it, press a button (Chrome: see i).':'No gamepad: connect it, then press a button.');return}
+ const b=i=>!!(g.buttons[i]&&g.buttons[i].pressed),val=i=>g.buttons[i]?g.buttons[i].value:0,M=gp.map;
+ const held=a=>GPB.filter(([k])=>(M[k]||[''])[0]==a),on=a=>held(a).some(([,,i])=>b(i)),amt=a=>Math.max(0,...held(a).map(([,,i])=>val(i)));
+ const en=on('enable'),sp=on('fast')?gp.f:gp.n;
+ const vz=(gp.iz?-1:1)*(gp.sl=='z'?gpDz(g.axes[0]||0,.35):gp.sr=='z'?gpDz(g.axes[3]||0,.45):0)*sp;
+ const vx=(gp.ix?-1:1)*(gp.sl=='x'?gpDz(g.axes[0]||0,.35):gp.sr=='x'?gpDz(g.axes[3]||0,.45):0)*sp;
+ const vc=(gp.ic?-1:1)*(gpDz(amt('cp'),.05)-gpDz(amt('cm'),.05))*sp*gp.c;
+ for(const [k,,i] of GPB)if(b(i)&&!gpPrev[i]){const [x,y]=M[k]||['',''],a=en&&y?y:GPHOLD.includes(x)?'':x;
+  if(a&&(GPA2.includes(a)&&!GPA1.includes(a)?en:true))gpDo(a)}
  gpPrev=g.buttons.map(x=>x.pressed);
- const want=l1&&(vx!=0||vz!=0||vc!=0);
+ const want=en&&(vx!=0||vz!=0||vc!=0);
  if(want){if(now-gpLast>=100&&!gpBusy){gpMoving=true;gpStops=3;gpSend(vx,vz,vc)}}
  else if(gpStops>0&&now-gpLast>=100&&!padHeld){gpSend(0,0,0);gpStops=gpMoving?2:gpStops-1;gpMoving=false} // stop, sent 3 times
- $('gpstate').textContent=(g.mapping=='standard'?'':'(unknown button layout) ')+g.id+(want?' · moving':l1?' · L1 held':' · hold L1 to move')+(gpErr?' · '+gpErr:'')}
+ $('gpstate').textContent=(g.mapping=='standard'?'':T('(unknown button layout) '))+g.id+T(want?' · moving':en?' · safety held':' · hold the safety button to move')+(gpErr?' · '+gpErr:'')}
 if(!gpApp)setInterval(gpLoop,20);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&(gpMoving||gpStops))gpSend(0,0,0)});
 fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{});
@@ -577,10 +738,9 @@ function ovrSheet(){sheet('Feed and rapids',`<div>Feed <b id="sFo">${st.fo||100}
 function mdiSheet(){sheet('MDI: one G-code line',`<form class="row" onsubmit="event.preventDefault();mdiRun(this.l.value)"><input type="text" name="l" placeholder="e.g. G0 C90" autocomplete="off" style="flex:3"><input type="submit" value="Run"></form>
  <div class="small">The H4 must be idle. Keep a real emergency stop within reach.</div>`);setTimeout(()=>$('shBody').querySelector('input').focus(),50)}
 const INFO={files:'Upload a G-code file (.nc .ngc .gcode .tap .txt), choose it with the round button, then START. Draw shows the path, Test reads and plans the whole file on the controller without moving (it tells whether the controller keeps up with the program).',
- keys:'The same as the keys on the controller. Arrows, GEARS and TURN move while held; if the page loses the connection the key is released within half a second.',
- pad:'PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). Hold L1 to move: left stick Z, right stick X, L2 / R2 C+ / C-, R1 fast. L1 + Share = Home All, L1 + D-pad down = touch off Z, Options = STOP, PS = unlock ($X). D-pad (without L1): up / down feed +10 / -10 %, left 100 %. Keep the page open in front; it stops when the page is hidden or the WiFi drops. '+(isApp?'':'Best with the H4 CNC Android app. In Chrome on Android instead, once: chrome://flags, Insecure origins treated as secure, add '+location.origin+', Enabled, Relaunch.'),
+ pad:('PS4 / PS5 gamepad connected to this phone or computer by Bluetooth (or USB). What each button does is set on this page: alone, and while the safety button is held. Nothing moves without the safety button; Home All, touch-off and Resume only work with it held; there is always a STOP. Keep the page open in front; it stops when the page is hidden or the WiFi drops.'),
  diag:'Measured by the controller itself since the program started (or Clear): the step interrupt must stay well below the time between two steps at the highest step rate, it should never start late, and the step buffer should never run empty. Run a program in the air at full speed with WiFi in use to see the real limits.'};
-function infoSheet(k){sheet('About',`<div style="line-height:1.4">${INFO[k].replace(/</g,'&lt;')}</div>`)}
+function infoSheet(k){sheet('About',`<div style="line-height:1.4">${INFO[k].replace(/</g,'&lt;')}</div>`+(k=='pad'&&!isApp?'<div class="small" style="margin-top:8px">Best with the H4 CNC Android app. In Chrome on Android instead, once: chrome://flags, Insecure origins treated as secure, add the H4 address, Enabled, Relaunch.</div>':''))}
 // Control screen: DRO with work and machine position, ZERO per axis, jog buttons or wheel, overrides, macros.
 let unlocked=false,lockT=0;
 const STEPS=[0.001,0.01,0.1,1,10];let jogAxis='X',jogStep=0.1,jogPending=0,jogBusy=false,jogPoll=-9,wheelAngle=0;
@@ -596,7 +756,8 @@ function lookApply(){document.body.classList.toggle('light',look.theme=='light')
  r.setProperty('--or',look.acc);r.setProperty('--dro',look.size+'px');AXC.X=look.X;AXC.Z=look.Z;AXC.C=look.C;
  document.querySelectorAll('#pad [data-a]').forEach(b=>b.style.setProperty('--c',AXC[b.dataset.a]));$('padCl').style.setProperty('--c',AXC.C);
  try{if(isApp&&H4App.setLang)H4App.setLang(look.lang=='el'?'el':'en')}catch(e){} // the app's own dialogs follow
- const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow();if($('slist')&&$('slist').innerHTML)setList()}
+ const a=$('axes');if(a)a.dataset.n='';if(window.ltReady)ltLang();if(typeof ctlJogShow=='function'&&$('chips'))ctlJogShow();if($('slist')&&$('slist').innerHTML)setList();
+ if(window.i18nApply)i18nApply(document.body)}
 function lookSave(){try{localStorage.setItem('h4look',JSON.stringify(look))}catch(e){}lookApply()}
 function lookReset(){look=Object.assign({},LOOK0);lookForm();lookSave()}
 function lookForm(){$('lkXr').value=ltXv();$('lkZv').value=ltZv();$('lkLang').value=look.lang;$('lkTheme').value=look.theme;$('lkAcc').value=look.acc;$('lkX').value=look.X;$('lkZ').value=look.Z;$('lkC').value=look.C;$('lkSize').value=look.size}
@@ -604,7 +765,7 @@ lookForm();for(const [id,k] of [['lkLang','lang'],['lkTheme','theme'],['lkAcc','
  $(id).addEventListener('input',()=>{look[k]=$(id).value;lookSave()});
 // How the lathe modes show Z and X: kept in the H4 (its display shows the same), not in this browser.
 for(const id of ['lkXr','lkZv'])$(id).addEventListener('input',async()=>{const zv=$('lkZv').value,xv=$('lkXr').value;
- try{const r=await fetch('/lathe?do=view&z='+zv+'&x='+xv,{method:'POST'});if(!r.ok)throw 0;st.lzv=+zv;st.lxv=+xv;ltViewChanged()}catch(e){lookForm();alert('The H4 did not take it / Το H4 δεν το δέχτηκε')}});
+ try{const r=await fetch('/lathe?do=view&z='+zv+'&x='+xv,{method:'POST'});if(!r.ok)throw 0;st.lzv=+zv;st.lxv=+xv;ltViewChanged()}catch(e){lookForm();alert(T('The H4 did not take it.'))}});
 lookApply();
 // Screen and jog settings; the orientation is kept by the app (Android), so it is offered only there.
 function scSave(){try{localStorage.setItem('h4screen',JSON.stringify(sc))}catch(e){}scApply()}
@@ -714,7 +875,7 @@ function sub(t,p,quiet){const bar=document.querySelector(`.subtabs[data-s="${t}"
 document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.parentElement.dataset.s,b.dataset.p));
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
 // The list follows the chosen language (the pages themselves are bilingual or English).
-function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο (gamepad)':'Gamepad']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+g])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]);
+function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο':'Gamepad']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+tr(g)])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]);
  $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setShow('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('')+'<div class="small" id="verLine"></div>';verShow();setShow(setOpen,true)}
 // the versions, always in view in Settings: this app (the screen) and the H4's firmware
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
