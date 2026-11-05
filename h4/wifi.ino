@@ -236,7 +236,10 @@ void handleStatus() {
   json += ",\"diag\":{\"isrUs\":" + String(cncDiagIsrMaxCycles / (float)cncCpuCyclesPerUs, 1) +
       ",\"lateUs\":" + String(cncDiagLateMaxTicks / (float)(CNC_TIMER_HZ / 1000000), 1) +
       ",\"late\":" + String(cncDiagLateCount) + ",\"rate\":" + String(cncDiagRateMax) +
-      ",\"limit\":" + String(cncStepRateLimit()) + ",\"steps\":" + String(cncDiagSteps) + "}";
+      ",\"limit\":" + String(cncStepRateLimit()) + ",\"steps\":" + String(cncDiagSteps) +
+      ",\"movePulses\":" + String(moveDiagPulses) +
+      ",\"movePulseMinUs\":" + String(moveDiagPulses ? moveDiagPulseMinCycles / (float)cncCpuCyclesPerUs : 0, 2) +
+      ",\"movePulseMaxUs\":" + String(moveDiagPulseMaxCycles / (float)cncCpuCyclesPerUs, 2) + "}";
   json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
   cnc_modes_t modes;
   cnc_gc_get_modes(&modes);

@@ -151,7 +151,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.18"
+#define FW_VERSION "1.19"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -440,6 +440,7 @@ struct Axis {
   bool direction; // To reset speed when direction changes.
   bool directionInitialized;
   unsigned long stepStartUs;
+  uint32_t stepEndCycles; // CPU cycle count when the last moveAxis() step pulse ended (GCODE mode: direction hold)
   int stepperEnableCounter;
   bool disabled;
   bool savedDisabled;
@@ -1662,6 +1663,11 @@ volatile uint32_t cncDiagLateMaxTicks = 0;      // latest start after its alarm 
 volatile uint32_t cncDiagLateCount = 0;         // interrupts that started more than 10 us late
 volatile uint32_t cncDiagRateMax = 0;           // highest step rate given, steps per second
 volatile uint32_t cncDiagSteps = 0;             // step pulses given (all axes together)
+// Step pulses of moveAxis() (jog, handwheels, Home All, G32 / G33 and the lathe modes), measured with the CPU cycle
+// counter from just before the pin goes low to just after it goes high again (a little longer than the pin is low).
+volatile uint32_t moveDiagPulseMinCycles = UINT32_MAX;
+volatile uint32_t moveDiagPulseMaxCycles = 0;
+volatile uint32_t moveDiagPulses = 0;
 
 void cncDiagReset() {
   cncDiagIsrMaxCycles = 0;
@@ -1669,6 +1675,9 @@ void cncDiagReset() {
   cncDiagLateCount = 0;
   cncDiagRateMax = 0;
   cncDiagSteps = 0;
+  moveDiagPulseMinCycles = UINT32_MAX;
+  moveDiagPulseMaxCycles = 0;
+  moveDiagPulses = 0;
 }
 
 static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* edata, void* ctx) {
@@ -3368,9 +3377,20 @@ void buttonMoveStepPress() {
   }
 }
 
+// CPU cycles per microsecond for the busy waits of moveAxis() / setDir() (set when the step timer starts).
+uint32_t moveCyclesPerUs() {
+  return cncCpuCyclesPerUs > 0 ? cncCpuCyclesPerUs : 240;
+}
+
 void setDir(Axis* a, bool dir) {
   // Start slow if direction changed.
   if (a->direction != dir || !a->directionInitialized) {
+    if (mode == MODE_GCODE && a->directionInitialized) {
+      // GCODE mode (jog, Home All, G32 / G33): the direction pin keeps its level DIRECTION_HOLD_US after the last
+      // pulse ended, as the step interrupt does. The lathe modes are not changed.
+      uint32_t holdCycles = DIRECTION_HOLD_US * moveCyclesPerUs();
+      while (esp_cpu_get_cycle_count() - a->stepEndCycles < holdCycles) {}
+    }
     a->speed = a->speedStart;
     a->direction = dir;
     a->directionInitialized = true;
@@ -3819,6 +3839,7 @@ void moveAxis(Axis* a) {
       bool dir = a->pendingPos > 0;
       setDir(a, dir);
 
+      uint32_t pulseStart = esp_cpu_get_cycle_count();
       DLOW(a->step);
       int delta = dir ? 1 : -1;
       a->pendingPos -= delta;
@@ -3839,7 +3860,19 @@ void moveAxis(Axis* a) {
       }
       a->stepStartUs = nowUs;
 
+      if (mode == MODE_GCODE) {
+        // GCODE mode (jog, Home All, G32 / G33): the pulse lasts at least CNC_STEP_PULSE_US, as the step interrupt's.
+        // The lathe modes keep the original pulse (as long as the code between the two pin writes takes).
+        uint32_t pulseCycles = CNC_STEP_PULSE_US * moveCyclesPerUs();
+        while (esp_cpu_get_cycle_count() - pulseStart < pulseCycles) {}
+      }
       DHIGH(a->step);
+      uint32_t pulseEnd = esp_cpu_get_cycle_count();
+      a->stepEndCycles = pulseEnd;
+      uint32_t width = pulseEnd - pulseStart;
+      if (width < moveDiagPulseMinCycles) moveDiagPulseMinCycles = width;
+      if (width > moveDiagPulseMaxCycles) moveDiagPulseMaxCycles = width;
+      moveDiagPulses = moveDiagPulses + 1;
     }
     xSemaphoreGive(a->mutex);
   }

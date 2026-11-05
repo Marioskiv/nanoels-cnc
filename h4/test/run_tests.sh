@@ -90,6 +90,12 @@ echo "corners: $jfail failure(s)"
 # simulated machine (switch bounce, noise, NC broken wire, disconnected switch, alarm and STOP during homing)
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/homing_test" homing_test.cpp
 "$OUT/homing_test" || fail=$((fail + 1))
+# moveAxis() step pulses (jog, Home All, G32 / G33, lathe modes): the firmware's own moveAxis() / setDir() on a simulated
+# CPU clock; in the GCODE mode pulse >= CNC_STEP_PULSE_US, direction hold and set-up; lathe modes unchanged
+{ awk '/^struct Axis \{/,/^};/' ../h4.ino; sh lathe/extract.sh ../h4.ino "uint32_t moveCyclesPerUs" "void setDir" "void moveAxis"; } > "$OUT/move_funcs.inc"
+g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/move_pulse_test" move_pulse_test.cpp
+"$OUT/move_pulse_test" > "$OUT/mp.txt" || { cat "$OUT/mp.txt"; fail=$((fail + 1)); }
+tail -1 "$OUT/mp.txt"
 # the lathe modes' zero and the GCODE mode's zero stay apart (zeros.ino)
 g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/zeros_test" zeros_test.cpp
 "$OUT/zeros_test" || fail=$((fail + 1))
