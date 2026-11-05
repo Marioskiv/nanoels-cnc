@@ -97,6 +97,9 @@ const long STEPPED_ENABLE_DELAY_MS = 100; // Delay after stepper is enabled and 
 // GCode-related constants.
 const float LINEAR_INTERPOLATION_PRECISION = 0.1; // 0 < x <= 1, smaller values make for quicker G0 and G1 moves
 const long GCODE_WAIT_EPSILON_STEPS = 10;
+// GCODE mode: M3 / M4 that start (or reverse) the spindle pause the program until the operator, who switches the spindle /
+// router on by hand, resumes it (the H4 does not switch it). Not used when "Pause the program when the spindle stops" is on.
+bool CNC_SPINDLE_START_PAUSE = true;
 bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops. Set to false for polar milling, where the chuck is turned by the C motor
 int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 
@@ -155,7 +158,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.23"
+#define FW_VERSION "1.24"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1977,6 +1980,7 @@ void cncConfigure() {
   m.arcTolerance = CNC_ARC_TOLERANCE;
   m.spindleRpm = cncSpindleRpm;
   m.skipOptionalStop = !CNC_OPTIONAL_STOP;
+  m.pauseOnSpindleStart = CNC_SPINDLE_START_PAUSE && !SPINDLE_PAUSES_GCODE; // with the encoder pause it is not needed
   cnc_core_settings(&s);
   cnc_gc_init(&m);
   cncLoadOffsets();
@@ -2162,6 +2166,7 @@ void cncSyncFromAxes(bool keepModes) {
   m.arcTolerance = CNC_ARC_TOLERANCE;
   m.spindleRpm = cncSpindleRpm;
   m.skipOptionalStop = !CNC_OPTIONAL_STOP;
+  m.pauseOnSpindleStart = CNC_SPINDLE_START_PAUSE && !SPINDLE_PAUSES_GCODE; // with the encoder pause it is not needed
   portENTER_CRITICAL(&cncMux);
   cnc_st_reset();
   cnc_plan_reset();

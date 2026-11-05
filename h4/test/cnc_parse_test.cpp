@@ -352,6 +352,29 @@ int main() {
     cnc_gc_set_machine(&m);
     expect("M1", CNC_OK, "skipped");
   }
+  {  // the pause for the spindle (firmware 1.24): M3 / M4 that start or reverse it pause, the same again does not;
+     // M3 with a move on one line is refused (the move would come before the pause, the router still off)
+    cnc_machine_t m;
+    memset(&m, 0, sizeof(m));
+    m.name[0] = 'X'; m.name[1] = 'Z'; m.name[2] = 'C';
+    m.active[0] = m.active[1] = m.active[2] = true;
+    m.rotary[2] = true;
+    m.pauseOnSpindleStart = true;
+    cnc_gc_set_machine(&m);
+    expect("M5", CNC_OK);
+    expect("S18000 M3", CNC_PAUSE, "switch the spindle / router on by hand (clockwise), then Resume");
+    expect("M3", CNC_OK);                      // already on: no second pause
+    expect("G0 X5 M3", CNC_OK);                // already on: a move with it is fine
+    expect("M4", CNC_PAUSE, "counter-clockwise");  // reversed
+    expect("M5", CNC_OK);
+    expect("G0 X10 M3", CNC_ERROR, "put M3 / M4 on its own line");
+    expect("M3", CNC_PAUSE, "then Resume");    // the refused line changed nothing: M3 still starts it
+    expect("M5", CNC_OK);
+    m.pauseOnSpindleStart = false;             // off (or the spindle encoder pause on): a note only, as before
+    cnc_gc_set_machine(&m);
+    expect("G0 X10 M3", CNC_OK);
+    expect("M5", CNC_OK);
+  }
 
   // soft limits (after Home All): a line that would leave them is refused before anything moves, the position stays
   {
