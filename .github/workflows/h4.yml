@@ -61,7 +61,9 @@ jobs:
       - name: Build as the Arduino IDE does
         run: >
           arduino-cli compile --warnings default
-          --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=enabled,PartitionScheme=app3M_fat9M_16MB h4
+          --fqbn esp32:esp32:esp32s3:FlashSize=16M,PSRAM=enabled,PartitionScheme=app3M_fat9M_16MB --output-dir out h4
+      - name: The step interrupt and everything it calls are in IRAM (it runs while the flash is busy)
+        run: python3 h4/test/iram_check.py out/h4.ino.elf
 
   # On main: the firmware for updates over WiFi (the app offers it). Built without my_machine.h: an H4 keeps its
   # own machine values (stored in it) through the update.

@@ -82,6 +82,10 @@ const long SAFE_DISTANCE_DU = 5000; // Step back 0.5mm from the material when mo
 const long SAVE_DELAY_US = 5000000; // Wait 5s after last save and last change of saveable data before saving again
 long DIRECTION_SETUP_DELAY_US = 5; // Stepper driver needs some time to adjust to direction change (LinuxCNC DIRSETUP)
 long DIRECTION_HOLD_US = 5; // GCODE mode: the direction stays this long after a step pulse ends before it changes (LinuxCNC DIRHOLD)
+// GCODE mode: the step interrupt is allocated in IRAM with the timer's registers written directly (as FluidNC and grblHAL
+// do), so it keeps running while the flash is read or written. false = the firmware 1.19 step timer (ESP-IDF gptimer
+// callback, which waits while the flash is busy). Takes effect after a restart.
+bool CNC_STEP_TIMER_IRAM = true;
 const long STEPPED_ENABLE_DELAY_MS = 100; // Delay after stepper is enabled and before issuing steps
 
 // Version of the pref storage format, should be changed when non-backward-compatible
@@ -151,7 +155,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.19"
+#define FW_VERSION "1.20"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -350,6 +354,10 @@ bool splashScreen = false;
 Adafruit_TCA8418 keypad;
 
 #include "driver/gptimer.h"
+#include "esp_private/gptimer.h" // gptimer_get_group_id(): the step timer's own IRAM interrupt (cncStartTimer)
+#include "hal/timer_ll.h"
+#include "soc/timer_periph.h"
+#include "esp_intr_alloc.h"
 #include "soc/gpio_reg.h"
 #include "esp_timer.h"
 #include <WiFi.h>
@@ -1680,9 +1688,11 @@ void cncDiagReset() {
   moveDiagPulses = 0;
 }
 
-static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* edata, void* ctx) {
+// One tick of the step interrupt: count = timer value now, alarmValue = the alarm that fired. Returns the next alarm.
+// Called by both step timers below (same code, same timing).
+static uint64_t IRAM_ATTR cncStepTick(uint64_t countValue, uint64_t alarmValue) {
   uint32_t cycles0 = esp_cpu_get_cycle_count();
-  uint32_t late = (uint32_t)(edata->count_value - edata->alarm_value);
+  uint32_t late = (uint32_t)(countValue - alarmValue);
   if (late > cncDiagLateMaxTicks) cncDiagLateMaxTicks = late;
   if (late > CNC_TIMER_HZ / 100000) cncDiagLateCount = cncDiagLateCount + 1;  // over 10 us
   bool run = cncStepsEnabled && !cncFaultStop;
@@ -1768,13 +1778,43 @@ static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_eve
   // Next tick, never in the past even if this one took long. After a late interrupt the pin still rests at least as
   // long as a pulse (LinuxCNC STEPSPACE = STEPLEN here) and at least 5 us before the next pulse.
   uint64_t elapsed = used / cncCpuCyclesPerTick;
-  uint64_t next = edata->alarm_value + t.period;
+  uint64_t next = alarmValue + t.period;
   uint64_t space = (uint64_t)CNC_STEP_PULSE_US * (CNC_TIMER_HZ / 1000000);
-  uint64_t earliest = edata->count_value + elapsed + (space > 100 ? space : 100);
+  uint64_t earliest = countValue + elapsed + (space > 100 ? space : 100);
+  return next > earliest ? next : earliest;
+}
+
+// Step timer of firmware 1.19 (CNC_STEP_TIMER_IRAM false): the ESP-IDF gptimer callback. Its interrupt is not
+// allocated in IRAM in the Arduino core and gptimer_set_alarm_action() is in the flash: while the flash is busy the
+// steps wait.
+static bool IRAM_ATTR cncOnTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* edata, void* ctx) {
   gptimer_alarm_config_t alarm = {};
-  alarm.alarm_count = next > earliest ? next : earliest;
+  alarm.alarm_count = cncStepTick(edata->count_value, edata->alarm_value);
   gptimer_set_alarm_action(timer, &alarm);
   return false;
+}
+
+// IRAM step timer (CNC_STEP_TIMER_IRAM, the default): the gptimer driver only reserves and clocks the timer; the
+// interrupt is allocated here with ESP_INTR_FLAG_IRAM and the alarm is set with the timer's registers (timer_ll_*,
+// always inlined), as FluidNC's and grblHAL's step timers. Nothing on this path is in the flash
+// (h4/test/iram_check.py checks the built firmware).
+static timg_dev_t* cncTimerHw = NULL;
+static uint32_t cncTimerNum = 0;
+static uint64_t cncTimerAlarm = 0;
+static intr_handle_t cncTimerIntr = NULL;
+const char* cncStepTimerText = "";  // which step timer runs (Diagnostics)
+
+static void IRAM_ATTR cncTimerIsr(void* arg) {
+  timg_dev_t* hw = cncTimerHw;
+  uint32_t mask = TIMER_LL_EVENT_ALARM(cncTimerNum);
+  if (!(timer_ll_get_intr_status(hw) & mask)) return;
+  timer_ll_trigger_soft_capture(hw, cncTimerNum);
+  uint64_t count = timer_ll_get_counter_value(hw, cncTimerNum);
+  timer_ll_clear_intr_status(hw, mask);
+  uint64_t next = cncStepTick(count, cncTimerAlarm);
+  cncTimerAlarm = next;
+  timer_ll_set_alarm_value(hw, cncTimerNum, next);
+  timer_ll_enable_alarm(hw, cncTimerNum, true); // the hardware switches the alarm off when it fires
 }
 
 // Highest step rate of one axis in the GCODE mode: a step pulse and an equal pause (FluidNC's limit for its
@@ -1882,6 +1922,55 @@ void cncConfigure() {
   cnc_st_reset();
 }
 
+// Finds which timer of its group the driver gave to cncTimer (the driver does not say): with the counter at 0 and an
+// alarm at 1, the timer's own "alarm happened" bit comes up in the group's raw interrupt register once it runs. Only
+// that register is read; the other timer of the group is not touched. -1 if it cannot be told for sure.
+static int cncFindTimerNum(timg_dev_t* hw) {
+  uint32_t before = hw->int_raw_timers.val & 0x03;
+  gptimer_set_raw_count(cncTimer, 0);
+  gptimer_alarm_config_t alarm = {};
+  alarm.alarm_count = 1;
+  gptimer_set_alarm_action(cncTimer, &alarm);
+  gptimer_start(cncTimer);
+  delayMicroseconds(100);
+  uint32_t raised = (hw->int_raw_timers.val & 0x03) & ~before;
+  if (raised == 1) return 0;
+  if (raised == 2) return 1;
+  return -1;
+}
+
+// The IRAM step timer (CNC_STEP_TIMER_IRAM). False if it could not be set up; the caller then uses the 1.19 timer.
+static bool cncIramTimerGiveUp() {
+  gptimer_stop(cncTimer);     // may answer "not running": fine
+  gptimer_disable(cncTimer);  // back to the state gptimer_new_timer() left it in, for the 1.19 timer
+  return false;
+}
+
+static bool cncStartIramTimer() {
+  if (gptimer_enable(cncTimer) != ESP_OK) return false;
+  int group = -1;
+  if (gptimer_get_group_id(cncTimer, &group) != ESP_OK || group < 0 || group >= SOC_TIMER_GROUPS) return cncIramTimerGiveUp();
+  timg_dev_t* hw = TIMER_LL_GET_HW(group);
+  int num = cncFindTimerNum(hw);
+  if (num < 0) return cncIramTimerGiveUp();
+  uint32_t mask = TIMER_LL_EVENT_ALARM(num);
+  cncTimerHw = hw;
+  cncTimerNum = num;
+  // the timer runs from about 0: first tick in 1 ms, as the 1.19 timer
+  timer_ll_enable_alarm(hw, num, false);
+  timer_ll_clear_intr_status(hw, mask);
+  timer_ll_trigger_soft_capture(hw, num);
+  cncTimerAlarm = timer_ll_get_counter_value(hw, num) + CNC_TIMER_HZ / 1000;
+  timer_ll_set_alarm_value(hw, num, cncTimerAlarm);
+  esp_err_t err = esp_intr_alloc_intrstatus(timer_group_periph_signals.groups[group].timer_irq_id[num],
+      ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, (uint32_t)timer_ll_get_intr_status_reg(hw), mask, cncTimerIsr, NULL,
+      &cncTimerIntr);
+  if (err != ESP_OK) return cncIramTimerGiveUp();
+  timer_ll_enable_intr(hw, mask, true);
+  timer_ll_enable_alarm(hw, num, true);
+  return true;
+}
+
 void cncStartTimer() {
   cncCpuCyclesPerTick = max(1UL, (unsigned long)(getCpuFrequencyMhz() * 1000000UL / CNC_TIMER_HZ));
   cncCpuCyclesPerUs = getCpuFrequencyMhz();
@@ -1897,6 +1986,14 @@ void cncStartTimer() {
     Serial.println("error: CNC step timer not available");
     return;
   }
+  if (CNC_STEP_TIMER_IRAM) {
+    if (cncStartIramTimer()) {
+      cncStepTimerText = "IRAM (runs while the flash is busy)";
+      return;
+    }
+    cncLog("IRAM step timer could not be set up: the firmware 1.19 step timer is used");
+  }
+  cncStepTimerText = "gptimer (waits while the flash is busy)";
   gptimer_event_callbacks_t callbacks;
   memset(&callbacks, 0, sizeof(callbacks));
   callbacks.on_alarm = cncOnTimer;

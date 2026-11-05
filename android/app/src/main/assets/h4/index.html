@@ -412,7 +412,7 @@ if(DEMO)(function(){
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
    restart:'',lzv:S.lzv,lxv:S.lxv,mode:S.running?9:S.mode,rpm:S.running?0:820,lathe:Object.assign({flank:0},S.lt,{ang:(S.ang=(S.ang+29)%360),zm:S.z+S.dz,xm:S.x+S.dx,done:S.lt.done||0}),boot:1,
    homed:S.homed,mx:S.x-24.039,mz:S.z-10,homing:0,a2:1,in:7,act:[0,0,0],use:[1,1,0],log:S.log.length,
-   diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps,movePulses:S.steps?120:0,movePulseMinUs:5.1,movePulseMaxUs:5.4},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
+   diag:{isrUs:3.2,lateUs:0.6,late:0,rate:S.running?24000:0,limit:100000,steps:S.steps,movePulses:S.steps?120:0,movePulseMinUs:5.1,movePulseMaxUs:5.4,timer:'IRAM (runs while the flash is busy)'},benchN:S.benchN,bench:S.bench,fo:S.fo,ro:S.ro,wcs:'G54',rssi:-52,fw:'demo'}}
  const cfgItems=[{k:'xSteps',t:'l',v:2400,g:'X axis',l:'Motor steps per screw turn',u:'steps'},{k:'xScrew',t:'l',v:20000,g:'X axis',l:'Travel per screw turn',u:'du'},
   {k:'xSpeed',t:'l',v:14400,g:'X axis',l:'Maximum speed (manual moves, G0)',u:'v:x'},{k:'zSteps',t:'l',v:800,g:'Z axis',l:'Motor steps per screw turn',u:'steps'},
   {k:'zScrew',t:'l',v:20000,g:'Z axis',l:'Travel per screw turn',u:'du'},{k:'zSpeed',t:'l',v:10000,g:'Z axis',l:'Maximum speed (manual moves, G0)',u:'v:z'},
@@ -491,7 +491,7 @@ function diagShow(d){if(!d)return;const per=d.rate?1e6/d.rate:0;
  const ok=d.late==0&&(!d.rate||d.isrUs<0.7*per)&&!st.underruns;
  $('diag').innerHTML=(ok?'<b>OK</b>':'<b style="color:#d64040">CHECK</b>')+'<br>Step interrupt, longest: '+d.isrUs+' µs'+(d.rate?' (time between steps at the highest rate: '+per.toFixed(1)+' µs)':'')+
   '<br>Highest step rate: '+d.rate+' /s (limit '+d.limit+' /s)<br>Started late (over 10 µs): '+d.late+' times, latest '+d.lateUs+' µs<br>Step buffer ran empty: '+st.underruns+'<br>Steps given: '+d.steps+
-  (d.movePulses!==undefined?'<br>Jog / homing step pulse: '+(d.movePulses?'shortest '+d.movePulseMinUs+' µs, longest '+d.movePulseMaxUs+' µs ('+d.movePulses+' pulses)':'no pulses yet'):'')}
+  (d.timer?'<br>Step timer: '+d.timer:'')+(d.movePulses!==undefined?'<br>Jog / homing step pulse: '+(d.movePulses?'shortest '+d.movePulseMinUs+' µs, longest '+d.movePulseMaxUs+' µs ('+d.movePulses+' pulses)':'no pulses yet'):'')}
 // After a restart while the machine moved (crash, watchdog, voltage drop, power cut during a program) the H4's
 // positions are not reliable: say it once, and let the operator confirm after checking the zeros (or Home All).
 let restartSeen='';function restartShow(){if(!st.restart||st.restart==restartSeen)return;restartSeen=st.restart;
@@ -653,7 +653,7 @@ const I18N={
  'Invert direction':'Αντίστροφη φορά','Longest manual travel (mm or degrees)':'Μέγιστη χειροκίνητη διαδρομή (mm ή μοίρες)','Longest manual travel':'Μέγιστη χειροκίνητη διαδρομή','Maximum speed (manual moves, G0)':'Μέγιστη ταχύτητα (χειροκίνητα, G0)',
  'Motor steps per screw turn':'Βήματα μοτέρ ανά στροφή βίδας','Rotary (degrees)':'Περιστροφικός (μοίρες)','Start speed':'Ταχύτητα εκκίνησης','Travel per screw turn':'Διαδρομή ανά στροφή βίδας',
  'Arc tolerance (G2/G3 cut in straight pieces)':'Ανοχή τόξων (G2/G3 σε ευθύγραμμα κομμάτια)','Corner tolerance, junction deviation':'Ανοχή γωνιών (junction deviation)',
- 'Direction hold time after a step (LinuxCNC DIRHOLD)':'Χρόνος κράτησης φοράς μετά το βήμα (LinuxCNC DIRHOLD)','Direction set-up time before a step (LinuxCNC DIRSETUP)':'Χρόνος φοράς πριν το βήμα (LinuxCNC DIRSETUP)',
+ 'Direction hold time after a step (LinuxCNC DIRHOLD)':'Χρόνος κράτησης φοράς μετά το βήμα (LinuxCNC DIRHOLD)','Step interrupt keeps running while the flash is busy (IRAM timer)':'Η διακοπή βημάτων δουλεύει και όταν γράφονται αρχεία ή ρυθμίσεις (χρονιστής γρήγορης μνήμης)','Direction set-up time before a step (LinuxCNC DIRSETUP)':'Χρόνος φοράς πριν το βήμα (LinuxCNC DIRSETUP)',
  'Optional stop: M1 pauses the program':'Προαιρετική στάση: το M1 σταματά το πρόγραμμα','Pause the program when the spindle stops (off for polar milling)':'Παύση προγράμματος όταν σταματά η άτρακτος (όχι για πολικό φρεζάρισμα)',
  'Refuse moves outside the H4 stops':'Άρνηση κινήσεων έξω από τα όρια (stops) του H4','Spindle stopped below':'Άτρακτος σταματημένη κάτω από','Step pulse length':'Διάρκεια παλμού βήματος',
  'USB speaks the Grbl protocol (UGS, gSender, CNCjs); WiFi port 23 always does':'Το USB μιλά Grbl (UGS, gSender, CNCjs)· η θύρα WiFi 23 πάντα',
@@ -696,7 +696,7 @@ const I18NR=[
  [/^Step interrupt, longest: (\S+) µs(.*)$/,(m,a,r)=>'Διακοπή βημάτων, μέγιστη: '+a+' µs'+r.replace(' (time between steps at the highest rate: ',' (χρόνος ανάμεσα στα βήματα στον μέγιστο ρυθμό: ')],
  [/^Highest step rate: (\S+) \/s \(limit (\S+) \/s\)$/,'Μέγιστος ρυθμός βημάτων: $1 /s (όριο $2 /s)'],
  [/^Started late \(over 10 µs\): (\S+) times, latest (\S+) µs$/,'Ξεκίνησε αργά (πάνω από 10 µs): $1 φορές, τελευταία $2 µs'],
- [/^MCS (\S+)$/,'μηχανή $1'],[/^Jog \/ homing step pulse: shortest (\S+) µs, longest (\S+) µs \((\S+) pulses\)$/,'Παλμός βήματος jog / homing: μικρότερος $1 µs, μεγαλύτερος $2 µs ($3 παλμοί)'],[/^Jog \/ homing step pulse: no pulses yet$/,'Παλμός βήματος jog / homing: δεν έγινε ακόμα παλμός'],[/^Step buffer ran empty: (\S+)$/,'Ο buffer βημάτων άδειασε: $1'],[/^Steps given: (\S+)$/,'Βήματα που δόθηκαν: $1'],
+ [/^MCS (\S+)$/,'μηχανή $1'],[/^Jog \/ homing step pulse: shortest (\S+) µs, longest (\S+) µs \((\S+) pulses\)$/,'Παλμός βήματος jog / homing: μικρότερος $1 µs, μεγαλύτερος $2 µs ($3 παλμοί)'],[/^Jog \/ homing step pulse: no pulses yet$/,'Παλμός βήματος jog / homing: δεν έγινε ακόμα παλμός'],[/^Step timer: IRAM \(runs while the flash is busy\)$/,'Χρονιστής βημάτων: γρήγορη μνήμη (δουλεύει και όταν γράφονται αρχεία ή ρυθμίσεις)'],[/^Step timer: gptimer \(waits while the flash is busy\)$/,'Χρονιστής βημάτων: παλιός (περιμένει όταν γράφονται αρχεία ή ρυθμίσεις)'],[/^Step buffer ran empty: (\S+)$/,'Ο buffer βημάτων άδειασε: $1'],[/^Steps given: (\S+)$/,'Βήματα που δόθηκαν: $1'],
  [/^(A21 home X|A22 home Z|A23 alarm): /,null],   // the inputs line: done word by word below
  [/^Start (.+) on the machine\?$/,'Έναρξη του $1 στο μηχάνημα;'],[/^Delete (.+)\?$/,'Διαγραφή του $1;'],[/^Update the firmware with (.+)\?$/,'Ενημέρωση firmware με το $1;'],
  [/^Run (.+) \?$/,'Εκτέλεση: $1 ;'],[/^Set ([XZC]) = 0 here \(active work offset\)\?([\s\S]*)$/,(m,a,r)=>'Μηδέν '+a+' εδώ (ενεργές συντεταγμένες εργασίας);'+r.replace('On a polar machine X0 must stay the chuck centre: zero X only if the tool is exactly there.','Σε πολική μηχανή το X0 πρέπει να μένει το κέντρο του τσοκ: μηδένισε το X μόνο αν το κοπτικό είναι ακριβώς εκεί.')],
