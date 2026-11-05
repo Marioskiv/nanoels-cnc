@@ -483,6 +483,16 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public boolean openAtBoot() {
+            return getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(BootReceiver.KEY, true);
+        }
+
+        @JavascriptInterface
+        public void setOpenAtBoot(boolean on) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(BootReceiver.KEY, on).apply();
+        }
+
+        @JavascriptInterface
         public boolean fullscreen() {
             return MainActivity.this.fullscreen();
         }

@@ -49,6 +49,16 @@ the app, MY_PACKAGE_REPLACED); while an install handed to Android less than 3 mi
 app says so instead of offering the update again. Every step (offered, handed to Android and how, Android's answer,
 updated) is written to *Settings, App log*.
 
+**As the tablet's home screen (from app 1.42).** H4 CNC can be chosen as the home screen (Android settings, Apps,
+Default apps, Home / Launcher; or press Home once and choose H4 CNC, Always): the tablet starts in it and the Home key
+comes back to it. To go back: the same setting, the maker's home screen (e.g. Huawei Home); the status bar (a swipe
+from the top) still reaches Android's settings.
+
+**Opens when the tablet starts (from app 1.42).** After the tablet is switched on the app opens by itself (Android's
+BOOT_COMPLETED; Android has no setting of its own for this). *Settings, Screen and jog, Open when the tablet starts*
+switches it off. Huawei: if it does not open, allow H4 CNC in Phone Manager, Startup manager (EMUI 5) or Settings,
+Battery, App launch (newer EMUI).
+
 **Full screen (from app 1.40).** The app hides the tablet's status bar and its Back / Home / Recent keys (a
 swipe from the top or bottom edge shows them for a moment); the page shows the clock, the battery and the WiFi
 signal beside STOP. *Settings, Screen and jog, Full screen* switches it off.

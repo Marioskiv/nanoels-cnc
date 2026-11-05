@@ -316,6 +316,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="spage" data-sp="screen"><div class="pg">
 <div class="fr"><label for="scJog">Jog with</label><select id="scJog"><option value="pad">Buttons</option><option value="wheel">Wheel</option></select></div>
 <div class="fr"><label for="scLock">Jog lock</label><select id="scLock"><option value="1">On</option><option value="0">Off</option></select></div>
+<div class="fr nope" id="scBootRow"><label for="scBoot">Open when the tablet starts</label><select id="scBoot"><option value="1">On</option><option value="0">Off</option></select></div>
 <div class="fr nope" id="scFullRow"><label for="scFull">Full screen (the tablet's bars hidden)</label><select id="scFull"><option value="1">On</option><option value="0">Off</option></select></div>
 <div class="fr nope" id="scOriRow"><label for="scOri">Screen orientation</label><select id="scOri"><option value="auto">Automatic</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>
 <div class="small">Jog lock: the jog buttons and the wheel work only after the lock button &#x1F512; is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with <b>Cont</b> the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.</div></div><div class="pgc"></div></div>
@@ -576,7 +577,7 @@ const I18N={
  'Check for an app update':'Έλεγχος για νέα έκδοση του app','A newer version is offered for download; Android installs it over this one and keeps the settings.':'Η νεότερη έκδοση κατεβαίνει· το Android την εγκαθιστά πάνω από αυτή και κρατά τις ρυθμίσεις.',
  '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
  'Could not load the settings.':'Δεν φορτώθηκαν οι ρυθμίσεις.','The H4 firmware is older than this app: update it (Settings, Firmware).':'Το firmware του H4 είναι παλιότερο από το app: ενημέρωσέ το (Ρυθμίσεις, Firmware).',
- 'H4 address':'Διεύθυνση H4','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
+ 'H4 address':'Διεύθυνση H4','Open when the tablet starts':'Άνοιγμα με την εκκίνηση του tablet','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
  'How the last runs of the app ended (newest first). "WHILE ON SCREEN" means Android closed it while you were using it: usually the tablet\'s power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on) or too little free memory.':'Πώς έκλεισαν οι τελευταίες φορές του app (πρώτα η νεότερη). «ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ» σημαίνει ότι το Android το έκλεισε ενώ το χρησιμοποιούσες: συνήθως η εξοικονόμηση ενέργειας του tablet (Huawei: Phone Manager, Battery, Protected apps: H4 CNC ενεργό) ή λίγη ελεύθερη μνήμη.','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
  // gamepad page
  'No gamepad.':'Χωρίς χειριστήριο.','No gamepad: connect it, then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το και πάτα ένα κουμπί.','No gamepad. Connect it, press a button (Chrome: see i).':'Χωρίς χειριστήριο. Σύνδεσέ το, πάτα ένα κουμπί (Chrome: δες i).',
@@ -756,7 +757,7 @@ try{const v=localStorage.getItem('h4step');jogStep=v=='cont'?'cont':(+v||0.1)}ca
 const SC0={jog:'pad',lock:'1'};let sc=Object.assign({},SC0);try{Object.assign(sc,JSON.parse(localStorage.getItem('h4screen')||'{}'))}catch(e){}
 const ltZv=()=>+(st&&st.lzv)||0,ltXv=()=>+(st&&st.lxv)||0,ltRad=()=>ltXv()!=0;
 const ltZs=z=>{const v=ltZv()?z:-z;return v===0?0:v},ltXn=x=>{const v=[-2*x,-x,x][ltXv()];return v===0?0:v};
-const LOOK0={xr:'d',lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+const LOOK0={xr:'d',lang:'en',theme:'light',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
 try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
 const AXC={X:look.X,Z:look.Z,C:look.C};
 // Appearance: theme, accent and axis colours, number size (stored in the browser)
@@ -781,6 +782,7 @@ function scApply(){const wheel=sc.jog=='wheel';$('pad').hidden=wheel;$('wheelbox
  if(sc.lock!='1')unlocked=true;else if(!lockT)unlocked=false;ctlJogShow()}
 $('scJog').value=sc.jog;$('scLock').value=sc.lock;$('scJog').onchange=()=>{sc.jog=$('scJog').value;scSave()};$('scLock').onchange=()=>{sc.lock=$('scLock').value;scSave()};
 if(isApp)try{$('appVer').textContent=H4App.version()}catch(e){}
+if(isApp&&H4App.setOpenAtBoot){$('scBootRow').classList.remove('nope');try{$('scBoot').value=H4App.openAtBoot()?'1':'0'}catch(e){}$('scBoot').onchange=()=>{try{H4App.setOpenAtBoot($('scBoot').value=='1')}catch(e){}}}
 if(isApp&&H4App.setFullscreen){$('scFullRow').classList.remove('nope');try{$('scFull').value=H4App.fullscreen()?'1':'0'}catch(e){}$('scFull').onchange=()=>{try{H4App.setFullscreen($('scFull').value=='1')}catch(e){}}}
 if(isApp&&H4App.orientation){$('scOriRow').classList.remove('nope');try{$('scOri').value=H4App.orientation()}catch(e){}$('scOri').onchange=()=>{try{H4App.setOrientation($('scOri').value)}catch(e){}}}
 // Jog lock: the jog buttons and the wheel do nothing until the lock button is pressed; 15 s without jogging locks again.
@@ -897,16 +899,20 @@ document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.pare
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
 // The list follows the chosen language (the pages themselves are bilingual or English).
 function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο':'Gamepad']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+tr(g)])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]).concat(isApp&&H4App.exitLog?[['applog',el?'Ημερολόγιο app':'App log']]:[]);
- $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setShow('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('')+'<div class="small" id="verLine"></div>';verShow();setShow(setOpen,true)}
+ $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setTap('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('')+'<div class="small" id="verLine"></div>';verShow();setShow(setOpen,true)}
 // the versions, always in view in Settings: this app (the screen) and the H4's firmware
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
  const t=(look.lang=='el'?'Έκδοση app ':'App version ')+a+' · firmware '+(st.fw||'-');if(e.textContent!=t)e.textContent=t}
 function appLogShow(){try{$('appLog').textContent=H4App.exitLog()}catch(e){$('appLog').textContent='-'}}
-function setShow(k,noHist){if(k=='applog')setTimeout(appLogShow);const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide)k='look';
+// A tap on the setting that is open closes it again (owner, 2026-11-05); on a wide screen the title beside the list
+// keeps the name of the setting chosen.
+function setTap(k){if(setOpen==k){setClosed=true;setShow('',true)}else{setClosed=false;setShow(k)}}
+let setClosed=false;
+function setShow(k,noHist){if(k=='applog')setTimeout(appLogShow);const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide&&!setClosed)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}
  setOpen=k;$('sets').classList.toggle('open',!!k);document.querySelectorAll('.spage').forEach(p=>p.hidden=p.dataset.sp!=k);
  document.querySelectorAll('#slist button').forEach(b=>b.classList.toggle('on',b.dataset.k==k));
- const b=document.querySelector(`#slist button[data-k="${k}"]`);$('sTitle').textContent=b?b.firstChild.textContent:'';pagers()}
+ const b=document.querySelector(`#slist button[data-k="${k}"]`);if(b||!setClosed)$('sTitle').textContent=b?b.firstChild.textContent:'';pagers()}  // closed: the title keeps the setting chosen
 addEventListener('popstate',e=>{const s=e.state||{};sheetClose();if(s.s)setShow(s.s,true);else setShow('',true);tab(s.t||location.hash.slice(1)||'control',true)});
 let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs button[data-t="'+q+'"]');
  const m=b('machine'),p=b('program');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
@@ -1677,7 +1683,8 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closes
 window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
-{let t0=location.hash.slice(1);if(!TN.includes(t0))try{t0=localStorage.getItem('h4tab')}catch(e){}t0=TN.includes(t0)?t0:'control';
+// the app opens on Control (owner 2026-11-05), not on the screen used last; a browser reload keeps its screen (#...)
+{let t0=location.hash.slice(1);t0=TN.includes(t0)?t0:'control';
  tab(t0,true);try{history.replaceState({t:t0},'','#'+t0)}catch(e){}}
 setList();listFiles();loadCfg();poll();
 </script></body></html>

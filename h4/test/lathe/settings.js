@@ -22,6 +22,11 @@ const { chromium } = require('playwright');
   let r=await p.evaluate(()=>{const pg=document.querySelector('.spage[data-sp=pad] .pg');pg.scrollTop=1e6;const last=[...pg.querySelectorAll('.gpr')].pop().getBoundingClientRect(),box=pg.getBoundingClientRect();
    return {rows:pg.querySelectorAll('.gpr').length,scroll:pg.scrollHeight>pg.clientHeight,lastIn:last.bottom<=box.bottom+1&&last.top>=box.top-1}});
   ok(r.rows==17&&r.scroll&&r.lastIn,'gamepad page scrolls to its last button '+JSON.stringify(r));
+  // a second tap on the open setting closes it; a tap on another opens that one
+  r=await p.evaluate(()=>{setShow('screen');const b=()=>document.querySelector('#slist button[data-k="screen"]');b().click();
+   const closed=[...document.querySelectorAll('.spage')].every(x=>x.hidden)&&!b().classList.contains('on')&&/jog/i.test($('sTitle').textContent);b().click();
+   const again=!document.querySelector('.spage[data-sp=screen]').hidden;return [closed,again]});
+  ok(r[0]&&r[1],'tap again closes, tap opens: '+r);
   // the list itself
   r=await p.evaluate(()=>[...document.querySelectorAll('#slist button')].map(b=>b.dataset.k));
   ok(app?r.includes('applog'):!r.includes('applog'),'App log only in the app: '+r);
@@ -37,6 +42,11 @@ const { chromium } = require('playwright');
    ok(await p.evaluate(()=>$('appLog').textContent=='-'),'app log cleared');
    ok(await p.evaluate(()=>/Ημερολόγιο app/.test($('sTitle').textContent)),'title in Greek')}
   await p.close()}
+ // the app opens on Control, whatever screen was used last; with no theme chosen, light
+ {const p=await b.newPage({viewport:{width:1024,height:600}});p.on('pageerror',e=>errs.push(String(e)));
+  await p.addInitScript(()=>{localStorage.setItem('h4tab','settings');localStorage.setItem('h4look',JSON.stringify({lang:'el'}))});
+  await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
+  const r=await p.evaluate(()=>[curTab,document.body.classList.contains('light')]);ok(r[0]=='control'&&r[1],'opens on Control, light theme: '+r);await p.close()}
  await b.close();
  const all=fails.concat(errs.map(e=>'page error: '+e));all.forEach(f=>console.log('FAIL',f));
  console.log('settings: '+n+' checks, '+all.length+' failures');process.exit(all.length?1:0)})();
