@@ -311,7 +311,13 @@ bool homingOne(Axis* a, const char* searching) {
   if (!switchUsed(a)) return true;
   cncStatusText = searching;
   bool isX = a == &x;
-  float travel = (isX ? MAX_TRAVEL_MM_X : MAX_TRAVEL_MM_Z) * 1.2 + 20;
+  // How far to search for the switch. With soft limits (the machine's travel, as MIN_LIMIT / MAX_LIMIT in LinuxCNC)
+  // their span + 10 mm: an axis anywhere in its travel reaches its switch within that, and a switch that never answers
+  // (an NO switch with a broken wire) does not keep the axis pushing against the end for long (firmware 1.23; before:
+  // 1.2 x the longest manual move + 20 mm, e.g. 47 mm past the end of X). Without soft limits as before.
+  bool useLimits = isX ? LIMIT_X_USE : LIMIT_Z_USE;
+  float span = isX ? LIMIT_X_MAX - LIMIT_X_MIN : LIMIT_Z_MAX - LIMIT_Z_MIN;
+  float travel = useLimits && span > 0 ? span + 10 : (isX ? MAX_TRAVEL_MM_X : MAX_TRAVEL_MM_Z) * 1.2 + 20;
   bool ok = homeAxis(a, isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL, isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL,
       isX ? HOME_X_FINAL_VEL : HOME_Z_FINAL_VEL, isX ? HOME_X_OFFSET : HOME_Z_OFFSET, isX ? HOME_X_HOME : HOME_Z_HOME, travel);
   if (!ok && !homingAbort) {
