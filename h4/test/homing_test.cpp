@@ -111,6 +111,11 @@ uint32_t gpioIn() {
 }
 #define REG_READ(r) gpioIn()
 void vTaskDelete(void*) {}
+#define IRAM_ATTR
+// The step interrupt of a running program (h4.ino cncStepTick): it reads the inputs on every tick (cncInputsTick);
+// once it stops, no more program steps until the scenario starts a new program.
+bool program = false, isrStopped = false, loopAlive = true;
+bool cncInputsTick(uint32_t nowUs, bool stepping);
 double stepAcc[2];
 int faultUs = 0;
 std::function<void()> onTick;  // a scenario's own event (an alarm at some time ...)
@@ -126,8 +131,12 @@ void stepAxis(Axis* a, double& acc, double dtS) {
 void vTaskDelay(int ms) {        // the homing task waits; meanwhile loop() runs every 50 us and the axes move
   for (int i = 0; i < ms * 20; i++) {
     nowUs += 50;
-    if (!cncFaultStop) { stepAxis(&x, stepAcc[0], 50e-6); stepAxis(&z, stepAcc[1], 50e-6); }
-    cncInputsLoop();
+    // as cncStepTick: the inputs count only while the program's steps run (not after a fault, not after OFF)
+    bool programRuns = program && isOn && !isrStopped && !cncFaultStop;
+    if (cncInputsTick((uint32_t)nowUs, programRuns)) isrStopped = true;
+    bool programStopped = program && (isrStopped || !isOn);
+    if (!cncFaultStop && !programStopped) { stepAxis(&x, stepAcc[0], 50e-6); stepAxis(&z, stepAcc[1], 50e-6); }
+    if (loopAlive) cncInputsLoop();
     if (cncFaultStop && ++faultUs >= 20) { cncFaultStop = false; faultUs = 0; }  // taskGcode resets (h4.ino:2082)
     if (onTick) onTick();
   }
@@ -176,6 +185,8 @@ static void machine(bool xnc = false, bool znc = false) {
   for (int i = 0; i < 3; i++) inStable[i] = inLast[i] = (v >> pins[i]) & 1;
   prevHomeX = prevHomeZ = prevAlarm = false;
   faultUs = 0;
+  program = isrStopped = false; loopAlive = true;
+  cncInputsTickReset();  // the step interrupt takes the inputs as they are on its next tick
   nowUs += 200000; vTaskDelay(150);
   cncFaultCount = 0;
 }
@@ -309,6 +320,99 @@ int main() {
   homingRun();
   expectHomed(x, swX, HOME_X_OFFSET, HOME_X_HOME, "X first, latch towards the switch, X");
   expectHomed(z, swZ, HOME_Z_OFFSET, HOME_Z_HOME, "X first, Z");
+
+  // 12. The step interrupt reads the limits and the alarm too (C16): a program moving X onto its switch is stopped by
+  //     the interrupt, loop() gives the fault once; with loop() stuck the axis still stops and stays stopped.
+  for (int stuck = 0; stuck < 2; stuck++) {
+    machine();
+    homingRun();
+    long before = cncFaultCount;
+    logLines.clear();
+    x.speedMax = 12 * 1200;               // the program moves X at 12 mm/s towards its switch
+    program = true; isOn = true; loopAlive = !stuck;
+    stepToFinal(&x, x.pos - 200 * 1200);
+    uint64_t t0 = nowUs;
+    while (!isrStopped && isOn && nowUs - t0 < 30000000) vTaskDelay(1);
+    long stopPos = x.pos;
+    vTaskDelay(1000);                       // one second more
+    char buf[160];
+    // with loop() stuck only the step interrupt can stop it; with loop() running, whichever sees it first
+    snprintf(buf, sizeof(buf), "program onto the X switch%s: stopped%s", stuck ? ", loop() stuck" : "", stuck ? " by the step interrupt" : "");
+    check(stuck ? isrStopped : (isrStopped || !isOn), buf);
+    float past = (swX.at - stopPos) / 1200.0f;  // how far past the switch point, mm
+    snprintf(buf, sizeof(buf), "program onto the X switch%s: stops %.3f mm past the switch (bounce + 0.5 ms at 12 mm/s)", stuck ? ", loop() stuck" : "", past);
+    check(past >= 0 && past <= 12.0f * (swX.bounceUs + 600) * 1e-6f + 0.01f, buf);
+    snprintf(buf, sizeof(buf), "program onto the X switch%s: no step after the stop", stuck ? ", loop() stuck" : "");
+    check(x.pos == stopPos, buf);
+    if (stuck) {
+      check(cncFaultCount == before && cncIsrFault == 1, "loop() stuck: still stopped after 1 s, the fault waits for loop()");
+      loopAlive = true;
+      vTaskDelay(5);
+    }
+    int limitLines = 0;
+    for (auto& l : logLines) if (l == "Limit X") limitLines++;
+    snprintf(buf, sizeof(buf), "program onto the X switch%s: one Limit X fault (%d), OFF", stuck ? ", loop() back" : "", limitLines);
+    check(cncFaultCount == before + 1 && limitLines == 1 && !strcmp(cncFaultText, "Limit X") && !isOn && cncIsrFault == 0, buf);
+  }
+  // noise of 0.3 ms on the X input while a program moves: no stop
+  machine();
+  homingRun();
+  x.speedMax = 1200;
+  program = true; isOn = true;
+  stepToFinal(&x, x.pos + 20 * 1200);       // away from the switch
+  swX.noiseFrom = nowUs + 100000; swX.noiseTo = swX.noiseFrom + 300;
+  vTaskDelay(500);
+  check(!isrStopped && cncFaultCount == 0, "noise of 0.3 ms while a program moves: the step interrupt does not stop");
+  // a program that starts with X resting on its switch and moves away: no stop (an edge, not a level)
+  machine();
+  homingRun();
+  x.pos = x.motorPos = swX.at - 100;        // on the switch
+  vTaskDelay(10);
+  cncInputsTickReset(); vTaskDelay(1);      // as at a start: the inputs as they are
+  long faults = cncFaultCount;
+  x.speedMax = 1200;
+  program = true; isOn = true;
+  stepToFinal(&x, x.pos + 5 * 1200);
+  vTaskDelay(500);
+  check(!isrStopped && cncFaultCount == faults && x.pos > swX.at, "a program moving off its switch: no stop");
+  // the driver alarm while a program moves: stopped by the step interrupt, one fault, axes not homed
+  machine();
+  homingRun();
+  z.speedMax = 25 * 400;
+  program = true; isOn = true;
+  stepToFinal(&z, z.pos - 100 * 400);
+  logLines.clear();
+  onTick = [&]() { if (nowUs > 0 && !alarmActive && z.pos < -20 * 400) alarmActive = true; };
+  while (!isrStopped && isOn && z.pos > -60 * 400) vTaskDelay(1);
+  long zStop = z.pos;
+  vTaskDelay(100);
+  int alarmLines = 0;
+  for (auto& l : logLines) if (l == "Driver alarm or E-stop") alarmLines++;
+  check((isrStopped || !isOn) && z.pos == zStop && alarmLines == 1 && !z.homed && !x.homed, "alarm while a program moves: stopped, one fault, not homed");
+  // the same alarm with loop() stuck: only the step interrupt stops it
+  machine();
+  homingRun();
+  z.speedMax = 25 * 400;
+  program = true; isOn = true; loopAlive = false;
+  stepToFinal(&z, z.pos - 100 * 400);
+  alarmActive = false;
+  onTick = [&]() { if (!alarmActive && z.pos < -20 * 400) alarmActive = true; };
+  while (!isrStopped && z.pos > -60 * 400) vTaskDelay(1);
+  zStop = z.pos;
+  vTaskDelay(500);
+  check(isrStopped && z.pos == zStop && cncIsrFault == 3, "alarm with loop() stuck: stopped by the step interrupt, stays stopped");
+  loopAlive = true;
+  logLines.clear();
+  vTaskDelay(5);
+  alarmLines = 0;
+  for (auto& l : logLines) if (l == "Driver alarm or E-stop") alarmLines++;
+  check(alarmLines == 1 && !isOn && !z.homed && cncIsrFault == 0, "alarm, loop() back: one fault, OFF, not homed");
+  onTick = nullptr; alarmActive = false;
+  // Home All itself is not stopped by the step interrupt (it steps from loop(), its switches are expected)
+  machine();
+  program = false;
+  homingRun();
+  check(x.homed && z.homed && !isrStopped && cncIsrFault == 0, "Home All: the step interrupt does not interfere");
 
   printf("homing: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
