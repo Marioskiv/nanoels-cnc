@@ -73,6 +73,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"stepGap", 'l', (void*)&DELAY_BETWEEN_STEPS_MS, 0, 10000, "Manual stepping", "Pause between steps", "ms"},
 
   {"gcPause", 'b', (void*)&SPINDLE_PAUSES_GCODE, 0, 1, "GCODE mode", "Pause the program when the spindle stops (off for polar milling)", ""},
+  {"gcM3Pause", 'b', (void*)&CNC_SPINDLE_START_PAUSE, 0, 1, "GCODE mode", "M3 / M4 pause: switch the spindle / router on by hand, then Resume", ""},
   {"gcRpm", 'i', (void*)&GCODE_MIN_RPM, 1, 10000, "GCODE mode", "Spindle stopped below", "rpm"},
   {"cncJd", 'f', (void*)&CNC_JUNCTION_DEVIATION, 0.001, 1, "GCODE mode", "Corner tolerance, junction deviation", "mm"},
   {"cncPulse", 'i', (void*)&CNC_STEP_PULSE_US, 1, 50, "GCODE mode", "Step pulse length", "µs"},
