@@ -21,7 +21,7 @@ import sys
 
 ROOT = 'cncTimerIsr'          # the IRAM step interrupt
 OLD_ROOT = 'cncOnTimer'       # the firmware 1.19 step timer: must be found calling into the flash (self-test)
-OURS = {'cncTimerIsr', 'cncStepTick', 'cnc_isr', 'cncAxis', 'cncOnTimer'}
+OURS = {'cncTimerIsr', 'cncStepTick', 'cnc_isr', 'cncAxis', 'cncOnTimer', 'cncInputsTick'}
 IRAM = (0x40370000, 0x403E0000)          # ESP32-S3 internal instruction RAM
 ROM = (0x40000000, 0x40060000)           # ESP32-S3 ROM code
 FLASH_CODE = (0x42000000, 0x44000000)    # code executed from the flash (cache)

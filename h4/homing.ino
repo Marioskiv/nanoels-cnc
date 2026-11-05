@@ -9,7 +9,8 @@
 //
 // Inputs on terminal A2: A21 home switch X, A22 home switch Z, A23 driver alarms and the E-stop contact (see CNC.md).
 // loop() reads them on every pass (cncInputsLoop), so a switch stops the axis within a fraction of a
-// millisecond. A home switch that is hit outside homing, or a driver alarm, stops all motion at once
+// millisecond; the step interrupt reads them too (cncInputsTick, firmware 1.21) and stops the program's steps
+// itself. A home switch that is hit outside homing, or a driver alarm, stops all motion at once
 // (no deceleration, as a limit in LinuxCNC); the positions stay exact because every step given is counted.
 //
 // With all of it switched off (the defaults) nothing here acts and the H4 behaves as the original.
@@ -114,6 +115,62 @@ void cncFault(const char* text, bool unhome) {
   beepFlag = true;
 }
 
+// ------------------------------------------------------------------ the same inputs in the step interrupt
+// The step interrupt (h4.ino cncStepTick) reads the inputs on every tick, with the same 0.5 ms debounce, before it
+// gives a step. A home switch used as a limit or the driver alarm that becomes active while it is giving steps stops
+// the steps at once, independently of loop() (as FluidNC and grblHAL stop on their limit pins), and they stay
+// stopped until loop() has handled it (cncFault: message, OFF, the log). If loop() were stuck, the machine stays
+// stopped. Homing, keys and handwheels step from loop() (moveAxis) and are still watched by cncInputsLoop() below.
+volatile uint8_t cncIsrFault = 0;          // 1 limit X, 2 limit Z, 3 alarm: stopped by the step interrupt
+static bool isrInputsReady = false;
+static bool isrRaw[3], isrStable[3];
+static uint32_t isrRawSinceUs[3];
+static bool isrReported[3];                // loop() gave the fault the step interrupt stopped for: not again while held
+
+void cncInputsTickReset() {
+  isrInputsReady = false;
+  cncIsrFault = 0;
+}
+
+// true: an input has stopped the steps (until loop() has handled it). nowUs: microseconds; stepping: a step is due.
+bool IRAM_ATTR cncInputsTick(uint32_t nowUs, bool stepping) {
+  if (cncIsrFault) return true;
+  if (!(HOME_X_USE || HOME_Z_USE || ALARM_USE) || PULSE_2_USE) return false;
+  uint32_t levels = REG_READ(GPIO_IN_REG);
+  bool act[3];
+  act[0] = HOME_X_USE && (((levels >> IN_HOME_X) & 1) == (HOME_X_NC ? 1u : 0u));
+  act[1] = HOME_Z_USE && (((levels >> IN_HOME_Z) & 1) == (HOME_Z_NC ? 1u : 0u));
+  act[2] = ALARM_USE && (((levels >> IN_ALARM) & 1) == (ALARM_WHEN_LOW ? 0u : 1u));
+  if (!isrInputsReady) {
+    // the first tick: the inputs as they are (an axis resting on its switch, an alarm already on: no fault, as loop())
+    for (int i = 0; i < 3; i++) {
+      isrRaw[i] = isrStable[i] = act[i];
+      isrRawSinceUs[i] = nowUs;
+    }
+    isrInputsReady = true;
+    return false;
+  }
+  uint8_t fault = 0;
+  for (int i = 0; i < 3; i++) {
+    if (act[i] != isrRaw[i]) {
+      isrRaw[i] = act[i];
+      isrRawSinceUs[i] = nowUs;
+    }
+    if (!act[i]) {
+      isrStable[i] = false;
+    } else if (!isrStable[i] && nowUs - isrRawSinceUs[i] >= 500) {  // the debounce of loop(): INPUT_DEBOUNCE_US
+      isrStable[i] = true;
+      bool limit = i == 2 || (i == 0 ? HOME_X_IS_LIMIT && homingWatchAxis != &x : HOME_Z_IS_LIMIT && homingWatchAxis != &z);
+      if (stepping && limit && !fault) fault = (uint8_t)(i + 1);
+    }
+  }
+  if (fault) {
+    cncIsrFault = fault;
+    return true;
+  }
+  return false;
+}
+
 // Called on every pass of loop(), holding motionMutex.
 void cncInputsLoop() {
   uint32_t levels = REG_READ(GPIO_IN_REG);
@@ -145,19 +202,33 @@ void cncInputsLoop() {
     prevHomeZ = inHomeZ;
     return;
   }
+  // the step interrupt stopped the steps for an input: the fault as loop() would give it, once
+  // The same input is not a second fault from loop() until it has been released (debounced) again.
+  uint8_t isrFault = cncIsrFault;
+  if (isrFault) {
+    if (isrFault == 3) cncFault("Driver alarm or E-stop", true);
+    else cncFault(isrFault == 1 ? "Limit X" : "Limit Z", false);
+    isrReported[isrFault - 1] = true;
+    cncIsrFault = 0; // cncFaultStop (set by cncFault) keeps the steps stopped until taskGcode has reset the planner
+  }
+  bool recentX = isrReported[0], recentZ = isrReported[1], recentA = isrReported[2];
   Axis* watch = homingWatchAxis;
   if (watch != NULL && !homingHit && switchActive(watch) == homingWantActive) {
     stopAxisNow(watch);
     homingHitPos = watch->pos;
     homingHit = true;
   }
-  if (inAlarm && !prevAlarm) {
+  // (an input the step interrupt has just stopped for is not a second fault)
+  if (inAlarm && !prevAlarm && !recentA) {
     cncFault("Driver alarm or E-stop", true); // a driver that stopped (or lost its power) has lost its position
-  } else if (inHomeX && !prevHomeX && HOME_X_IS_LIMIT && watch != &x) {
+  } else if (inHomeX && !prevHomeX && HOME_X_IS_LIMIT && watch != &x && !recentX) {
     cncFault("Limit X", false);
-  } else if (inHomeZ && !prevHomeZ && HOME_Z_IS_LIMIT && watch != &z) {
+  } else if (inHomeZ && !prevHomeZ && HOME_Z_IS_LIMIT && watch != &z && !recentZ) {
     cncFault("Limit Z", false);
   }
+  if (prevHomeX && !inHomeX) isrReported[0] = false;
+  if (prevHomeZ && !inHomeZ) isrReported[1] = false;
+  if (prevAlarm && !inAlarm) isrReported[2] = false;
   prevAlarm = inAlarm;
   prevHomeX = inHomeX;
   prevHomeZ = inHomeZ;

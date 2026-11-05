@@ -1662,6 +1662,8 @@ IRAM_ATTR Axis* cncAxis(int i) {
 // is a LOW pulse. The positions count a step when it is put out, so "not busy" always means "all steps given".
 static cnc_tick_t cncPending;                   // computed, put out by the next interrupt
 static bool cncPendingValid = false;
+static bool cncTickActive = false;              // the step generator had motion on the last tick
+bool cncInputsTick(uint32_t nowUs, bool stepping); // homing.ino, in IRAM
 static bool cncDirWait = false;                 // the direction pins changed for the pending step
 static uint32_t cncDirSetCycles = 0;
 static uint32_t cncPulseEndCycles = 0;          // when the last step pulse ended (direction hold counts from it)
@@ -1725,12 +1727,18 @@ static uint64_t IRAM_ATTR cncStepTick(uint64_t countValue, uint64_t alarmValue) 
   cncPendingValid = false;
   cncDirWait = false;
 
+  // Home switches used as limits and the driver alarm, read here too (homing.ino), after the pending step went out so
+  // that its timing does not change: one that becomes active while the program moves stops the steps now (no next
+  // step is computed), whatever loop() is doing.
+  if (cncInputsTick((uint32_t)esp_timer_get_time(), run && (stepMask != 0 || cncTickActive))) run = false;
+
   // 2. Compute the next step while the pulse is high.
   cnc_tick_t t;
   bool active = false;
   portENTER_CRITICAL_ISR(&cncMux);
   if (run) active = cnc_isr(&t);
   portEXIT_CRITICAL_ISR(&cncMux);
+  cncTickActive = active;
   if (!run) t.period = CNC_TIMER_HZ / 1000;
   if (active && t.step) {
     cncPending = t;
