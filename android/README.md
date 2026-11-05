@@ -36,7 +36,11 @@ an update it closes the app: that is normal, open it again afterwards.
 newer *H4 CNC* is there, it says so and offers **Install**: the app downloads it (with progress), checks that it is
 this app, newer and signed with the same key, and hands it to Android in an install session (from app 1.32): Android
 shows its own "Install?" screen and installs the app itself, without depending on the app's screen (with the older
-way, Huawei's installer on Android 7 could stay at "Installing..."; it remains the fallback). Android asks to confirm (Android 8 and
+way, Huawei's installer on Android 7 could stay at "Installing..."; it remains the fallback). From app 1.38 the app
+keeps both ways: when an install does not go through (the app opens again at the old version) or its confirmation
+is left, the next try uses the other way (as F-Droid, which below Android 12 opens Android's installer screen
+directly, because makers break the session on some devices); the way that worked stays. On one Huawei tablet
+with Android 7 the session's *Install* button did nothing. Android asks to confirm (Android 8 and
 newer first ask once to allow H4 CNC to install apps). If the installed app was signed with another key (the early
 test versions 1.0–1.5), Android cannot update it: the app says so and offers to uninstall it; then install
 `H4CNC.apk` once by hand. Versions up to 1.10 handed the download to the browser or to a newer installer path:

@@ -56,7 +56,9 @@ final class UpdateCheck {
         if (tried != null) {
             prefs.edit().remove("installTried").apply();
             if (newer(tried, current)) {
-                // the installer was opened for that version, but this is still the old one
+                // the installer was opened for that version, but this is still the old one: the next try uses
+                // Android's other installer screen
+                flipWay(activity);
                 activity.web().postDelayed(() -> notInstalled(activity, current, tried), 3000);
                 return;
             }
@@ -87,7 +89,7 @@ final class UpdateCheck {
                         + "πάλι δεν μπει: Ρυθμίσεις, Εφαρμογές, εμφάνιση συστήματος, Πρόγραμμα εγκατάστασης πακέτων, "
                         + "Αποθηκευτικός χώρος, Διαγραφή δεδομένων, επανεκκίνηση του tablet και ξανά· ή κλείσε το H4 CNC "
                         + "(Ρυθμίσεις, Εφαρμογές, H4 CNC, Αναγκαστική διακοπή) και άνοιξε το H4CNC.apk από τα Αρχεία."))
-                .setPositiveButton(Tr.t(activity, "Try again", "Ξανά"), (d, w) -> check(activity, true))
+                .setPositiveButton(Tr.t(activity, "Try again (the other way)", "Ξανά (με τον άλλο τρόπο)"), (d, w) -> check(activity, true))
                 .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null)
                 .show();
     }
@@ -223,7 +225,10 @@ final class UpdateCheck {
                 final String problem = check(activity, apk);
                 activity.runOnUiThread(() -> {
                     progress.dismiss();
-                    if (problem == null) sessionInstall(activity, apk, version);
+                    if (problem == null) {
+                        if (WAY_INTENT.equals(way(activity))) openInstaller(activity, apk, version);
+                        else sessionInstall(activity, apk, version);
+                    }
                     else if (problem.equals(SIGNED_DIFFERENTLY)) offerUninstall(activity);
                     else tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + problem);
                 });
@@ -237,6 +242,22 @@ final class UpdateCheck {
     }
 
     private static final String SIGNED_DIFFERENTLY = "signed differently";
+
+    // Two ways to hand the new APK to Android: the install session (from app 1.32) or Android's installer screen
+    // opened directly (the way F-Droid uses below Android 12, since makers break the session on some phones). On a
+    // Huawei tablet with Android 7 the session's Install button did nothing (2026-11-05). When an install does not go
+    // through (the app opens again at the old version, or the confirmation is left), the next try uses the other way;
+    // the way that worked stays.
+    static final String WAY_SESSION = "session", WAY_INTENT = "intent";
+
+    static String way(Context c) {
+        return c.getSharedPreferences("h4", Context.MODE_PRIVATE).getString("installWay", WAY_SESSION);
+    }
+
+    static void flipWay(Context c) {
+        c.getSharedPreferences("h4", Context.MODE_PRIVATE).edit()
+                .putString("installWay", WAY_INTENT.equals(way(c)) ? WAY_SESSION : WAY_INTENT).commit();
+    }
 
     // null when the file is this app, newer, and signed like the installed app (Android refuses anything else)
     @SuppressWarnings("deprecation")
@@ -341,9 +362,12 @@ final class UpdateCheck {
     // The installer's answer (MainActivity.onActivityResult). On success Android replaces and restarts the app.
     static void installResult(MainActivity activity, int result, Intent data) {
         // cancelled in the installer: not a failed install, no reminder at the next start
-        if (result == android.app.Activity.RESULT_CANCELED)
+        if (result == android.app.Activity.RESULT_CANCELED) {
             activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().remove("installTried").apply();
+            flipWay(activity);  // the next try uses the install session
+        }
         if (result == android.app.Activity.RESULT_OK || result == android.app.Activity.RESULT_CANCELED) return;
+        flipWay(activity);
         int code = data != null ? data.getIntExtra("android.intent.extra.INSTALL_RESULT", 0) : 0;
         // -7 INSTALL_FAILED_UPDATE_INCOMPATIBLE: another signature
         if (code == -7) offerUninstall(activity);
