@@ -24,9 +24,9 @@ const { chromium } = require('playwright');
   ok(r.rows==17&&r.scroll&&r.lastIn,'gamepad page scrolls to its last button '+JSON.stringify(r));
   // a second tap on the open setting closes it; a tap on another opens that one
   r=await p.evaluate(()=>{setShow('screen');const b=()=>document.querySelector('#slist button[data-k="screen"]');b().click();
-   const closed=[...document.querySelectorAll('.spage')].every(x=>x.hidden)&&!b().classList.contains('on')&&/jog/i.test($('sTitle').textContent);b().click();
-   const again=!document.querySelector('.spage[data-sp=screen]').hidden;return [closed,again]});
-  ok(r[0]&&r[1],'tap again closes, tap opens: '+r);
+   const card=document.querySelector('.spanel'),closed=[...document.querySelectorAll('.spage')].every(x=>x.hidden)&&!b().classList.contains('on')&&card.offsetHeight==0;b().click();
+   const again=!document.querySelector('.spage[data-sp=screen]').hidden&&card.offsetHeight>0;return [closed,again]});
+  ok(r[0]&&r[1],'tap again closes (whole card), tap opens: '+r);
   // the list itself
   r=await p.evaluate(()=>[...document.querySelectorAll('#slist button')].map(b=>b.dataset.k));
   ok(app?r.includes('applog'):!r.includes('applog'),'App log only in the app: '+r);

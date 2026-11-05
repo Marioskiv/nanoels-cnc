@@ -20,6 +20,7 @@ node zface.js "$OUT/page.html" # Z from the face, Part first, drawing at a fixed
 node gamepad.js "$OUT/page.html" # gamepad map: alone / with the safety button, refusals, fake pad
 node lang.js "$OUT/page.html" # every screen in Greek / English, switching back and forth
 node settings.js "$OUT/page.html" # Settings: whole pages that scroll, App log
+node dropdown.js "$OUT/page.html" # choice lists roll down under their button, second tap closes
 node plans.js "$OUT/page.html" "$OUT/plans.json"
 python3 compare.py "$OUT/plans.json" "$OUT/lathe_sim"
 python3 flank.py "$OUT/lathe_sim" # thread flank infeed: the spindle sync of each pass
