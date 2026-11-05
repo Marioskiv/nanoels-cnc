@@ -6,10 +6,17 @@ package com.marioskiv.h4cnc;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
+import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.KeyEvent;
@@ -41,6 +48,9 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private AlertDialog addressDialog;
     private boolean demo;
+    private WifiManager.WifiLock wifiLock;
+    private ConnectivityManager.NetworkCallback wifiWatch;
+    private Network boundTo;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -57,7 +67,18 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return false;  // every link of the H4 page stays in the app
+                // the H4's own pages and the app's demo stay in the app; any other web page opens in the browser,
+                // so a foreign page never reaches the app's bridge (H4App)
+                if (url == null || url.startsWith("file:") || url.startsWith("about:")
+                        || (address != null && url.startsWith("http://" + address))) return false;
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (Exception ignored) {
+                    }
+                    return true;
+                }
+                return false;
             }
 
             // The H4 screen comes from the app, not from the H4: the page itself (http://<H4>/) is answered here
@@ -118,8 +139,64 @@ public class MainActivity extends Activity {
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
         if (address == null) askAddress(null);
         else open();
+        watchWifi();
         ExitWatch.start(this);         // why the app closed last time, and the watch of this run
         UpdateCheck.maybeCheck(this);  // a few seconds after the app opens, each time (and says when an install did not go through)
+    }
+
+    // A WiFi without internet (e.g. one only for the H4): Android may then send the app's traffic over mobile data
+    // (a tablet with a SIM card) and the H4 is not reached. While the WiFi has no internet, the app's traffic (the
+    // page included) is kept on the WiFi; with internet on the WiFi Android uses it anyway and nothing is bound.
+    private void watchWifi() {
+        if (Build.VERSION.SDK_INT < 23) return;
+        final ConnectivityManager cm = (ConnectivityManager) getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return;
+        wifiWatch = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onCapabilitiesChanged(Network n, NetworkCapabilities c) {
+                bindTo(cm, c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ? null : n);
+            }
+
+            @Override
+            public void onLost(Network n) {
+                if (n.equals(boundTo)) bindTo(cm, null);
+            }
+        };
+        try {
+            cm.registerNetworkCallback(new NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build(), wifiWatch);
+        } catch (Exception e) {
+            wifiWatch = null;
+        }
+    }
+
+    private void bindTo(ConnectivityManager cm, Network n) {
+        if (n == null ? boundTo == null : n.equals(boundTo)) return;
+        try {
+            if (Build.VERSION.SDK_INT >= 23) cm.bindProcessToNetwork(n);
+            boundTo = n;
+        } catch (Exception ignored) {
+        }
+    }
+
+    // While the app is on screen the WiFi stays at full speed: in power saving it answers late now and then
+    // (100-300 ms), and the gamepad's jog sends every 0.1 s to an H4 that stops 0.3 s after the last request.
+    @SuppressWarnings("deprecation")
+    private void wifiFast(boolean on) {
+        try {
+            if (on) {
+                if (wifiLock == null) {
+                    WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                    if (wm == null) return;
+                    wifiLock = wm.createWifiLock(Build.VERSION.SDK_INT >= 29 ? WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                            : WifiManager.WIFI_MODE_FULL_HIGH_PERF, "h4cnc:jog");
+                    wifiLock.setReferenceCounted(false);
+                }
+                wifiLock.acquire();
+            } else if (wifiLock != null && wifiLock.isHeld()) {
+                wifiLock.release();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
@@ -270,6 +347,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         ExitWatch.visible(true);
+        wifiFast(true);
         web.onResume();
         pad.resume();
     }
@@ -279,6 +357,7 @@ public class MainActivity extends Activity {
         pad.pause();  // stops any jog at once
         web.onPause();
         ExitWatch.visible(false);
+        wifiFast(false);
         super.onPause();
     }
 
@@ -286,6 +365,15 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (isFinishing()) ExitWatch.closed();   // closed by the user: nothing to report next time
         pad.pause();
+        wifiFast(false);
+        if (wifiWatch != null) {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                cm.unregisterNetworkCallback(wifiWatch);
+                if (boundTo != null && Build.VERSION.SDK_INT >= 23) cm.bindProcessToNetwork(null);
+            } catch (Exception ignored) {
+            }
+        }
         web.destroy();
         super.onDestroy();
     }

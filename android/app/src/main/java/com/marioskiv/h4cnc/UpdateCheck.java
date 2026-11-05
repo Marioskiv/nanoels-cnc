@@ -251,7 +251,9 @@ final class UpdateCheck {
     static final String WAY_SESSION = "session", WAY_INTENT = "intent";
 
     static String way(Context c) {
-        return c.getSharedPreferences("h4", Context.MODE_PRIVATE).getString("installWay", WAY_SESSION);
+        // first try: Android's installer screen below Android 13, the session from 13 on (Ackpine and F-Droid advise
+        // against the session below that, above all on Huawei / Xiaomi installers)
+        return c.getSharedPreferences("h4", Context.MODE_PRIVATE).getString("installWay", Build.VERSION.SDK_INT >= 33 ? WAY_SESSION : WAY_INTENT);
     }
 
     static void flipWay(Context c) {
