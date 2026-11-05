@@ -155,7 +155,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.21"
+#define FW_VERSION "1.22"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1843,7 +1843,8 @@ void cncBenchYield() {
   vTaskDelay(1);
 }
 
-void cncRunBench() {
+// Reads and plans a whole program as when it runs, nothing moves; position, offsets and modes as before afterwards.
+void cncBenchCheck(const char* data, size_t size, cnc_bench_t* r) {
   cnc_offsets_t offs;
   cnc_gc_get_offsets(&offs);
   cnc_modes_t modes;
@@ -1851,14 +1852,67 @@ void cncRunBench() {
   uint32_t changes = cnc_gc_offsets_changes();
   bool saved = cncOffsetsSaved == changes, seen = cncOffsetsSeen == changes;
   cncSyncFromAxes(false);
-  cnc_bench_t r;
-  cnc_bench_run(cncBenchData, cncBenchSize, &r, cncBenchNowUs, cncBenchYield);
+  cnc_bench_run(data, size, r, cncBenchNowUs, cncBenchYield);
   // back to where it was: position from the axes, the offsets and modes as before (nothing is stored)
   cncSyncFromAxes(false);
   cnc_gc_set_offsets(&offs);
   cnc_gc_set_modes(&modes);
   if (saved) cncOffsetsSaved = cnc_gc_offsets_changes();
   if (seen) cncOffsetsSeen = cnc_gc_offsets_changes();
+}
+
+// The check before a program starts (firmware 1.22): the whole program goes through the interpreter and the planner
+// first, nothing moves. A line that cannot run (a code the H4 refuses, a move outside the soft limits, a bad arc ...)
+// refuses the start with that line and why, so a program never stops half way in the material for such a reason.
+// G32 / G33 / G76 threading cannot be planned without the spindle: the check ends there and says so.
+// Requested by the web page's START and the H4's ON key; runs in taskGcode, then turns the machine on.
+volatile bool cncPreflightRequest = false;
+volatile bool cncPreflightCancel = false;    // STOP / OFF while the check runs
+const char* volatile cncPreflightData = NULL;
+volatile size_t cncPreflightSize = 0;
+char cncPreflightName[64] = "";
+
+void cncRequestPreflight(const char* data, size_t size, const char* name) {
+  cncPreflightData = data;
+  cncPreflightSize = size;
+  snprintf(cncPreflightName, sizeof(cncPreflightName), "%s", name);
+  cncPreflightCancel = false;
+  cncPreflightRequest = true;
+}
+
+void cncRunPreflight() {
+  if (isOn || cncBusy() || homingActive || mode != MODE_GCODE) {
+    snprintf(cncBenchText, sizeof(cncBenchText), "Not started: the machine is busy");
+  } else {
+    cncStatusText = "Checking the program";
+    cnc_bench_t r;
+    // exactly the text the program will run
+    cncBenchCheck(cncPreflightData, cncPreflightSize, &r);
+    cncStatusText = "";
+    bool error = r.stopLine && strncmp(r.stopReason, "threading", 9) != 0;
+    if (cncPreflightCancel) {
+      snprintf(cncBenchText, sizeof(cncBenchText), "Start of %s cancelled", cncPreflightName);
+    } else if (error) {
+      snprintf(cncBenchText, sizeof(cncBenchText), "Not started: %s, line %lu: %s. The whole program is checked before it "
+          "starts; nothing moved.", cncPreflightName, (unsigned long)r.stopLine, r.stopReason);
+    } else if (gcodeProgramData != cncPreflightData || isOn || cncBusy()) {
+      snprintf(cncBenchText, sizeof(cncBenchText), "Not started: the program or the machine changed during the check");
+    } else {
+      snprintf(cncBenchText, sizeof(cncBenchText), "Checked %s: %lu lines%s. Started.", cncPreflightName,
+          (unsigned long)r.lines, r.stopLine ? (", up to the threading at line " + String((unsigned long)r.stopLine) +
+          " (threading is not checked)").c_str() : ", all can run");
+      gcodeProgramCharIndex = 0;
+      cncUserHold = false;
+      setIsOnFromTask(true);
+    }
+  }
+  cncLog(cncBenchText);
+  cncBenchCount = cncBenchCount + 1;  // the page shows the text (as a Test result)
+}
+
+void cncRunBench() {
+  cnc_bench_t r;
+  cncBenchCheck(cncBenchData, cncBenchSize, &r);
   double planned = r.busyUs > 0 ? r.blocks / (r.busyUs / 1e6) : 0;
   int n = snprintf(cncBenchText, sizeof(cncBenchText), "Test %s: %lu lines, %lu moves, %.1f min at the programmed speeds. "
       "The H4 plans %.0f moves/s, the program needs at most %.0f/s (line %lu): ", cncBenchName, (unsigned long)r.lines,
@@ -2502,6 +2556,11 @@ void taskGcode(void *param) {
     if (cncBenchRequest) {
       cncBenchRequest = false;
       if (!isOn && !cncBusy() && !homingActive) cncRunBench();
+      continue;
+    }
+    if (cncPreflightRequest) {
+      cncPreflightRequest = false;
+      cncRunPreflight();
       continue;
     }
     if (webJogService()) continue;   // a jog piece from the web page's gamepad (grbl.ino)
@@ -3337,7 +3396,8 @@ void buttonOnOffPress(bool on) {
         gcodeProgram += '\n'; // ensures the last line is executed
         gcodeProgramData = gcodeProgram.c_str();
         gcodeProgramSize = gcodeProgram.length();
-        setIsOnFromTask(on);
+        cncRequestPreflight(gcodeProgramData, gcodeProgramSize, programName.c_str()); // checked first, then ON
+
       }
     }
     pref.end();
@@ -3358,6 +3418,7 @@ void setIsOnFromLoop(bool on) {
   if (!on) {
     isOn = false;
     setupIndex = 0;
+    cncPreflightCancel = true; // OFF during the check before a start: the program does not start
     if (homingActive) homingAbort = true; // OFF stops Home All too
     if (mode == MODE_GCODE && cncBusy()) {
       // GCODE mode still moving: decelerate along the path, then drop the rest. The steppers stay

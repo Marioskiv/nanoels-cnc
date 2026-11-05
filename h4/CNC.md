@@ -57,6 +57,16 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 - The H4 display shows the positions while the program runs; the H4 position bookkeeping is kept exactly,
   so every other mode continues from the true position.
 
+### Check before a program starts (firmware 1.22)
+
+START on the page (or ON on the H4 with a stored program) first sends the whole program through the interpreter and
+the planner, as *Test* does; nothing moves. If a line cannot run (a code the H4 refuses, a move or an arc outside the
+soft limits, a bad arc, a Y word ...) the program does not start and the page says which line and why; so a program
+never stops half way in the material for such a reason. Notes (M3, M6, G43 H ...) do not refuse. G32 / G33 / G76
+threading cannot be planned without the spindle: the check ends at the first threading line and says so. A long
+program takes a moment to check; STOP during the check cancels the start. A Grbl sender's stream cannot be checked
+before (it arrives line by line). Test: `preflight_test.cpp`.
+
 ### G-code read
 
 The language is **RS274/NGC as LinuxCNC reads it** (Grbl reads a subset of the same language), for a lathe

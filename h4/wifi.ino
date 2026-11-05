@@ -471,6 +471,7 @@ bool loadProgram(const String& name, String* error) {
 void handleCommand() {
   String what = server.arg("do");
   if (what == "stop") {
+    cncPreflightCancel = true; // a check before a start does not start the program
     homingAbort = true;
     homingRequest = false;
     if (!isOn && !cncBusy()) haltManualMoves(); // a move of the H4 keys or of the page's safe approach
@@ -559,8 +560,9 @@ void handleCommand() {
     gcodeProgramData = webProgram;
     gcodeProgramSize = webProgramSize;
     cncUserHold = false;
-    setIsOnFromTask(true);
-    server.send(200, "text/plain", "Started " + name);
+    // the whole program is checked first (nothing moves), then the machine turns on (h4.ino cncRunPreflight)
+    cncRequestPreflight(webProgram, webProgramSize, name.c_str());
+    server.send(200, "text/plain", "Checking " + name + " before it starts (nothing moves) ...");
   } else {
     server.send(400, "text/plain", "Unknown command");
   }
