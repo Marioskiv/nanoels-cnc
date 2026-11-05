@@ -32,7 +32,7 @@ The app's own dialogs (updates, H4 address) follow the language chosen on the sc
 versions in use are always shown under the Settings list (*App version ... · firmware ...*). While Android installs
 an update it closes the app: that is normal, open it again afterwards.
 
-15 seconds after it opens (at most every 12 hours; *Later* keeps that version quiet for a day), and at once with *Settings, App update, Check for an app update*, the app looks at this repository's Releases (public, no account or key needed). If an install that was started did not go through (the app opens again at the old version), it says so and how to retry. When a
+5 seconds after it opens, each time (once more a minute later if the network was not up yet; *Later* keeps that version quiet for a day), and at once with *Settings, App update, Check for an app update*, the app looks at this repository's Releases (public, no account or key needed). If an install that was started did not go through (the app opens again at the old version), it says so and how to retry. When a
 newer *H4 CNC* is there, it says so and offers **Install**: the app downloads it (with progress), checks that it is
 this app, newer and signed with the same key, and hands it to Android in an install session (from app 1.32): Android
 shows its own "Install?" screen and installs the app itself, without depending on the app's screen (with the older
@@ -57,6 +57,11 @@ writes down any error in its own code. If it ended while on screen without being
 says what was seen last: an error (with where in the code), the screen's browser part (WebView) gone, or Android
 closing it - with little free memory: memory (close other apps); with plenty: the maker's power saving (Huawei:
 Phone Manager, Battery, Protected apps: H4 CNC on). Kept only in the tablet; a photo of that message tells the cause.
+
+From app 1.37 every run is also written to a list, the last 30: when it started, when and how it ended (closed by
+you, closed for an update, an error, the screen part ended, closed by Android on screen or in the background, with the
+free memory then). *Settings, App log* shows it and can clear it. **Back** on the first screen asks before closing
+the app (a Back pressed by mistake used to close it at once, which looked like the app throwing you out).
 
 ## H4 firmware updates
 

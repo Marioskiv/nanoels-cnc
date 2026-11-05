@@ -175,7 +175,7 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
    or computer opening `http://192.168.x.y` gets the H4's small **emergency page** (status, STOP, *Zeros checked*,
    WiFi, firmware update, lasting log) - since firmware 1.16 the full screen is no longer stored in the H4.
 
-The page **never scrolls**: every screen fits the phone or tablet, upright or turned. Screens are chosen with the
+The page **never scrolls** (but *Settings*, whose pages scroll with the finger): every screen fits the phone or tablet, upright or turned. Screens are chosen with the
 **button at the top left** that names the screen you are on: a tap rolls the list of screens down under it, a choice
 rolls it up again (or swipe left / right; the phone's Back key goes to the screen before). Axes are always in the
 order **Z, X, C**, as in the lathe drawing, on the H4's own keys and on the gamepad's sticks. What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
@@ -334,7 +334,7 @@ program runs.
 - **Settings**: *Appearance* (language English / Ελληνικά for every screen, theme, colours, number size), *Screen and jog* (jog buttons or wheel, jog lock on or
   off; in the Android app also the screen orientation: automatic, landscape or portrait), *Gamepad* (speeds, sticks, reverse an axis, what each button does), one page per group of
   machine settings, WiFi, firmware; in the Android app also *App update* (the app's version and a button that
-  looks for a newer one at once; the app also looks by itself each time it opens).
+  looks for a newer one at once; the app also looks by itself each time it opens; *App log*, in the app only, lists how its last 30 runs ended).
 
 ## 7 First start checklist
 

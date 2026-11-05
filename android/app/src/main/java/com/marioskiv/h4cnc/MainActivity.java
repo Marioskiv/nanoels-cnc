@@ -119,7 +119,7 @@ public class MainActivity extends Activity {
         if (address == null) askAddress(null);
         else open();
         ExitWatch.start(this);         // why the app closed last time, and the watch of this run
-        UpdateCheck.maybeCheck(this);  // 15 s after the app opens, at most every 12 h (and says when an install did not go through)
+        UpdateCheck.maybeCheck(this);  // a few seconds after the app opens, each time (and says when an install did not go through)
     }
 
     // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
@@ -233,11 +233,31 @@ public class MainActivity extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         if (pad.handleKey(e)) return true;
-        if (e.getKeyCode() == KeyEvent.KEYCODE_BACK && e.getAction() == KeyEvent.ACTION_UP && web.canGoBack()) {
-            web.goBack();
+        if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            // Back goes to the screen before; on the first screen it asks before closing the app (a Back pressed by
+            // mistake used to close it, which looked like the app throwing you out)
+            if (e.getAction() == KeyEvent.ACTION_UP) {
+                if (web.canGoBack()) web.goBack();
+                else askClose();
+            }
             return true;
         }
         return super.dispatchKeyEvent(e);
+    }
+
+    @Override
+    public void onBackPressed() {  // the Back gesture of newer Android versions
+        if (web.canGoBack()) web.goBack();
+        else askClose();
+    }
+
+    private AlertDialog closeAsk;
+
+    private void askClose() {
+        if (isFinishing() || (closeAsk != null && closeAsk.isShowing())) return;
+        closeAsk = new AlertDialog.Builder(this).setTitle(Tr.t(this, "Close H4 CNC?", "Κλείσιμο του H4 CNC;"))
+                .setPositiveButton(Tr.t(this, "Close", "Κλείσιμο"), (d, w) -> finish())
+                .setNegativeButton(Tr.t(this, "Stay", "Μένω"), null).show();
     }
 
     @Override
@@ -318,6 +338,17 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setLang(String lang) {
             Tr.set(MainActivity.this, lang);
+        }
+
+        // Settings, App log: how the last runs of the app ended
+        @JavascriptInterface
+        public String exitLog() {
+            return ExitWatch.history(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void clearExitLog() {
+            ExitWatch.clearHistory(MainActivity.this);
         }
 
         @JavascriptInterface
