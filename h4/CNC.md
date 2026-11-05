@@ -37,6 +37,14 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
   `DIRHOLD`: settings *Step pulse length*, *Direction set-up time* and *Direction hold time*. A direction pin
   changes only after the hold time since the last pulse, and at least the set-up time before the next step; after
   an interrupt that came late the pin still rests a pulse length before the next pulse.
+- **Step interrupt in IRAM** (firmware 1.20, setting *Step interrupt keeps running while the flash is busy*, on by
+  default): the GCODE step interrupt is allocated with `ESP_INTR_FLAG_IRAM` and sets the timer's alarm with its
+  registers (`timer_ll_*`), as the step timers of FluidNC and grblHAL do; the ESP-IDF gptimer driver only reserves and
+  clocks the timer. So the steps go on while the flash is read or written (before, with the gptimer callback, they
+  waited; the firmware avoids flash access while moving either way). `h4/test/iram_check.py` checks every build in CI:
+  the interrupt and every function it calls are in IRAM or the ROM and it loads no address in the flash.
+  *Diagnostics* shows which step timer runs; if the IRAM timer cannot be set up the H4 says so in the log and uses
+  the firmware 1.19 timer. Switching the setting off also goes back to it (after a restart).
 - **Jog, handwheels, Home All, G32 / G33** (firmware 1.19): these steps come from the H4's own `moveAxis()`, not
   from the step interrupt. In the GCODE mode their pulse also lasts at least the *Step pulse length* and their
   direction pin also keeps its level the *Direction hold time* after the last pulse (before 1.19 the pulse was only

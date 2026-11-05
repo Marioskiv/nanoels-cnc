@@ -237,7 +237,7 @@ void handleStatus() {
       ",\"lateUs\":" + String(cncDiagLateMaxTicks / (float)(CNC_TIMER_HZ / 1000000), 1) +
       ",\"late\":" + String(cncDiagLateCount) + ",\"rate\":" + String(cncDiagRateMax) +
       ",\"limit\":" + String(cncStepRateLimit()) + ",\"steps\":" + String(cncDiagSteps) +
-      ",\"movePulses\":" + String(moveDiagPulses) +
+      ",\"movePulses\":" + String(moveDiagPulses) + ",\"timer\":\"" + jsonEscape(String(cncStepTimerText)) + "\"" +
       ",\"movePulseMinUs\":" + String(moveDiagPulses ? moveDiagPulseMinCycles / (float)cncCpuCyclesPerUs : 0, 2) +
       ",\"movePulseMaxUs\":" + String(moveDiagPulseMaxCycles / (float)cncCpuCyclesPerUs, 2) + "}";
   json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
