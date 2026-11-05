@@ -37,6 +37,12 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
   `DIRHOLD`: settings *Step pulse length*, *Direction set-up time* and *Direction hold time*. A direction pin
   changes only after the hold time since the last pulse, and at least the set-up time before the next step; after
   an interrupt that came late the pin still rests a pulse length before the next pulse.
+- **Jog, handwheels, Home All, G32 / G33** (firmware 1.19): these steps come from the H4's own `moveAxis()`, not
+  from the step interrupt. In the GCODE mode their pulse also lasts at least the *Step pulse length* and their
+  direction pin also keeps its level the *Direction hold time* after the last pulse (before 1.19 the pulse was only
+  as long as the code between the two pin writes). The lathe modes keep the original pulse. *Diagnostics* shows the
+  shortest and longest of these pulses as the H4 measures them itself (CPU cycle counter: from just before the pin
+  goes low to just after it goes high, a little longer than the pin is low); test `move_pulse_test.cpp`.
 - **Step rate limit**: the highest step rate per axis is 1 / (pulse + the longer of pulse and hold + set-up); a
   speed setting above it is lowered with a message in the log, so a direction change never comes too close to the
   next step.
