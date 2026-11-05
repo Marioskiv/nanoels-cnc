@@ -341,9 +341,10 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <button onclick="H4App.checkAppUpdate()">Check for an app update</button>
 <div class="small">A newer version is offered for download; Android installs it over this one and keeps the settings.</div></div></div>
 <div class="spage" data-sp="applog"><div class="pg">
-<div class="small">How the last runs of the app ended (newest first). "WHILE ON SCREEN" means Android closed it while you were using it: usually the tablet's power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on) or too little free memory.</div>
+<div class="small">Full log: every step of the app, newest first (start, screen, WiFi, the H4 link, commands, messages, freezes with where the app was stuck). How it closed: how the last runs ended; "WHILE ON SCREEN" means Android closed it while you were using it. Copy or Send it and paste it into the chat.</div>
+<div class="seg" id="alSeg"><button data-v="full" class="on">Full log</button><button data-v="runs">How it closed</button></div>
 <pre id="appLog" style="white-space:pre-wrap;font:12px ui-monospace,monospace;margin:0"></pre></div>
-<div class="row"><button onclick="appLogShow()">Refresh</button><button onclick="if(confirm('Clear the app log?')){H4App.clearExitLog();appLogShow()}">Clear</button></div></div>
+<div class="row"><button onclick="appLogShow()">Refresh</button><button id="alCopy" onclick="appLogCopy()">Copy</button><button id="alSend" onclick="try{H4App.shareLog()}catch(e){}">Send</button><button onclick="if(confirm('Clear the app log?')){H4App.clearExitLog();appLogShow()}">Clear</button></div></div>
 <div class="spage" data-sp="fw"><div class="pg">
 <div>Firmware <b id="fwVer">-</b>. The settings of the machine stay through an update.</div>
 <div class="row nope" id="fwApp"><button onclick="H4App.checkFirmware()">Check for a firmware update (GitHub)</button></div>
@@ -464,12 +465,25 @@ if(DEMO)(function(){
 const $=id=>document.getElementById(id);
 let st={},selected='',drawn=null,files=[];
 const isApp=!!window.H4App;
-let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
-async function post(url,body){const r=await fetch(url,{method:'POST',body});const t=await r.text();if(!r.ok)throw new Error(t);return t}
+// The app's full log (Settings, App log): what the screen does, in the screen's language. Nothing in a browser.
+function alog(tag,en,el){if(!isApp||!H4App.log)return;let gr=false;try{gr=look.lang=='el'}catch(e){}try{H4App.log(tag,gr&&el?el:en)}catch(e){}}
+if(isApp&&H4App.alive)setInterval(()=>{let w='?';try{w=curTab+(setOpen?' / '+setOpen:'')}catch(e){}try{H4App.alive(w)}catch(e){}},1000);
+addEventListener('error',e=>alog('JS','ERROR '+e.message+' (line '+e.lineno+')','ΣΦΑΛΜΑ '+e.message+' (γραμμή '+e.lineno+')'));
+addEventListener('unhandledrejection',e=>alog('JS','ERROR '+(e.reason&&e.reason.message||e.reason),'ΣΦΑΛΜΑ '+(e.reason&&e.reason.message||e.reason)));
+let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;alog('MSG',t);const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
+// every command to the H4 goes to the app log (not the jog's repeats), with its answer when it fails or is slow
+async function post(url,body){const quiet=/^\/(jog|key\?.*hold=1)/.test(url),t0=Date.now();if(!quiet)alog('CMD',url);let r,t;
+ try{r=await fetch(url,{method:'POST',body});t=await r.text()}catch(e){if(!quiet)alog('CMD',url+' → no answer: '+e.message,url+' → καμία απάντηση: '+e.message);throw e}
+ const ms=Date.now()-t0;if(!r.ok){if(!quiet)alog('CMD',url+' → refused: '+t,url+' → το αρνήθηκε: '+t);throw new Error(t)}
+ if(ms>1500&&!quiet)alog('CMD',url+' → slow answer '+ms+' ms',url+' → αργή απάντηση '+ms+' ms');return t}
 async function cmd(c,extra){try{msg(await post('/cmd?do='+c+(extra||'')))}catch(e){msg(e.message)}}
 function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
  if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
-let polls=0;async function poll(){try{const r=await fetch('/status');st=await r.json();polls++;show()}catch(e){$('cState').textContent='NO CONNECTION'}
+// the link to the H4: lost / back (with how long) and slow answers go to the app log
+let polls=0,linkLost=0,slowLog=0;async function poll(){const t0=Date.now();try{const r=await fetch('/status');st=await r.json();polls++;
+  const ms=Date.now()-t0;if(linkLost){alog('H4','link back after '+((Date.now()-linkLost)/1000).toFixed(1)+' s','η σύνδεση ξαναβρέθηκε μετά από '+((Date.now()-linkLost)/1000).toFixed(1)+' s');linkLost=0}
+  else if(ms>1500&&Date.now()-slowLog>10000){slowLog=Date.now();alog('H4','slow answer '+ms+' ms','αργή απάντηση '+ms+' ms')}show()}
+ catch(e){if(!linkLost){linkLost=t0;alog('H4','LINK LOST: '+e.message,'ΧΑΘΗΚΕ Η ΣΥΝΔΕΣΗ: '+e.message)}$('cState').textContent='NO CONNECTION'}
  setTimeout(poll,curTab=='lathe'?150:350)}
 function ovr(c){cmd('ovr','&code='+c)}
 let benchSeen=-1;function bench(n){cmd('bench','&name='+encodeURIComponent(n))}
@@ -601,7 +615,7 @@ const I18N={
  'MDI: one G-code line':'MDI: μία γραμμή G-code','The H4 must be idle. Keep a real emergency stop within reach.':'Το H4 πρέπει να είναι σε αναμονή. Να έχεις κοντά σου πραγματικό κουμπί έκτακτης ανάγκης.',
  'Edit…':'Αλλαγή…','Kept in this phone or browser.':'Κρατιούνται σε αυτό το κινητό ή browser.','Unlock ($X)':'Ξεκλείδωμα ($X)','Z up 5 mm':'Z πάνω 5 mm','Touch off Z':'Μηδέν Z εδώ','C to 0°':'C στις 0°',
  // Machine
- 'Position':'Θέση','Diagnostics':'Διάγνωση','Home All':'Home All','Clear':'Καθαρισμός','Lasting log':'Μόνιμο ημερολόγιο','No log':'Χωρίς ημερολόγιο','Inputs (terminal A2):':'Είσοδοι (κλέμα A2):',
+ 'Position':'Θέση','Diagnostics':'Διάγνωση','Home All':'Home All','Full log':'Πλήρες','How it closed':'Πώς έκλεισε','Copy':'Αντιγραφή','Send':'Αποστολή','Copied: paste it into the chat.':'Αντιγράφηκε: επικόλλησέ το στη συνομιλία.','Could not copy.':'Δεν αντιγράφηκε.','Clear':'Καθαρισμός','Lasting log':'Μόνιμο ημερολόγιο','No log':'Χωρίς ημερολόγιο','Inputs (terminal A2):':'Είσοδοι (κλέμα A2):',
  'used by handwheel 2':'τις χρησιμοποιεί ο χειροτροχός 2','OK':'OK','CHECK':'ΕΛΕΓΞΕ','Restart while moving':'Επανεκκίνηση ενώ κινούνταν','Confirmed':'Επιβεβαιώθηκε',
  // Settings list and pages
  'Appearance · language · Lathe Z / X':'Εμφάνιση · γλώσσα · Τόρνος Z / X','Screen and jog':'Οθόνη και jog','Gamepad':'Χειριστήριο','WiFi':'WiFi','Firmware':'Firmware','App update':'Ενημέρωση app',
@@ -618,7 +632,7 @@ const I18N={
  '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
  'Could not load the settings.':'Δεν φορτώθηκαν οι ρυθμίσεις.','The H4 firmware is older than this app: update it (Settings, Firmware).':'Το firmware του H4 είναι παλιότερο από το app: ενημέρωσέ το (Ρυθμίσεις, Firmware).',
  'H4 address':'Διεύθυνση H4','Open when the tablet starts':'Άνοιγμα με την εκκίνηση του tablet','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
- 'How the last runs of the app ended (newest first). "WHILE ON SCREEN" means Android closed it while you were using it: usually the tablet\'s power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on) or too little free memory.':'Πώς έκλεισαν οι τελευταίες φορές του app (πρώτα η νεότερη). «ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ» σημαίνει ότι το Android το έκλεισε ενώ το χρησιμοποιούσες: συνήθως η εξοικονόμηση ενέργειας του tablet (Huawei: Phone Manager, Battery, Protected apps: H4 CNC ενεργό) ή λίγη ελεύθερη μνήμη.','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
+ 'Full log: every step of the app, newest first (start, screen, WiFi, the H4 link, commands, messages, freezes with where the app was stuck). How it closed: how the last runs ended; "WHILE ON SCREEN" means Android closed it while you were using it. Copy or Send it and paste it into the chat.':'Πλήρες: κάθε βήμα του app, το νεότερο πάνω (άνοιγμα, οθόνη, WiFi, σύνδεση με το H4, εντολές, μηνύματα, κολλήματα με το σημείο όπου κόλλησε). Πώς έκλεισε: πώς τελείωσαν οι τελευταίες φορές· «ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ» σημαίνει ότι το έκλεισε το Android ενώ το χρησιμοποιούσες. Αντιγραφή ή Αποστολή και επικόλληση στη συνομιλία.','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
  // gamepad page
  'No gamepad.':'Χωρίς χειριστήριο.','No gamepad: connect it, then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το και πάτα ένα κουμπί.','No gamepad. Connect it, press a button (Chrome: see i).':'Χωρίς χειριστήριο. Σύνδεσέ το, πάτα ένα κουμπί (Chrome: δες i).',
  'No gamepad: connect it by Bluetooth (Share + PS to pair), then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το με Bluetooth (Share + PS για ζεύξη) και πάτα ένα κουμπί.',
@@ -925,7 +939,7 @@ $('navBtn').addEventListener('click',e=>{e.stopPropagation();navOpen(!$('tabs').
 document.addEventListener('pointerdown',e=>{if($('tabs').classList.contains('open')&&!e.target.closest('#tabs,#navBtn'))navOpen(false)},true);
 $('tabs').innerHTML=TABS.map(([t,n,ic])=>`<button data-t="${t}" onclick="tab('${t}')"><svg viewBox="0 0 24 24">${ic}</svg><span>${n}</span></button>`).join('');
 try{subs=JSON.parse(localStorage.getItem('h4subs')||'{}')}catch(e){}
-function tab(t,noHist){if(!TN.includes(t))t='control';if(window.ddClose)ddClose();if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
+function tab(t,noHist){if(!TN.includes(t))t='control';if(window.ddClose)ddClose();if(t!=curTab)alog('SCREEN',t);if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
   document.querySelectorAll('main>section').forEach(s=>s.hidden=s.dataset.tab!=t);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
   if(t=='machine'){logRead=logSeen;tabBadges()}
@@ -943,7 +957,12 @@ function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · �
 // the versions, always in view in Settings: this app (the screen) and the H4's firmware
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
  const t=(look.lang=='el'?'Έκδοση app ':'App version ')+a+' · firmware '+(st.fw||'-');if(e.textContent!=t)e.textContent=t}
-function appLogShow(){try{$('appLog').textContent=H4App.exitLog()}catch(e){$('appLog').textContent='-'}}
+// Settings, App log: the full log (every step of the app, newest first) or how the last runs ended. Copy / Send give
+// both to the clipboard or to another app (Viber, Gmail, ...), so they can be pasted into a chat.
+let alView='full';function appLogShow(){document.querySelectorAll('#alSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v==alView));
+ try{$('appLog').textContent=alView=='full'&&H4App.fullLog?(H4App.fullLog()||'-'):H4App.exitLog()}catch(e){$('appLog').textContent='-'}}
+function appLogCopy(){let ok=false;try{ok=H4App.copyLog()}catch(e){}msg(ok?T('Copied: paste it into the chat.'):T('Could not copy.'))}
+document.querySelectorAll('#alSeg button').forEach(b=>b.onclick=()=>{alView=b.dataset.v;appLogShow()});
 // A tap on the setting that is open closes it again (owner, 2026-11-05): on a wide screen its whole card goes too.
 function setTap(k){if(setOpen==k){setClosed=true;setShow('',true)}else{setClosed=false;setShow(k)}}
 let setClosed=false;

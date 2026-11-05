@@ -8,7 +8,14 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.hardware.input.InputManager;
+import android.view.InputDevice;
+import android.webkit.ConsoleMessage;
 import android.os.BatteryManager;
 import android.view.View;
 import android.content.SharedPreferences;
@@ -55,16 +62,23 @@ public class MainActivity extends Activity {
     private WifiManager.WifiLock wifiLock;
     private ConnectivityManager.NetworkCallback wifiWatch;
     private Network boundTo;
+    private BroadcastReceiver screenWatch;
+    private InputManager.InputDeviceListener padWatch;
+    private Boolean wifiInternet;
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        AppLog.init(this);
+        AppLog.add("START", Tr.t(this, "app opened", "άνοιξε το app") + " (" + how(getIntent()) + (state != null ? ", again after Android closed it" : "")
+                + ") · Android " + Build.VERSION.RELEASE + " · " + Build.MANUFACTURER + " " + Build.MODEL);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         applyOrientation(getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ORIENTATION, "auto"));
         web = new WebView(this);
         setContentView(web);
         applyFullscreen();
         WebSettings s = web.getSettings();
+        AppLog.add("START", "WebView: " + s.getUserAgentString().replaceFirst("^.*?(Chrome/[0-9.]+).*$", "$1"));
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);  // after a firmware update the page is the new one
@@ -106,24 +120,42 @@ public class MainActivity extends Activity {
             // It is noted and the app opens again.
             @Override
             public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                AppLog.add(MainActivity.this, "WEBVIEW", "the screen part (WebView) ended, crash: " + (Build.VERSION.SDK_INT >= 26 && detail.didCrash()) + AppLog.memory(),
+                        "σταμάτησε το κομμάτι της οθόνης (WebView), σφάλμα: " + (Build.VERSION.SDK_INT >= 26 && detail.didCrash()) + AppLog.memory());
                 ExitWatch.rendererGone(android.os.Build.VERSION.SDK_INT >= 26 && detail.didCrash());
                 recreate();
                 return true;
             }
 
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
+                AppLog.pageLoading();
+                AppLog.add(MainActivity.this, "PAGE", "loading " + url, "φορτώνει " + url);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
+                AppLog.add(MainActivity.this, "PAGE", "loaded " + url, "φορτώθηκε " + url);
                 if (!demo && url != null && url.startsWith("http")) FirmwareUpdate.check(MainActivity.this, address, false);
             }
 
             @SuppressWarnings("deprecation")
             @Override
             public void onReceivedError(WebView view, int code, String description, String failingUrl) {
+                AppLog.add(MainActivity.this, "PAGE", "could not open " + failingUrl + " (" + description + ")", "δεν άνοιξε το " + failingUrl + " (" + description + ")");
                 if (demo) return;
                 askAddress(Tr.t(MainActivity.this, "Could not open ", "Δεν άνοιξε το ") + failingUrl + " (" + description + ").");
             }
         });
         web.setWebChromeClient(new WebChromeClient() {  // also shows the page's confirm() questions
+            // errors of the page's code (and its warnings) go to the app log
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage m) {
+                if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR || m.messageLevel() == ConsoleMessage.MessageLevel.WARNING)
+                    AppLog.add("JS", m.messageLevel() + " " + m.message() + " (line " + m.lineNumber() + ")");
+                return false;
+            }
+
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
@@ -145,6 +177,7 @@ public class MainActivity extends Activity {
         if (address == null) askAddress(null);
         else open();
         watchWifi();
+        watchScreenAndPad();
         ExitWatch.start(this);         // why the app closed last time, and the watch of this run
         UpdateCheck.maybeCheck(this);  // a few seconds after the app opens, each time (and says when an install did not go through)
     }
@@ -158,12 +191,23 @@ public class MainActivity extends Activity {
         if (cm == null) return;
         wifiWatch = new ConnectivityManager.NetworkCallback() {
             @Override
+            public void onAvailable(Network n) {
+                AppLog.add(MainActivity.this, "WIFI", "connected", "συνδέθηκε");
+            }
+
+            @Override
             public void onCapabilitiesChanged(Network n, NetworkCapabilities c) {
-                bindTo(cm, c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ? null : n);
+                boolean internet = c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                if (wifiInternet == null || wifiInternet != internet)
+                    AppLog.add(MainActivity.this, "WIFI", internet ? "with internet" : "without internet", internet ? "με internet" : "χωρίς internet");
+                wifiInternet = internet;
+                bindTo(cm, internet ? null : n);
             }
 
             @Override
             public void onLost(Network n) {
+                AppLog.add(MainActivity.this, "WIFI", "LOST", "ΧΑΘΗΚΕ");
+                wifiInternet = null;
                 if (n.equals(boundTo)) bindTo(cm, null);
             }
         };
@@ -179,8 +223,73 @@ public class MainActivity extends Activity {
         try {
             if (Build.VERSION.SDK_INT >= 23) cm.bindProcessToNetwork(n);
             boundTo = n;
+            AppLog.add(this, "WIFI", n != null ? "app kept on this WiFi" : "app on Android's choice of network",
+                    n != null ? "το app κρατιέται σε αυτό το WiFi" : "το app στο δίκτυο που διαλέγει το Android");
         } catch (Exception ignored) {
         }
+    }
+
+    // How the app was opened, for the app log.
+    private String how(Intent i) {
+        if (i == null) return "?";
+        if (i.getBooleanExtra(BootReceiver.EXTRA, false)) return Tr.t(this, "at the tablet's start", "με την εκκίνηση του tablet");
+        if (i.getBooleanExtra(UpdatedReceiver.EXTRA, false)) return Tr.t(this, "after an update", "μετά από ενημέρωση");
+        if (i.hasCategory(Intent.CATEGORY_HOME)) return Tr.t(this, "Home key / home screen", "κουμπί Home / αρχική οθόνη");
+        if (i.hasCategory(Intent.CATEGORY_LAUNCHER)) return Tr.t(this, "from its icon", "από το εικονίδιο");
+        return String.valueOf(i.getAction());
+    }
+
+    // The tablet's screen on / off / unlocked and gamepads plugged in or out, for the app log.
+    private void watchScreenAndPad() {
+        screenWatch = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context c, Intent i) {
+                String a = String.valueOf(i.getAction());
+                AppLog.add(c, "TABLET", a.endsWith("SCREEN_OFF") ? "screen off" : a.endsWith("SCREEN_ON") ? "screen on" : a.endsWith("USER_PRESENT") ? "unlocked"
+                        : a.endsWith("POWER_CONNECTED") ? "charger in" : a.endsWith("POWER_DISCONNECTED") ? "charger out" : a,
+                        a.endsWith("SCREEN_OFF") ? "οθόνη σβηστή" : a.endsWith("SCREEN_ON") ? "οθόνη αναμμένη" : a.endsWith("USER_PRESENT") ? "ξεκλείδωμα"
+                        : a.endsWith("POWER_CONNECTED") ? "φορτιστής μέσα" : a.endsWith("POWER_DISCONNECTED") ? "φορτιστής έξω" : a);
+            }
+        };
+        IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        f.addAction(Intent.ACTION_SCREEN_ON);
+        f.addAction(Intent.ACTION_USER_PRESENT);
+        f.addAction(Intent.ACTION_POWER_CONNECTED);
+        f.addAction(Intent.ACTION_POWER_DISCONNECTED);
+        try {
+            registerReceiver(screenWatch, f);
+        } catch (Exception e) {
+            screenWatch = null;
+        }
+        final InputManager im = (InputManager) getSystemService(Context.INPUT_SERVICE);
+        if (im == null) return;
+        padWatch = new InputManager.InputDeviceListener() {
+            private String name(int id) {
+                InputDevice d = im.getInputDevice(id);
+                return d == null ? "#" + id : d.getName();
+            }
+
+            private boolean pad(int id) {
+                InputDevice d = im.getInputDevice(id);
+                return d != null && ((d.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+                        || (d.getSources() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
+            }
+
+            @Override
+            public void onInputDeviceAdded(int id) {
+                if (pad(id)) AppLog.add(MainActivity.this, "PAD", "gamepad connected: " + name(id), "συνδέθηκε χειριστήριο: " + name(id));
+            }
+
+            @Override
+            public void onInputDeviceRemoved(int id) {
+                AppLog.add(MainActivity.this, "PAD", "input device removed #" + id, "αποσυνδέθηκε συσκευή εισόδου #" + id);
+            }
+
+            @Override
+            public void onInputDeviceChanged(int id) {
+            }
+        };
+        im.registerInputDeviceListener(padWatch, null);
     }
 
     // While the app is on screen the WiFi stays at full speed: in power saving it answers late now and then
@@ -222,6 +331,7 @@ public class MainActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        AppLog.add(this, "APP", hasFocus ? "has the focus" : "lost the focus (a window over it?)", hasFocus ? "έχει την εστίαση" : "έχασε την εστίαση (παράθυρο από πάνω;)");
         if (hasFocus) applyFullscreen();   // again after a dialog or a swipe that showed the bars
     }
 
@@ -382,7 +492,10 @@ public class MainActivity extends Activity {
     private void askClose() {
         if (isFinishing() || (closeAsk != null && closeAsk.isShowing())) return;
         closeAsk = new AlertDialog.Builder(this).setTitle(Tr.t(this, "Close H4 CNC?", "Κλείσιμο του H4 CNC;"))
-                .setPositiveButton(Tr.t(this, "Close", "Κλείσιμο"), (d, w) -> finish())
+                .setPositiveButton(Tr.t(this, "Close", "Κλείσιμο"), (d, w) -> {
+                    AppLog.add(this, "APP", "closed by the user (Back, Close)", "το έκλεισε ο χρήστης (Πίσω, Κλείσιμο)");
+                    finish();
+                })
                 .setNegativeButton(Tr.t(this, "Stay", "Μένω"), null).show();
     }
 
@@ -395,6 +508,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        AppLog.add(this, "APP", "on screen", "στην οθόνη");
+        AppLog.visible(true);
         ExitWatch.visible(true);
         wifiFast(true);
         web.onResume();
@@ -403,6 +518,8 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        AppLog.visible(false);
+        AppLog.add(this, "APP", "off the screen" + (isFinishing() ? ", closing" : ""), "εκτός οθόνης" + (isFinishing() ? ", κλείνει" : ""));
         pad.pause();  // stops any jog at once
         web.onPause();
         ExitWatch.visible(false);
@@ -412,6 +529,15 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        AppLog.add(this, "APP", isFinishing() ? "ended" : "ended by Android (it will open again)", isFinishing() ? "τέλος" : "το τερμάτισε το Android (θα ξανανοίξει)");
+        if (screenWatch != null) try {
+            unregisterReceiver(screenWatch);
+        } catch (Exception ignored) {
+        }
+        if (padWatch != null) try {
+            ((InputManager) getSystemService(Context.INPUT_SERVICE)).unregisterInputDeviceListener(padWatch);
+        } catch (Exception ignored) {
+        }
         if (isFinishing()) ExitWatch.closed();   // closed by the user: nothing to report next time
         pad.pause();
         wifiFast(false);
@@ -430,7 +556,39 @@ public class MainActivity extends Activity {
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
+        AppLog.add(this, "MEMORY", "Android asks to free memory, level " + level + AppLog.memory(), "το Android ζητά μνήμη, επίπεδο " + level + AppLog.memory());
         ExitWatch.trim(level);
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        AppLog.add(this, "MEMORY", "Android: the tablet is LOW on memory" + AppLog.memory(), "Android: το tablet έχει ΛΙΓΗ μνήμη" + AppLog.memory());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        AppLog.add(this, "APP", "brought to front (" + how(intent) + ")", "ήρθε μπροστά (" + how(intent) + ")");
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration c) {
+        super.onConfigurationChanged(c);
+        AppLog.add(this, "APP", c.orientation == Configuration.ORIENTATION_PORTRAIT ? "turned upright" : "turned sideways",
+                c.orientation == Configuration.ORIENTATION_PORTRAIT ? "γύρισε όρθιο" : "γύρισε πλάγια");
+    }
+
+    // The app log as text for another app (Viber, Gmail, ...) chosen by the user.
+    private void shareLog() {
+        try {
+            Intent i = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_SUBJECT, "H4 CNC app log " + BuildInfo.version(this))
+                    .putExtra(Intent.EXTRA_TEXT, ExitWatch.history(this) + "\n----\n" + AppLog.read(1500));
+            startActivity(Intent.createChooser(i, Tr.t(this, "Send the app log", "Αποστολή του ημερολογίου")));
+        } catch (Exception e) {
+            AppLog.add("APP", "share failed: " + e);
+        }
     }
 
     // Called by the page (window.H4App).
@@ -512,6 +670,42 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void clearExitLog() {
             ExitWatch.clearHistory(MainActivity.this);
+            AppLog.clear();
+            AppLog.add(MainActivity.this, "APP", "app log cleared", "το ημερολόγιο καθαρίστηκε");
+        }
+
+        // the full app log (AppLog), newest first
+        @JavascriptInterface
+        public String fullLog() {
+            return AppLog.read(1500);
+        }
+
+        // a line from the page (screen opened, command sent, message shown, link to the H4, page error)
+        @JavascriptInterface
+        public void log(String tag, String text) {
+            AppLog.add(tag == null ? "PAGE" : tag, text);
+        }
+
+        // the page says it is alive (every second) and where it is
+        @JavascriptInterface
+        public void alive(String where) {
+            AppLog.pageAlive(where);
+        }
+
+        @JavascriptInterface
+        public boolean copyLog() {
+            try {
+                ClipboardManager cb = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                cb.setPrimaryClip(ClipData.newPlainText("H4 CNC app log", ExitWatch.history(MainActivity.this) + "\n----\n" + AppLog.read(1500)));
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void shareLog() {
+            runOnUiThread(MainActivity.this::shareLog);
         }
 
         @JavascriptInterface

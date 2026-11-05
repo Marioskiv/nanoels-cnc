@@ -11,13 +11,14 @@ import android.content.Context;
 import android.content.Intent;
 
 public final class UpdatedReceiver extends BroadcastReceiver {
+    static final String EXTRA = "h4.updated";
     @Override
     public void onReceive(Context c, Intent i) {
         if (!Intent.ACTION_MY_PACKAGE_REPLACED.equals(i.getAction())) return;
         c.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().remove("installTried").apply();
         ExitWatch.event(c, "updated to " + BuildInfo.version(c), "ενημερώθηκε στην " + BuildInfo.version(c));
         try {
-            c.startActivity(new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            c.startActivity(new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(EXTRA, true));
         } catch (Exception ignored) {
         }
     }

@@ -12,6 +12,7 @@ import android.content.Context;
 import android.content.Intent;
 
 public final class BootReceiver extends BroadcastReceiver {
+    static final String EXTRA = "h4.boot";
     static final String KEY = "openAtBoot";
 
     @Override
@@ -21,7 +22,7 @@ public final class BootReceiver extends BroadcastReceiver {
         if (!c.getSharedPreferences("h4", Context.MODE_PRIVATE).getBoolean(KEY, true)) return;
         ExitWatch.event(c, "opened at the tablet's start", "άνοιξε με την εκκίνηση του tablet");
         try {
-            c.startActivity(new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            c.startActivity(new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(EXTRA, true));
         } catch (Exception ignored) {
         }
     }

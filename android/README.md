@@ -94,6 +94,20 @@ you, closed for an update, an error, the screen part ended, closed by Android on
 free memory then). *Settings, App log* shows it and can clear it. **Back** on the first screen asks before closing
 the app (a Back pressed by mistake used to close it at once, which looked like the app throwing you out).
 
+From app 1.44 there is also a **full log** (*Settings, App log, Full log*, newest first; about 2 × 256 KB in the app's
+own files, the oldest part goes first). It holds one line, with the time, for each of these:
+- the app opening and how (icon, Home key, tablet start, after an update), and how the previous run ended;
+- the app coming on and off the screen, the tablet's screen on, off and unlocked, and the charger;
+- memory requests from Android and, every 2 minutes, the free memory;
+- the WiFi (connected, lost, with or without internet), the link to the H4 (lost, back, slow answers) and gamepads;
+- the screens opened, the commands sent to the H4 (not the jog's repeats) and the messages shown;
+- page errors and update steps;
+- every **freeze**: when the app does not answer for 2 s (with where in its code it was stuck), or the screen does
+  not answer for 4 s (with the screen it was on), and how long it lasted.
+
+**Copy** puts the log on the clipboard (to paste it into a chat), and **Send** hands it to another app, such as
+Viber or Gmail.
+
 ## H4 firmware updates
 
 When the app opens the H4 page it compares the H4's firmware with the newest `firmware-v...` release here (at most
