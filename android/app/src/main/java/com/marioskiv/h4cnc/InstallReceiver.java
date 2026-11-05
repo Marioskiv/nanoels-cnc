@@ -38,7 +38,13 @@ public final class InstallReceiver extends BroadcastReceiver {
         if (status == PackageInstaller.STATUS_SUCCESS) return;   // the new app replaces this one
         // cancelled or failed: no "did not go through" reminder at the next start, this message says it now
         c.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().remove("installTried").apply();
-        if (status == PackageInstaller.STATUS_FAILURE_ABORTED) return;  // the user said no
+        // left or said no (also when the Install button did nothing and Back was pressed): the next try uses the
+        // other way
+        if (status == PackageInstaller.STATUS_FAILURE_ABORTED) {
+            UpdateCheck.flipWay(c);
+            return;
+        }
+        UpdateCheck.flipWay(c);
         String msg = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
         if (status == PackageInstaller.STATUS_FAILURE_CONFLICT || status == PackageInstaller.STATUS_FAILURE_INCOMPATIBLE)
             tell(c, Tr.t(c, "The update was not installed: the installed app is signed differently or does not fit. "
