@@ -36,6 +36,7 @@ final class ExitWatch {
     private static int trimLevel = -1;
     private static long trimAt;
     private static boolean handlerSet;
+    private static int beats;
 
     private ExitWatch() {
     }
@@ -68,6 +69,7 @@ final class ExitWatch {
                 String s = w.toString();
                 prefs(app).edit().putString("crash", s.length() > 1500 ? s.substring(0, 1500) : s)
                         .putLong("crashAt", System.currentTimeMillis()).commit();
+                AppLog.addNow("ERROR", s.length() > 1500 ? s.substring(0, 1500) : s);
             } catch (Throwable ignored) {
             }
             if (previous != null) previous.uncaughtException(t, ex);
@@ -84,6 +86,7 @@ final class ExitWatch {
 
     private static void note() {
         if (app == null) return;
+        if (++beats % 12 == 0) AppLog.add("MEMORY", AppLog.memory().replaceFirst("^ · ", "") + (onScreen ? "" : " (off screen)"));
         ActivityManager am = (ActivityManager) app.getSystemService(Context.ACTIVITY_SERVICE);
         ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
         if (am != null) am.getMemoryInfo(mi);
@@ -146,6 +149,9 @@ final class ExitWatch {
             lp.edit().putString("list", b.toString()).commit();
         } catch (Exception ignored) {
         }
+        AppLog.add("START", "previous run (" + p.getString("version", "?") + "): " + kind + ", last sign of life "
+                + new SimpleDateFormat("dd/MM HH:mm:ss", Locale.ROOT).format(new Date(p.getLong("at", start))) + ", free " + p.getLong("availMb", -1)
+                + " MB, trim " + p.getInt("trim", -1) + ", app " + p.getLong("heapMb", -1) + " MB" + (p.getString("crash", null) != null ? ", ERROR: " + p.getString("crash", "") : ""));
     }
 
     // The list for the page (Settings, App log), newest first, in the screen's language.
@@ -202,6 +208,7 @@ final class ExitWatch {
 
     // A step of an app update (offered, handed to Android, answered, installed) into the same list.
     static void event(Context c, String en, String el) {
+        AppLog.add(c, "UPDATE", en, el);
         try {
             SharedPreferences lp = c.getSharedPreferences(LOG, Context.MODE_PRIVATE);
             JSONArray a = new JSONArray(lp.getString("list", "[]")), b = new JSONArray();
