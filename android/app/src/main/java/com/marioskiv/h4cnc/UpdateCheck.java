@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Marioskiv
 // SPDX-License-Identifier: MIT
 //
-// Automatically each time the app opens (never while it is in use), and with the page's "Check for an app update"
+// Automatically each time the app opens (a few seconds after; never while it is in use), and with the page's "Check for an app update"
 // button (Settings, App update), in the background: GitHub's public list of releases (no account, no key), the newest
 // "android-v<version>" release with an .apk. If it is newer than this app, a dialog offers to install it: the app
 // downloads the APK itself (with progress), checks it and opens Android's own installer on it, which asks the user
@@ -43,12 +43,12 @@ final class UpdateCheck {
 
     private static volatile boolean busy;
 
-    static final long DELAY_MS = 15000;              // the automatic check waits this long after the app opens
-    static final long EVERY_MS = 12L * 3600 * 1000;  // and runs at most this often
+    static final long DELAY_MS = 5000;               // the automatic check waits this long after the app opens
+    static final long RETRY_MS = 60000;              // and once more after this, when the network was not up yet
     static final long LATER_MS = 24L * 3600 * 1000;  // "Later" keeps that version quiet this long
 
-    // When the app opens: first, did the last install go through? Then, after a short while and not more often than
-    // every 12 hours, look for a newer version (a manual check, Settings, App update, always looks).
+    // When the app opens: first, did the last install go through? Then, after a few seconds, look for a newer version,
+    // at every opening (2026-11-05: once in 12 hours missed the versions that came out the same day).
     static void maybeCheck(final MainActivity activity) {
         final SharedPreferences prefs = activity.getSharedPreferences("h4", Context.MODE_PRIVATE);
         final String current = BuildInfo.version(activity);
@@ -61,10 +61,13 @@ final class UpdateCheck {
                 return;
             }
         }
-        if (System.currentTimeMillis() - prefs.getLong("updateCheck", 0) < EVERY_MS) return;
         activity.web().postDelayed(() -> {
             if (!activity.isFinishing()) check(activity, false);
         }, DELAY_MS);
+        activity.web().postDelayed(() -> {  // the tablet's WiFi may join only after the app opened
+            if (!activity.isFinishing() && System.currentTimeMillis() - prefs.getLong("updateCheck", 0) > RETRY_MS)
+                check(activity, false);
+        }, DELAY_MS + RETRY_MS);
     }
 
     private static void notInstalled(MainActivity activity, String current, String tried) {

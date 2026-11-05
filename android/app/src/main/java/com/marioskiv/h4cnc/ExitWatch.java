@@ -3,6 +3,8 @@
 // error in the app's code is noted with its place. If the app ends without the user closing it, the next start says
 // what was seen last: an error (with where), the screen's browser part (WebView) gone, or Android closing the app
 // (little free memory: memory; plenty: the maker's power saving, e.g. Huawei's). Kept only in this tablet.
+// Every run is also written to a list (the last 30): when it started, how it ended. The page shows it (Settings,
+// App log), so a closing that was not reported at the next start can still be looked up.
 // https://github.com/Marioskiv/nanoels-cnc
 // Copyright (c) 2026 Marioskiv
 // SPDX-License-Identifier: MIT
@@ -15,6 +17,9 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.SimpleDateFormat;
@@ -22,7 +27,8 @@ import java.util.Date;
 import java.util.Locale;
 
 final class ExitWatch {
-    private static final String PREFS = "h4exit";
+    private static final String PREFS = "h4exit", LOG = "h4exitlog";
+    private static final int LOG_MAX = 30;
     private static final long EVERY_MS = 10000;
     private static final Handler handler = new Handler(Looper.getMainLooper());
     private static Context app;
@@ -41,9 +47,11 @@ final class ExitWatch {
     // At the app's start: the report of the last run (if it ended by itself), then the watch of this run.
     static void start(MainActivity activity) {
         app = activity.getApplicationContext();
+        logLast(activity);
         report(activity);
         SharedPreferences.Editor e = prefs(app).edit().clear();
-        e.putBoolean("running", true).putString("version", BuildInfo.version(activity)).commit();
+        e.putBoolean("running", true).putString("version", BuildInfo.version(activity))
+                .putLong("startAt", System.currentTimeMillis()).commit();
         if (!handlerSet) setCrashHandler();
         handler.removeCallbacks(beat);
         handler.post(beat);
@@ -107,7 +115,73 @@ final class ExitWatch {
     // The user closed the app (back key / swipe that finishes it): nothing to report next time.
     static void closed() {
         handler.removeCallbacks(beat);
-        if (app != null) prefs(app).edit().putBoolean("running", false).commit();
+        if (app != null) prefs(app).edit().putBoolean("running", false).putLong("at", System.currentTimeMillis()).commit();
+    }
+
+    // How the last run ended, into the list (before this run's watch starts over).
+    private static void logLast(Context c) {
+        SharedPreferences p = prefs(c);
+        long start = p.getLong("startAt", 0);
+        if (start == 0) return;  // first run with this list
+        String kind;
+        boolean running = p.getBoolean("running", false);
+        boolean install = c.getSharedPreferences("h4", Context.MODE_PRIVATE).getString("installTried", null) != null;
+        if (!running) kind = "user";
+        else if (p.getString("crash", null) != null) kind = "crash";
+        else if (p.getString("renderer", null) != null) kind = "renderer";
+        else if (install) kind = "install";
+        else {
+            long avail = p.getLong("availMb", -1), thr = p.getLong("thresholdMb", -1);
+            boolean memory = p.getBoolean("low", false) || p.getInt("trim", -1) >= 10 || (avail >= 0 && thr >= 0 && avail < thr + 64);
+            kind = (p.getBoolean("screen", false) ? "killedScreen" : "killedBg") + (memory ? "Mem" : "");
+        }
+        try {
+            SharedPreferences lp = c.getSharedPreferences(LOG, Context.MODE_PRIVATE);
+            JSONArray a = new JSONArray(lp.getString("list", "[]")), b = new JSONArray();
+            JSONObject o = new JSONObject();
+            o.put("s", start).put("e", p.getLong(p.getString("crash", null) != null ? "crashAt" : "at", start))
+                    .put("v", p.getString("version", "?")).put("k", kind).put("m", p.getLong("availMb", -1));
+            b.put(o);
+            for (int i = 0; i < a.length() && b.length() < LOG_MAX; i++) b.put(a.get(i));
+            lp.edit().putString("list", b.toString()).commit();
+        } catch (Exception ignored) {
+        }
+    }
+
+    // The list for the page (Settings, App log), newest first, in the screen's language.
+    static String history(Context c) {
+        StringBuilder sb = new StringBuilder();
+        try {
+            JSONArray a = new JSONArray(c.getSharedPreferences(LOG, Context.MODE_PRIVATE).getString("list", "[]"));
+            SimpleDateFormat f = new SimpleDateFormat("dd/MM HH:mm", Locale.ROOT);
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.getJSONObject(i);
+                long s = o.optLong("s"), e = o.optLong("e");
+                String k = o.optString("k");
+                String how;
+                switch (k) {
+                    case "user": how = Tr.t(c, "closed by you (Back)", "το έκλεισες εσύ (Πίσω)"); break;
+                    case "install": how = Tr.t(c, "closed by Android to install an update", "το έκλεισε το Android για να εγκαταστήσει ενημέρωση"); break;
+                    case "crash": how = Tr.t(c, "ERROR in the app", "ΣΦΑΛΜΑ του app"); break;
+                    case "renderer": how = Tr.t(c, "the screen part (WebView) ended", "σταμάτησε το κομμάτι της οθόνης (WebView)"); break;
+                    case "killedScreen": how = Tr.t(c, "closed by Android WHILE ON SCREEN (power saving?)", "το έκλεισε το Android ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ (εξοικονόμηση ενέργειας;)"); break;
+                    case "killedScreenMem": how = Tr.t(c, "closed by Android WHILE ON SCREEN, little free memory", "το έκλεισε το Android ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ, λίγη ελεύθερη μνήμη"); break;
+                    case "killedBg": case "killedBgMem": how = Tr.t(c, "closed by Android in the background (normal)", "το έκλεισε το Android στο παρασκήνιο (κανονικό)"); break;
+                    default: how = k;
+                }
+                sb.append(f.format(new Date(s))).append(" → ").append(f.format(new Date(e))).append(" · app ").append(o.optString("v"))
+                        .append(" · ").append(how);
+                long m = o.optLong("m", -1);
+                if (m >= 0 && !"user".equals(k)) sb.append(Tr.t(c, " · free memory ", " · ελεύθερη μνήμη ")).append(m).append(" MB");
+                sb.append('\n');
+            }
+        } catch (Exception ignored) {
+        }
+        return sb.length() == 0 ? Tr.t(c, "Nothing written yet: the list starts with app 1.37.", "Τίποτα ακόμα: η λίστα ξεκινά με το app 1.37.") : sb.toString();
+    }
+
+    static void clearHistory(Context c) {
+        c.getSharedPreferences(LOG, Context.MODE_PRIVATE).edit().clear().commit();
     }
 
     private static void report(MainActivity a) {
