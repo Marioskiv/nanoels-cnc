@@ -32,6 +32,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- the app can be chosen as the tablet's home screen (Android settings, Default apps, Home / Launcher):
+                 the tablet then starts in it and the Home key comes back to it -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
         <receiver
             android:name=".BootReceiver"
