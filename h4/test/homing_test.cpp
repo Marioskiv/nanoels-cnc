@@ -249,7 +249,23 @@ int main() {
   homingRun();
   check(!z.homed && !x.homed, "disconnected switch: not homed");
   check(!strcmp(cncStatusText, "Homing Z: switch not found"), "disconnected switch: message");
-  check(fabsf(mm(z, z.pos)) <= MAX_TRAVEL_MM_Z * 1.2f + 20 + 0.01f, "disconnected switch: stops after its range");
+  // with soft limits it searches their span + 10 mm (597 + 10 for Z), not 1.2 x the longest manual move + 20 (740)
+  check(fabsf(mm(z, z.pos)) <= (LIMIT_Z_MAX - LIMIT_Z_MIN) + 10 + 0.01f && fabsf(mm(z, z.pos)) >= (LIMIT_Z_MAX - LIMIT_Z_MIN) + 10 - 0.01f,
+        "disconnected switch: stops after the soft-limit span + 10 mm");
+  // X starting at the far end of its travel (soft-limit span from its switch): still found within span + 10 mm
+  machine();
+  x.pos = x.motorPos = swX.at + (long)((LIMIT_X_MAX - LIMIT_X_MIN) * 1200);
+  vTaskDelay(5);
+  homingRun();
+  expectHomed(x, swX, HOME_X_OFFSET, HOME_X_HOME, "X from the far end of its travel");
+  // without soft limits: as before (1.2 x the longest manual move + 20 mm)
+  machine();
+  swZ.disconnected = true;
+  LIMIT_Z_USE = false;
+  homingRun();
+  check(!z.homed && fabsf(mm(z, z.pos)) <= MAX_TRAVEL_MM_Z * 1.2f + 20 + 0.01f && fabsf(mm(z, z.pos)) > (LIMIT_Z_MAX - LIMIT_Z_MIN) + 10,
+        "disconnected switch, no soft limits: searches 1.2 x the longest manual move + 20 mm");
+  LIMIT_Z_USE = true;
 
   // 6. Noise on a limit input while a program runs: a pulse shorter than the 0.5 ms debounce is ignored, a longer
   //    one stops everything ("Limit X", positions kept, still homed).

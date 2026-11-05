@@ -281,7 +281,9 @@ before. Test: `homing_test.cpp` (a program driven onto the X switch and a driver
 and stuck: stopped within the bounce + 0.5 ms; without this check the X axis went 176 mm past its switch).
 
 **Home All** (button on the page, or `$H` in *Run line*): Z first, then X (setting), each one searching its
-switch, leaving it slowly (latch), setting its machine coordinate to `HOME_OFFSET` there and moving to `HOME`;
+switch (with soft limits for at most their span + 10 mm, firmware 1.23: a switch that never answers, e.g. a normally
+open switch with a broken wire, does not keep the axis pushing against its end for long; a normally closed switch is
+safer still, as a broken wire then reads as pressed), leaving it slowly (latch), setting its machine coordinate to `HOME_OFFSET` there and moving to `HOME`;
 A1 (C) takes machine 0 where it stands. Soft limits (`MIN_LIMIT` / `MAX_LIMIT`, machine coordinates) then
 hold for programs and for jogging. With *Programs start only after Home All* a program does not start before.
 OFF or STOP stops homing. After an emergency stop by cutting the drivers' power, home again.
