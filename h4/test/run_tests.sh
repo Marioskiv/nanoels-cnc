@@ -114,6 +114,11 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_co
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
 python3 cam_check.py "$OUT" $RS274 > "$OUT/cam.txt" || { cat "$OUT/cam.txt"; fail=$((fail + 1)); }
 tail -1 "$OUT/cam.txt"
+# the check before a program starts (cnc_bench.cpp as cncRunPreflight uses it): errors far in, soft limits, arcs, Y,
+# notes that do not refuse, threading, a real program
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/preflight_test" preflight_test.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
+"$OUT/preflight_test" > "$OUT/pf.txt" || { cat "$OUT/pf.txt"; fail=$((fail + 1)); }
+tail -1 "$OUT/pf.txt"
 # the controller's self-test (cnc_bench.cpp) on the sample programs
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
 "$OUT/cnc_bench_pc" polar_sample.ngc lathecode_sample.ngc || fail=$((fail + 1))

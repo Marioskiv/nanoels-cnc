@@ -446,7 +446,7 @@ if(DEMO)(function(){
    const m=/G91 G1 ([XZC])([-\d.]+)/i.exec(l);if(m){S[m[1].toLowerCase()]+= +m[2]}
    add('Demo: '+l);return ok('Running: '+l)}
   if(p=='/cmd'){const d=arg('do');
-   if(d=='start'){if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);return ok('Started '+S.program)}
+   if(d=='start'){if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);S.benchN++;S.bench='Checked '+S.program+': '+(text[S.program]||'').split('\n').length+' lines, all can run. Started.';return ok('Checking '+S.program+' before it starts (nothing moves) ...')}
    if(d=='stop'){S.running=false;S.on=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
    if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
    if(d=='resume'){S.paused=false;return ok('Resuming')}
@@ -700,7 +700,7 @@ const I18NR=[
  [/^(A21 home X|A22 home Z|A23 alarm): /,null],   // the inputs line: done word by word below
  [/^Start (.+) on the machine\?$/,'Έναρξη του $1 στο μηχάνημα;'],[/^Delete (.+)\?$/,'Διαγραφή του $1;'],[/^Update the firmware with (.+)\?$/,'Ενημέρωση firmware με το $1;'],
  [/^Run (.+) \?$/,'Εκτέλεση: $1 ;'],[/^Set ([XZC]) = 0 here \(active work offset\)\?([\s\S]*)$/,(m,a,r)=>'Μηδέν '+a+' εδώ (ενεργές συντεταγμένες εργασίας);'+r.replace('On a polar machine X0 must stay the chuck centre: zero X only if the tool is exactly there.','Σε πολική μηχανή το X0 πρέπει να μένει το κέντρο του τσοκ: μηδένισε το X μόνο αν το κοπτικό είναι ακριβώς εκεί.')],
- [/^Deleted (.+)$/,'Διαγράφηκε το $1'],[/^Started (.+)$/,'Ξεκίνησε το $1'],[/^Testing (.+)$/,'Έλεγχος του $1'],[/^Running: (.+)$/,'Τρέχει: $1'],[/^Cannot delete (.+)$/,'Δεν διαγράφεται το $1'],
+ [/^Deleted (.+)$/,'Διαγράφηκε το $1'],[/^Started (.+)$/,'Ξεκίνησε το $1'],[/^Checking (.+) before it starts \(nothing moves\) \.\.\.$/,'Έλεγχος του $1 πριν ξεκινήσει (τίποτα δεν κινείται) ...'],[/^Checked (.+): (\d+) lines, all can run\. Started\.$/,'Ελέγχθηκε το $1: $2 γραμμές, όλες μπορούν να εκτελεστούν. Ξεκίνησε.'],[/^Checked (.+): (\d+) lines, up to the threading at line (\d+) \(threading is not checked\)\. Started\.$/,'Ελέγχθηκε το $1: $2 γραμμές, ως το σπείρωμα στη γραμμή $3 (το σπείρωμα δεν ελέγχεται). Ξεκίνησε.'],[/^Not started: (.+), line (\d+): (.+)\. The whole program is checked before it starts; nothing moved\.$/,'ΔΕΝ ξεκίνησε: $1, γραμμή $2: $3. Όλο το πρόγραμμα ελέγχεται πριν ξεκινήσει· τίποτα δεν κινήθηκε.'],[/^Start of (.+) cancelled$/,'Η έναρξη του $1 ακυρώθηκε'],[/^Not started: the machine is busy$/,'ΔΕΝ ξεκίνησε: το μηχάνημα είναι απασχολημένο'],[/^Not started: the program or the machine changed during the check$/,'ΔΕΝ ξεκίνησε: το πρόγραμμα ή το μηχάνημα άλλαξε κατά τον έλεγχο'],[/^Checking the program$/,'Έλεγχος του προγράμματος'],[/^Testing (.+)$/,'Έλεγχος του $1'],[/^Running: (.+)$/,'Τρέχει: $1'],[/^Cannot delete (.+)$/,'Δεν διαγράφεται το $1'],
  [/^Feed (\d+) %, rapids (\d+) %$/,'Πρόωση $1 %, γρήγορες $2 %'],[/^Saved\. The controller restarts and joins (.+)$/,'Αποθηκεύτηκε. Ο ελεγκτής κάνει επανεκκίνηση και συνδέεται στο $1'],
  [/^Not allowed: (.+)$/,'Δεν επιτρέπεται: $1'],[/^App version (.*)$/,'Έκδοση app $1'],[/^Refused \((\d+)\)$/,'Αρνήθηκε ($1)'],
  [/^(.+) · (moving|safety held|hold the safety button to move)( · .*)?$/,(m,a,b,r)=>a+I18N[' · '+b]+(r||'')]
