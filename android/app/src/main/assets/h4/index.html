@@ -316,6 +316,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="spage" data-sp="screen"><div class="pg">
 <div class="fr"><label for="scJog">Jog with</label><select id="scJog"><option value="pad">Buttons</option><option value="wheel">Wheel</option></select></div>
 <div class="fr"><label for="scLock">Jog lock</label><select id="scLock"><option value="1">On</option><option value="0">Off</option></select></div>
+<div class="fr nope" id="scBootRow"><label for="scBoot">Open when the tablet starts</label><select id="scBoot"><option value="1">On</option><option value="0">Off</option></select></div>
 <div class="fr nope" id="scFullRow"><label for="scFull">Full screen (the tablet's bars hidden)</label><select id="scFull"><option value="1">On</option><option value="0">Off</option></select></div>
 <div class="fr nope" id="scOriRow"><label for="scOri">Screen orientation</label><select id="scOri"><option value="auto">Automatic</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>
 <div class="small">Jog lock: the jog buttons and the wheel work only after the lock button &#x1F512; is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with <b>Cont</b> the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.</div></div><div class="pgc"></div></div>
@@ -576,7 +577,7 @@ const I18N={
  'Check for an app update':'Έλεγχος για νέα έκδοση του app','A newer version is offered for download; Android installs it over this one and keeps the settings.':'Η νεότερη έκδοση κατεβαίνει· το Android την εγκαθιστά πάνω από αυτή και κρατά τις ρυθμίσεις.',
  '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
  'Could not load the settings.':'Δεν φορτώθηκαν οι ρυθμίσεις.','The H4 firmware is older than this app: update it (Settings, Firmware).':'Το firmware του H4 είναι παλιότερο από το app: ενημέρωσέ το (Ρυθμίσεις, Firmware).',
- 'H4 address':'Διεύθυνση H4','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
+ 'H4 address':'Διεύθυνση H4','Open when the tablet starts':'Άνοιγμα με την εκκίνηση του tablet','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
  'How the last runs of the app ended (newest first). "WHILE ON SCREEN" means Android closed it while you were using it: usually the tablet\'s power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on) or too little free memory.':'Πώς έκλεισαν οι τελευταίες φορές του app (πρώτα η νεότερη). «ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ» σημαίνει ότι το Android το έκλεισε ενώ το χρησιμοποιούσες: συνήθως η εξοικονόμηση ενέργειας του tablet (Huawei: Phone Manager, Battery, Protected apps: H4 CNC ενεργό) ή λίγη ελεύθερη μνήμη.','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
  // gamepad page
  'No gamepad.':'Χωρίς χειριστήριο.','No gamepad: connect it, then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το και πάτα ένα κουμπί.','No gamepad. Connect it, press a button (Chrome: see i).':'Χωρίς χειριστήριο. Σύνδεσέ το, πάτα ένα κουμπί (Chrome: δες i).',
@@ -781,6 +782,7 @@ function scApply(){const wheel=sc.jog=='wheel';$('pad').hidden=wheel;$('wheelbox
  if(sc.lock!='1')unlocked=true;else if(!lockT)unlocked=false;ctlJogShow()}
 $('scJog').value=sc.jog;$('scLock').value=sc.lock;$('scJog').onchange=()=>{sc.jog=$('scJog').value;scSave()};$('scLock').onchange=()=>{sc.lock=$('scLock').value;scSave()};
 if(isApp)try{$('appVer').textContent=H4App.version()}catch(e){}
+if(isApp&&H4App.setOpenAtBoot){$('scBootRow').classList.remove('nope');try{$('scBoot').value=H4App.openAtBoot()?'1':'0'}catch(e){}$('scBoot').onchange=()=>{try{H4App.setOpenAtBoot($('scBoot').value=='1')}catch(e){}}}
 if(isApp&&H4App.setFullscreen){$('scFullRow').classList.remove('nope');try{$('scFull').value=H4App.fullscreen()?'1':'0'}catch(e){}$('scFull').onchange=()=>{try{H4App.setFullscreen($('scFull').value=='1')}catch(e){}}}
 if(isApp&&H4App.orientation){$('scOriRow').classList.remove('nope');try{$('scOri').value=H4App.orientation()}catch(e){}$('scOri').onchange=()=>{try{H4App.setOrientation($('scOri').value)}catch(e){}}}
 // Jog lock: the jog buttons and the wheel do nothing until the lock button is pressed; 15 s without jogging locks again.
