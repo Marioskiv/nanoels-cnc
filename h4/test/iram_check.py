@@ -102,18 +102,25 @@ class Firmware:
             out = subprocess.run([self.objdump, '-d', '--no-show-raw-insn', '--start-address=0x%x' % addr,
                                   '--stop-address=0x%x' % (addr + size), self.elf],
                                  capture_output=True, text=True, check=True).stdout
+            regs = {}  # register -> the constant last loaded into it with l32r (a far call is l32r + callx)
             for line in out.splitlines():
                 m = re.match(r'\s*([0-9a-f]+):\s+(\S+)\s*(.*)$', line)
                 if not m:
                     continue
                 op, args = m.group(2), m.group(3)
+                target = None
                 if op.startswith('callx'):
-                    problems.append('%s: indirect call (%s %s): its target cannot be checked' % (name, op, args))
+                    reg = args.split(',')[0].strip()
+                    if regs.get(reg) is None:
+                        problems.append('%s: indirect call (%s %s): its target cannot be checked' % (name, op, args))
+                        continue
+                    target = regs[reg]
                 elif op.startswith('call') or op in ('j', 'j.l'):
                     t = re.search(r'\b([0-9a-f]{8})\b', args)
                     if not t:
                         continue
                     target = int(t.group(1), 16)
+                if target is not None:
                     if inside(target, ROM):
                         continue
                     if inside(target, FLASH_CODE):
@@ -127,8 +134,12 @@ class Firmware:
                     t = re.search(r',\s*([0-9a-f]{8})\b', args)
                     if t:
                         value = self.read(int(t.group(1), 16))
-                        if value is not None and (inside(value, FLASH_DATA) or inside(value, FLASH_CODE)):
-                            problems.append('%s loads %08x, an address in the FLASH (%s)' % (name, value, args))
+                        regs[args.split(',')[0].strip()] = value
+                        if value is not None and inside(value, FLASH_DATA):
+                            problems.append('%s loads %08x, an address of data in the FLASH (%s)' % (name, value, args))
+                else:
+                    # any other instruction may change its first register: forget what was loaded there
+                    regs.pop(args.split(',')[0].strip(), None)
         return own, library, problems
 
 
