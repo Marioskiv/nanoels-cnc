@@ -290,7 +290,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 
 <section class="scr" data-tab="settings" hidden><div class="sets" id="sets">
 <div class="slist"><div class="pg" id="slist"></div><div class="pgc"></div></div>
-<div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="sTitle"></span></h2><div class="small" id="sNone" hidden>Choose a setting from the list.</div>
+<div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="sTitle"></span></h2>
 <div class="spage" data-sp="pad" hidden><div class="pg"><div class="small">PS4 / PS5 <button class="info" onclick="infoSheet('pad')">i</button></div><div id="gpstate" class="small">No gamepad.</div>
 <div class="fr"><label for="gpN">Jog speed (mm/min)</label><input type="number" id="gpN" step="any"></div>
 <div class="fr"><label for="gpF">Fast jog speed (mm/min)</label><input type="number" id="gpF" step="any"></div>
@@ -576,7 +576,7 @@ const I18N={
  'Check for an app update':'Έλεγχος για νέα έκδοση του app','A newer version is offered for download; Android installs it over this one and keeps the settings.':'Η νεότερη έκδοση κατεβαίνει· το Android την εγκαθιστά πάνω από αυτή και κρατά τις ρυθμίσεις.',
  '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
  'Could not load the settings.':'Δεν φορτώθηκαν οι ρυθμίσεις.','The H4 firmware is older than this app: update it (Settings, Firmware).':'Το firmware του H4 είναι παλιότερο από το app: ενημέρωσέ το (Ρυθμίσεις, Firmware).',
- 'H4 address':'Διεύθυνση H4','Choose a setting from the list.':'Διάλεξε μια ρύθμιση από τη λίστα.','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
+ 'H4 address':'Διεύθυνση H4','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
  'How the last runs of the app ended (newest first). "WHILE ON SCREEN" means Android closed it while you were using it: usually the tablet\'s power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on) or too little free memory.':'Πώς έκλεισαν οι τελευταίες φορές του app (πρώτα η νεότερη). «ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ» σημαίνει ότι το Android το έκλεισε ενώ το χρησιμοποιούσες: συνήθως η εξοικονόμηση ενέργειας του tablet (Huawei: Phone Manager, Battery, Protected apps: H4 CNC ενεργό) ή λίγη ελεύθερη μνήμη.','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
  // gamepad page
  'No gamepad.':'Χωρίς χειριστήριο.','No gamepad: connect it, then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το και πάτα ένα κουμπί.','No gamepad. Connect it, press a button (Chrome: see i).':'Χωρίς χειριστήριο. Σύνδεσέ το, πάτα ένα κουμπί (Chrome: δες i).',
@@ -902,15 +902,15 @@ function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · �
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
  const t=(look.lang=='el'?'Έκδοση app ':'App version ')+a+' · firmware '+(st.fw||'-');if(e.textContent!=t)e.textContent=t}
 function appLogShow(){try{$('appLog').textContent=H4App.exitLog()}catch(e){$('appLog').textContent='-'}}
-// A tap on the setting that is open closes it again (owner, 2026-11-05); on a wide screen the page beside the list
-// then only says to choose one.
+// A tap on the setting that is open closes it again (owner, 2026-11-05); on a wide screen the title beside the list
+// keeps the name of the setting chosen.
 function setTap(k){if(setOpen==k){setClosed=true;setShow('',true)}else{setClosed=false;setShow(k)}}
 let setClosed=false;
 function setShow(k,noHist){if(k=='applog')setTimeout(appLogShow);const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide&&!setClosed)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}
  setOpen=k;$('sets').classList.toggle('open',!!k);document.querySelectorAll('.spage').forEach(p=>p.hidden=p.dataset.sp!=k);
  document.querySelectorAll('#slist button').forEach(b=>b.classList.toggle('on',b.dataset.k==k));
- const b=document.querySelector(`#slist button[data-k="${k}"]`);$('sTitle').textContent=b?b.firstChild.textContent:'';$('sNone').hidden=!!k;pagers()}
+ const b=document.querySelector(`#slist button[data-k="${k}"]`);if(b||!setClosed)$('sTitle').textContent=b?b.firstChild.textContent:'';pagers()}  // closed: the title keeps the setting chosen
 addEventListener('popstate',e=>{const s=e.state||{};sheetClose();if(s.s)setShow(s.s,true);else setShow('',true);tab(s.t||location.hash.slice(1)||'control',true)});
 let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs button[data-t="'+q+'"]');
  const m=b('machine'),p=b('program');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
