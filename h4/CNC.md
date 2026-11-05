@@ -262,6 +262,14 @@ button is released and the drivers are powered again: Home All. A home switch th
 homing (*The switch also stops everything*) stops all motion at once as well; the axis can then be jogged away
 from the switch only.
 
+Since firmware 1.21 the step interrupt reads these inputs too, on every tick and with the same 0.5 ms debounce (as
+FluidNC and grblHAL stop on their limit pins): a switch used as a limit or the alarm that becomes active while a
+program (or a gamepad jog) moves stops the steps there, whatever the rest of the firmware is doing, and they stay
+stopped until the message, OFF and the log are done. Before, only the main loop read them, so a main loop held up
+would have let the axis go on. Home All, keys and handwheels step from the main loop and are watched there as
+before. Test: `homing_test.cpp` (a program driven onto the X switch and a driver alarm, with the main loop running
+and stuck: stopped within the bounce + 0.5 ms; without this check the X axis went 176 mm past its switch).
+
 **Home All** (button on the page, or `$H` in *Run line*): Z first, then X (setting), each one searching its
 switch, leaving it slowly (latch), setting its machine coordinate to `HOME_OFFSET` there and moving to `HOME`;
 A1 (C) takes machine 0 where it stands. Soft limits (`MIN_LIMIT` / `MAX_LIMIT`, machine coordinates) then
