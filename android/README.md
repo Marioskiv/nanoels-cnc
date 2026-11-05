@@ -40,7 +40,15 @@ way, Huawei's installer on Android 7 could stay at "Installing..."; it remains t
 keeps both ways: when an install does not go through (the app opens again at the old version) or its confirmation
 is left, the next try uses the other way (as F-Droid, which below Android 12 opens Android's installer screen
 directly, because makers break the session on some devices); the way that worked stays. On one Huawei tablet
-with Android 7 the session's *Install* button did nothing. Android asks to confirm (Android 8 and
+with Android 7 the session's *Install* button did nothing. From app 1.39 the first try below Android 13 is Android's installer
+screen (Ackpine and F-Droid advise against the session there, above all on Huawei and Xiaomi installers); from
+Android 13 on, the session.
+
+**Network (from app 1.39).** While the app is on screen it keeps the WiFi at full speed (Android's WiFi power
+saving answers 100-300 ms late now and then, and the gamepad's jog sends every 0.1 s to an H4 that stops 0.3 s after
+the last request). On a WiFi without internet (e.g. one only for the H4) the app keeps its traffic on that WiFi, so a
+tablet with a SIM card does not send it over mobile data; the update check then needs a WiFi with internet. Web
+pages other than the H4's open in the browser, not inside the app. Android asks to confirm (Android 8 and
 newer first ask once to allow H4 CNC to install apps). If the installed app was signed with another key (the early
 test versions 1.0–1.5), Android cannot update it: the app says so and offers to uninstall it; then install
 `H4CNC.apk` once by hand. Versions up to 1.10 handed the download to the browser or to a newer installer path:
