@@ -8,6 +8,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.BatteryManager;
+import android.view.View;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.net.ConnectivityManager;
@@ -40,6 +43,7 @@ public class MainActivity extends Activity {
     private static final String PREFS = "h4";
     private static final String KEY_ADDRESS = "address";
     private static final String KEY_ORIENTATION = "orientation";
+    private static final String KEY_FULLSCREEN = "fullscreen";
     private static final int PICK_FILE = 1;
 
     private WebView web;
@@ -59,6 +63,7 @@ public class MainActivity extends Activity {
         applyOrientation(getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ORIENTATION, "auto"));
         web = new WebView(this);
         setContentView(web);
+        applyFullscreen();
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -197,6 +202,50 @@ public class MainActivity extends Activity {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    // Full screen (Settings, Screen and jog; on by default): the tablet's status bar and its Back / Home / Recent keys
+    // are hidden; a swipe from the top or bottom edge shows them for a moment. The page shows the clock, battery
+    // and WiFi itself, beside STOP.
+    private boolean fullscreen() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_FULLSCREEN, true);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void applyFullscreen() {
+        View d = getWindow().getDecorView();
+        d.setSystemUiVisibility(fullscreen() ? View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY : 0);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) applyFullscreen();   // again after a dialog or a swipe that showed the bars
+    }
+
+    // The tablet's battery (%, charging) and WiFi signal (0-4 bars), for the page's header.
+    String deviceStatus() {
+        int battery = -1, wifi = -1;
+        boolean charging = false;
+        try {
+            Intent b = getApplicationContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (b != null) {
+                int level = b.getIntExtra(BatteryManager.EXTRA_LEVEL, -1), scale = b.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+                if (level >= 0 && scale > 0) battery = Math.round(100f * level / scale);
+                int st = b.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                charging = st == BatteryManager.BATTERY_STATUS_CHARGING || st == BatteryManager.BATTERY_STATUS_FULL;
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            @SuppressWarnings("deprecation") android.net.wifi.WifiInfo wi = wm != null ? wm.getConnectionInfo() : null;
+            if (wi != null && wi.getNetworkId() != -1) wifi = android.net.wifi.WifiManager.calculateSignalLevel(wi.getRssi(), 5);
+        } catch (Exception ignored) {
+        }
+        return "{\"battery\":" + battery + ",\"charging\":" + charging + ",\"wifi\":" + wifi + "}";
     }
 
     // Screen orientation chosen on the page (Settings, Screen and jog): auto, landscape or portrait.
@@ -426,6 +475,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setLang(String lang) {
             Tr.set(MainActivity.this, lang);
+        }
+
+        @JavascriptInterface
+        public String deviceStatus() {
+            return MainActivity.this.deviceStatus();
+        }
+
+        @JavascriptInterface
+        public boolean fullscreen() {
+            return MainActivity.this.fullscreen();
+        }
+
+        @JavascriptInterface
+        public void setFullscreen(boolean on) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(KEY_FULLSCREEN, on).apply();
+            runOnUiThread(MainActivity.this::applyFullscreen);
         }
 
         // Settings, App log: how the last runs of the app ended

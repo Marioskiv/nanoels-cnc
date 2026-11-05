@@ -25,7 +25,7 @@ const OKW=/^(STOP|Home|Home All|G-code|WiFi|Firmware|MDI|OK|PS|PS4 \/ PS5|Share|
  const en1=await visit();
  const greek=en1.filter(t=>/[Ͱ-Ͽ]/.test(t)&&!OKW.test(t));ok(!greek.length,'Greek in English: '+[...new Set(greek)].join(' | '));
  await setLang('el');const el=await visit();
- const eng=el.filter(t=>/[A-Za-z]{4,}/.test(t.replace(/\b(G-code|WiFi|Firmware|Home All|Home|STOP|MDI|PSRAM|GitHub|Bluetooth|USB|Android|Chrome|chrome:\/\/flags|Insecure origins treated as secure|Enabled|Relaunch|Share|Options|Cross|Circle|Square|Triangle|demo|DEMO|ngc|jog|Jog|buffer|alarm|home|encoder|driver|drivers|homing|backlash|junction deviation|LinuxCNC|DIRHOLD|DIRSETUP|Grbl|UGS|gSender|CNCjs|HOME[A-Z_]*|MAX_LIMIT|MIN_LIMIT|GCODE|E-stop|firmware|app|browser|Unlock)\b/g,''))&&!OKW.test(t));
+ const eng=el.filter(t=>/[A-Za-z]{4,}/.test(t.replace(/\b(G-code|WiFi|Firmware|Home All|Home|STOP|MDI|PSRAM|GitHub|Bluetooth|USB|Android|Chrome|chrome:\/\/flags|Insecure origins treated as secure|Enabled|Relaunch|Share|Options|Cross|Circle|Square|Triangle|demo|DEMO|ngc|jog|Jog|buffer|alarm|home|encoder|driver|drivers|homing|backlash|junction deviation|LinuxCNC|DIRHOLD|DIRSETUP|Grbl|UGS|gSender|CNCjs|HOME[A-Z_]*|MAX_LIMIT|MIN_LIMIT|GCODE|E-stop|firmware|app|browser|tablet|Unlock)\b/g,''))&&!OKW.test(t));
  ok(!eng.filter(t=>!/\.(nc|ngc|gcode|tap|txt)\b/.test(t)).length,'English left in Greek: '+[...new Set(eng)].slice(0,30).join(' | '));
  ok(el.some(t=>/Πρόωση/.test(t))&&el.some(t=>/Κράτα για κίνηση/.test(t)),'Greek texts shown');
  await setLang('en');const en2=await visit();
