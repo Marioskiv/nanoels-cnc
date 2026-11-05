@@ -50,11 +50,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: arduino/setup-arduino-cli@v2
+      # The ESP32 core (~1 GB of tools) kept between runs: its download often failed with "504 Gateway Timeout"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/staging
+          key: arduino-esp32-3.3.12-tca8418-lcd-v1
       - name: ESP32 core and libraries
         run: |
-          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          arduino-cli lib install "Adafruit TCA8418" "LiquidCrystal"
+          # a download that fails (server busy) is tried again, up to 3 times
+          for try in 1 2 3; do
+            arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json &&
+            arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json &&
+            arduino-cli lib install "Adafruit TCA8418" "LiquidCrystal" && break
+            [ $try = 3 ] && exit 1
+            echo "download failed, trying again in 30 s ($try / 3)"; sleep 30
+          done
       - name: With an own my_machine.h (the example)
         if: matrix.machine == 'my_machine'
         run: cp h4/my_machine.h.example h4/my_machine.h
@@ -76,11 +88,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: arduino/setup-arduino-cli@v2
+      # The ESP32 core (~1 GB of tools) kept between runs: its download often failed with "504 Gateway Timeout"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/staging
+          key: arduino-esp32-3.3.12-tca8418-lcd-v1
       - name: ESP32 core and libraries
         run: |
-          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          arduino-cli lib install "Adafruit TCA8418" "LiquidCrystal"
+          # a download that fails (server busy) is tried again, up to 3 times
+          for try in 1 2 3; do
+            arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json &&
+            arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json &&
+            arduino-cli lib install "Adafruit TCA8418" "LiquidCrystal" && break
+            [ $try = 3 ] && exit 1
+            echo "download failed, trying again in 30 s ($try / 3)"; sleep 30
+          done
       - name: Build
         id: fw
         run: |
