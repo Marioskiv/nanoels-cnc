@@ -21,6 +21,7 @@ public final class InstallReceiver extends BroadcastReceiver {
     @SuppressWarnings("deprecation")
     public void onReceive(Context c, Intent i) {
         int status = i.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+        ExitWatch.event(c, "Android's answer (session): " + status, "απάντηση του Android (session): " + status);
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             // Android's own "Install this update?" screen, in a task of its own
             Intent confirm = Build.VERSION.SDK_INT >= 33 ? i.getParcelableExtra(Intent.EXTRA_INTENT, Intent.class)

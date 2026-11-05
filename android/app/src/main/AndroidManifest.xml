@@ -31,6 +31,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- after an app update: the new version opens by itself (the old one was closed by Android to replace it) -->
+        <receiver
+            android:name=".UpdatedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <!-- the answer of Android's installer to an app update made with an install session (UpdateCheck) -->
         <receiver
             android:name=".InstallReceiver"
