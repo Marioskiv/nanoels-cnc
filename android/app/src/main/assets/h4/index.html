@@ -756,7 +756,7 @@ try{const v=localStorage.getItem('h4step');jogStep=v=='cont'?'cont':(+v||0.1)}ca
 const SC0={jog:'pad',lock:'1'};let sc=Object.assign({},SC0);try{Object.assign(sc,JSON.parse(localStorage.getItem('h4screen')||'{}'))}catch(e){}
 const ltZv=()=>+(st&&st.lzv)||0,ltXv=()=>+(st&&st.lxv)||0,ltRad=()=>ltXv()!=0;
 const ltZs=z=>{const v=ltZv()?z:-z;return v===0?0:v},ltXn=x=>{const v=[-2*x,-x,x][ltXv()];return v===0?0:v};
-const LOOK0={xr:'d',lang:'en',theme:'dark',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
+const LOOK0={xr:'d',lang:'en',theme:'light',acc:'#ff9a1f',X:'#ff9a1f',Z:'#7ad151',C:'#e24bd0',size:'34'};let look=Object.assign({},LOOK0);
 try{Object.assign(look,JSON.parse(localStorage.getItem('h4look')||'{}'))}catch(e){}
 const AXC={X:look.X,Z:look.Z,C:look.C};
 // Appearance: theme, accent and axis colours, number size (stored in the browser)
@@ -1681,7 +1681,8 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closes
 window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
-{let t0=location.hash.slice(1);if(!TN.includes(t0))try{t0=localStorage.getItem('h4tab')}catch(e){}t0=TN.includes(t0)?t0:'control';
+// the app opens on Control (owner 2026-11-05), not on the screen used last; a browser reload keeps its screen (#...)
+{let t0=location.hash.slice(1);t0=TN.includes(t0)?t0:'control';
  tab(t0,true);try{history.replaceState({t:t0},'','#'+t0)}catch(e){}}
 setList();listFiles();loadCfg();poll();
 </script></body></html>
