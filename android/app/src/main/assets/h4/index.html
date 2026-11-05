@@ -118,7 +118,8 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .spanel{flex:1.6;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}.spage{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
 .sets .pg{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.sets .pg>*{flex-shrink:0}
 .sets.open .slist{display:none}.sets:not(.open) .spanel{display:none}.sback{display:inline-block}
-@media (orientation:landscape) and (min-width:700px){.sets .slist,.sets .spanel{display:flex!important}.sback{display:none}}
+@media (orientation:landscape) and (min-width:700px){.sets .slist,.sets .spanel{display:flex!important}.sback{display:none}
+ .sets.shut .spanel{display:none!important}.sets.shut::after{content:'';flex:1.6}}  /* a closed setting: its whole card goes, the list keeps its place */
 /* pop-up */
 .sheet{position:fixed;inset:0;z-index:8;background:#0009;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;gap:10px;overflow:hidden}
@@ -904,15 +905,14 @@ function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · �
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
  const t=(look.lang=='el'?'Έκδοση app ':'App version ')+a+' · firmware '+(st.fw||'-');if(e.textContent!=t)e.textContent=t}
 function appLogShow(){try{$('appLog').textContent=H4App.exitLog()}catch(e){$('appLog').textContent='-'}}
-// A tap on the setting that is open closes it again (owner, 2026-11-05); on a wide screen the title beside the list
-// keeps the name of the setting chosen.
+// A tap on the setting that is open closes it again (owner, 2026-11-05): on a wide screen its whole card goes too.
 function setTap(k){if(setOpen==k){setClosed=true;setShow('',true)}else{setClosed=false;setShow(k)}}
 let setClosed=false;
 function setShow(k,noHist){if(k=='applog')setTimeout(appLogShow);const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide&&!setClosed)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}
- setOpen=k;$('sets').classList.toggle('open',!!k);document.querySelectorAll('.spage').forEach(p=>p.hidden=p.dataset.sp!=k);
+ setOpen=k;$('sets').classList.toggle('open',!!k);$('sets').classList.toggle('shut',!k);document.querySelectorAll('.spage').forEach(p=>p.hidden=p.dataset.sp!=k);
  document.querySelectorAll('#slist button').forEach(b=>b.classList.toggle('on',b.dataset.k==k));
- const b=document.querySelector(`#slist button[data-k="${k}"]`);if(b||!setClosed)$('sTitle').textContent=b?b.firstChild.textContent:'';pagers()}  // closed: the title keeps the setting chosen
+ const b=document.querySelector(`#slist button[data-k="${k}"]`);if(b)$('sTitle').textContent=b.firstChild.textContent;pagers()}
 addEventListener('popstate',e=>{const s=e.state||{};sheetClose();if(s.s)setShow(s.s,true);else setShow('',true);tab(s.t||location.hash.slice(1)||'control',true)});
 let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs button[data-t="'+q+'"]');
  const m=b('machine'),p=b('program');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
