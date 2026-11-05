@@ -132,15 +132,15 @@ final class ExitWatch {
         else if (install) kind = "install";
         else {
             long avail = p.getLong("availMb", -1), thr = p.getLong("thresholdMb", -1);
-            boolean memory = p.getBoolean("low", false) || p.getInt("trim", -1) >= 10 || (avail >= 0 && thr >= 0 && avail < thr + 64);
-            kind = (p.getBoolean("screen", false) ? "killedScreen" : "killedBg") + (memory ? "Mem" : "");
+            kind = (p.getBoolean("screen", false) ? "killedScreen" : "killedBg") + (memory(p) ? "Mem" : "");
         }
         try {
             SharedPreferences lp = c.getSharedPreferences(LOG, Context.MODE_PRIVATE);
             JSONArray a = new JSONArray(lp.getString("list", "[]")), b = new JSONArray();
             JSONObject o = new JSONObject();
             o.put("s", start).put("e", p.getLong(p.getString("crash", null) != null ? "crashAt" : "at", start))
-                    .put("v", p.getString("version", "?")).put("k", kind).put("m", p.getLong("availMb", -1));
+                    .put("v", p.getString("version", "?")).put("k", kind).put("m", p.getLong("availMb", -1))
+                    .put("t", p.getInt("trim", -1)).put("h", p.getLong("heapMb", -1));
             b.put(o);
             for (int i = 0; i < a.length() && b.length() < LOG_MAX; i++) b.put(a.get(i));
             lp.edit().putString("list", b.toString()).commit();
@@ -173,11 +173,26 @@ final class ExitWatch {
                         .append(" · ").append(how);
                 long m = o.optLong("m", -1);
                 if (m >= 0 && !"user".equals(k)) sb.append(Tr.t(c, " · free memory ", " · ελεύθερη μνήμη ")).append(m).append(" MB");
+                // what Android last said to the app about memory (onTrimMemory level) and the app's own memory
+                int t = o.optInt("t", -1);
+                if (t >= 0 && !"user".equals(k)) sb.append(" · trim ").append(t);
+                long h = o.optLong("h", -1);
+                if (h >= 0 && !"user".equals(k)) sb.append(" · app ").append(h).append(" MB");
                 sb.append('\n');
             }
         } catch (Exception ignored) {
         }
         return sb.length() == 0 ? Tr.t(c, "Nothing written yet: the list starts with app 1.37.", "Τίποτα ακόμα: η λίστα ξεκινά με το app 1.37.") : sb.toString();
+    }
+
+    // Little memory really: Android said so (lowMemory), or it asked the running app to free memory (onTrimMemory
+    // 10 RUNNING_LOW, 15 RUNNING_CRITICAL) or the hidden app (60 MODERATE, 80 COMPLETE), or the free memory was at
+    // Android's limit. Level 20 (UI_HIDDEN) only means the app went behind another screen: not memory (app 1.40;
+    // 1.37-1.39 counted it as memory).
+    private static boolean memory(SharedPreferences p) {
+        int t = p.getInt("trim", -1);
+        long avail = p.getLong("availMb", -1), thr = p.getLong("thresholdMb", -1);
+        return p.getBoolean("low", false) || t == 10 || t == 15 || t >= 60 || (avail >= 0 && thr >= 0 && avail < thr + 64);
     }
 
     static void clearHistory(Context c) {
@@ -209,7 +224,7 @@ final class ExitWatch {
             text = Tr.t(a, "On " + when + " the screen's browser part (WebView) ended (" + renderer + "). " + mem,
                     "Στις " + when + " σταμάτησε το κομμάτι του app που δείχνει την οθόνη (WebView, " + renderer + "). " + mem);
         } else {
-            boolean memory = low || trim >= 10 || (avail >= 0 && thr >= 0 && avail < thr + 64);
+            boolean memory = memory(p);
             text = Tr.t(a, "Android closed H4 CNC (last sign of life " + when + ", " + (screen ? "on screen" : "in the background") + "). " + mem + "\n\n"
                     + (memory ? "Likely cause: not enough memory in the tablet. Close other apps (the square key)."
                     : "Likely cause: the maker's power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on)."),

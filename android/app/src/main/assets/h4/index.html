@@ -18,7 +18,8 @@ header{grid-area:h;display:flex;gap:8px;align-items:center;padding:6px 10px;bord
 .hinfo{font-size:13px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.hinfo b{color:var(--fg)}
 .demo{font:700 11px system-ui;color:#000;background:var(--warn);border-radius:6px;padding:2px 6px}
 .pill{padding:4px 10px;border-radius:14px;border:1px solid #2f6db3;color:#9ecbff;font-weight:700;font-size:13px;letter-spacing:.04em;white-space:nowrap}
-.grow{flex:1}.hstop{padding:7px 16px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
+.grow{flex:1}.hdev{display:flex;align-items:center;gap:10px;font:700 15px system-ui;color:var(--fg);white-space:nowrap}.hdev svg{height:16px;vertical-align:-2px;margin-right:3px}.hdev .low{color:var(--bad)}
+@media (max-width:560px){.hdev .hb,.hdev .hw{display:none}}.hstop{padding:7px 16px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
 main{grid-area:m;position:relative;min-height:0;overflow:hidden}
 .scr{position:absolute;inset:0;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:0}.scr[hidden],[hidden]{display:none!important}
 .tabs{position:fixed;z-index:70;left:8px;top:50px;display:flex;flex-direction:column;gap:5px;width:min(270px,calc(100vw - 16px));padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px #000a;
@@ -221,7 +222,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 </style></head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="icCyl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d6570"/><stop offset=".45" stop-color="#d4d9e0"/><stop offset="1" stop-color="#5d6570"/></linearGradient></defs></svg>
 <div id="app">
 <header><button type="button" class="navb" id="navBtn" aria-haspopup="true"></button><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
-<span class="demo" id="demoTag" hidden>DEMO</span><span class="grow"></span><button class="hstop" onclick="cmd('stop')">STOP</button></header>
+<span class="demo" id="demoTag" hidden>DEMO</span><span class="grow"></span><span class="hdev" id="hDev"></span><button class="hstop" onclick="cmd('stop')">STOP</button></header>
 <main>
 <section class="scr ctl" data-tab="control" id="ctl">
 <div class="axes" id="axes"></div>
@@ -315,6 +316,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="spage" data-sp="screen"><div class="pg">
 <div class="fr"><label for="scJog">Jog with</label><select id="scJog"><option value="pad">Buttons</option><option value="wheel">Wheel</option></select></div>
 <div class="fr"><label for="scLock">Jog lock</label><select id="scLock"><option value="1">On</option><option value="0">Off</option></select></div>
+<div class="fr nope" id="scFullRow"><label for="scFull">Full screen (the tablet's bars hidden)</label><select id="scFull"><option value="1">On</option><option value="0">Off</option></select></div>
 <div class="fr nope" id="scOriRow"><label for="scOri">Screen orientation</label><select id="scOri"><option value="auto">Automatic</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>
 <div class="small">Jog lock: the jog buttons and the wheel work only after the lock button &#x1F512; is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with <b>Cont</b> the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.</div></div><div class="pgc"></div></div>
 <div id="cfg"></div>
@@ -574,7 +576,7 @@ const I18N={
  'Check for an app update':'Έλεγχος για νέα έκδοση του app','A newer version is offered for download; Android installs it over this one and keeps the settings.':'Η νεότερη έκδοση κατεβαίνει· το Android την εγκαθιστά πάνω από αυτή και κρατά τις ρυθμίσεις.',
  '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
  'Could not load the settings.':'Δεν φορτώθηκαν οι ρυθμίσεις.','The H4 firmware is older than this app: update it (Settings, Firmware).':'Το firmware του H4 είναι παλιότερο από το app: ενημέρωσέ το (Ρυθμίσεις, Firmware).',
- 'H4 address':'Διεύθυνση H4','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
+ 'H4 address':'Διεύθυνση H4','Full screen (the tablet\'s bars hidden)':'Πλήρης οθόνη (χωρίς τις μπάρες του tablet)','App log':'Ημερολόγιο app','Refresh':'Ανανέωση','Clear the app log?':'Καθαρισμός του ημερολογίου του app;',
  'How the last runs of the app ended (newest first). "WHILE ON SCREEN" means Android closed it while you were using it: usually the tablet\'s power saving (Huawei: Phone Manager, Battery, Protected apps: H4 CNC on) or too little free memory.':'Πώς έκλεισαν οι τελευταίες φορές του app (πρώτα η νεότερη). «ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ» σημαίνει ότι το Android το έκλεισε ενώ το χρησιμοποιούσες: συνήθως η εξοικονόμηση ενέργειας του tablet (Huawei: Phone Manager, Battery, Protected apps: H4 CNC ενεργό) ή λίγη ελεύθερη μνήμη.','The H4 did not take it.':'Το H4 δεν το δέχτηκε.',
  // gamepad page
  'No gamepad.':'Χωρίς χειριστήριο.','No gamepad: connect it, then press a button.':'Χωρίς χειριστήριο: σύνδεσέ το και πάτα ένα κουμπί.','No gamepad. Connect it, press a button (Chrome: see i).':'Χωρίς χειριστήριο. Σύνδεσέ το, πάτα ένα κουμπί (Chrome: δες i).',
@@ -779,6 +781,7 @@ function scApply(){const wheel=sc.jog=='wheel';$('pad').hidden=wheel;$('wheelbox
  if(sc.lock!='1')unlocked=true;else if(!lockT)unlocked=false;ctlJogShow()}
 $('scJog').value=sc.jog;$('scLock').value=sc.lock;$('scJog').onchange=()=>{sc.jog=$('scJog').value;scSave()};$('scLock').onchange=()=>{sc.lock=$('scLock').value;scSave()};
 if(isApp)try{$('appVer').textContent=H4App.version()}catch(e){}
+if(isApp&&H4App.setFullscreen){$('scFullRow').classList.remove('nope');try{$('scFull').value=H4App.fullscreen()?'1':'0'}catch(e){}$('scFull').onchange=()=>{try{H4App.setFullscreen($('scFull').value=='1')}catch(e){}}}
 if(isApp&&H4App.orientation){$('scOriRow').classList.remove('nope');try{$('scOri').value=H4App.orientation()}catch(e){}$('scOri').onchange=()=>{try{H4App.setOrientation($('scOri').value)}catch(e){}}}
 // Jog lock: the jog buttons and the wheel do nothing until the lock button is pressed; 15 s without jogging locks again.
 function lockTouch(){if(sc.lock!='1')return;clearTimeout(lockT);lockT=setTimeout(()=>{unlocked=false;lockT=0;ctlJogShow()},15000)}
@@ -863,6 +866,16 @@ const TABS=[['control','Control','<circle cx="12" cy="12" r="8"/><circle cx="12"
  ['settings','Settings','<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>']];
 const TN=TABS.map(t=>t[0]);let curTab='',subs={},setOpen='';
 // The screens are chosen from a list that rolls down under the button in the header and rolls up again.
+// Clock, battery and WiFi of the tablet beside STOP (in the app: from Android; in a browser: the clock, and the
+// battery where the browser tells it)
+function devShow(){const e=$('hDev');if(!e)return;let d={};try{if(isApp&&H4App.deviceStatus)d=JSON.parse(H4App.deviceStatus())}catch(x){}
+ if(!isApp&&window.devBatt!=null)d.battery=window.devBatt;const t=new Date(),hm=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');let h='';
+ const show=b=>{if(b!=null&&b>=0){const w=Math.max(1,Math.round(b/100*14));h+=`<span class="hb${b<=15&&!d.charging?' low':''}"><svg viewBox="0 0 22 12"><rect x="1" y="1" width="18" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="19.5" y="4" width="2" height="4" fill="currentColor"/><rect x="3" y="3" width="${w}" height="6" fill="currentColor"/></svg>${b}%${d.charging?' ⚡':''}</span>`}};
+ show(d.battery);
+ if(d.wifi!=null&&d.wifi>=0){const l=d.wifi;h+=`<span class="hw"><svg viewBox="0 0 20 14">${[0,1,2,3].map(i=>`<rect x="${1+i*5}" y="${11-i*3}" width="3.5" height="${3+i*3}" rx="1" fill="currentColor" opacity="${i<l?1:.25}"/>`).join('')}</svg></span>`}
+ h+=`<span>${hm}</span>`;e.innerHTML=h}
+if(!isApp&&navigator.getBattery)navigator.getBattery().then(b=>{const f=()=>{window.devBatt=Math.round(b.level*100)};f();b.addEventListener('levelchange',f)}).catch(()=>{});
+setInterval(devShow,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)devShow()});setTimeout(devShow,300);
 function navName(t){const L=typeof LTT!='undefined'?LTT[look.lang=='el'?'el':'en'].tabs:{};const x=TABS.find(a=>a[0]==t)||TABS[0];return L[x[0]]||x[1]}
 function navShow(){const t=TABS.find(a=>a[0]==curTab)||TABS[0];$('navBtn').innerHTML=`<svg viewBox="0 0 24 24">${t[2]}</svg><span>${navName(t[0])}</span><span class="ar">${$('tabs').classList.contains('open')?'▲':'▼'}</span>`}
 function navOpen(o){const n=$('tabs');if(o)n.style.top=Math.round($('navBtn').getBoundingClientRect().bottom+6)+'px';n.classList.toggle('open',!!o);navShow()}
@@ -1552,7 +1565,7 @@ function partBoot(){if(ltPart&&st.boot!=null&&ltPart.boot!=null&&st.boot!=ltPart
 // View of the drawing: what is shown (auto / all / close) and the operator's zoom and drag on top of it.
 let ltVw={mode:'auto',zoom:1,dz:0,dx:0,S:1};
 function ltVwSet(mode){ltVw={mode,zoom:1,dz:0,dx:0,S:ltVw.S};ltVwBtns();ltDraw()}
-function ltVwBtns(){const L=ltT();$('ltVAll').textContent='⤢ '+L.vAll;$('ltVClose').textContent='⊙ '+L.vClose;
+function ltVwBtns(){const L=ltT();$('ltVAll').textContent='↔ '+L.vAll;$('ltVClose').textContent='⊙ '+L.vClose;
  $('ltVAll').classList.toggle('on',ltVw.mode=='all');$('ltVClose').classList.toggle('on',ltVw.mode=='close')}
 (function(){const sv=$('ltSvg'),pts=new Map();let last=null,tap=0;
  const span=()=>{const a=[...pts.values()];return a.length<2?null:{d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2}};

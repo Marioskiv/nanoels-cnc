@@ -44,6 +44,10 @@ with Android 7 the session's *Install* button did nothing. From app 1.39 the fir
 screen (Ackpine and F-Droid advise against the session there, above all on Huawei and Xiaomi installers); from
 Android 13 on, the session.
 
+**Full screen (from app 1.40).** The app hides the tablet's status bar and its Back / Home / Recent keys (a
+swipe from the top or bottom edge shows them for a moment); the page shows the clock, the battery and the WiFi
+signal beside STOP. *Settings, Screen and jog, Full screen* switches it off.
+
 **Network (from app 1.39).** While the app is on screen it keeps the WiFi at full speed (Android's WiFi power
 saving answers 100-300 ms late now and then, and the gamepad's jog sends every 0.1 s to an H4 that stops 0.3 s after
 the last request). On a WiFi without internet (e.g. one only for the H4) the app keeps its traffic on that WiFi, so a

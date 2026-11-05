@@ -9,7 +9,8 @@ const { chromium } = require('playwright');
   const p=await b.newPage({viewport:{width:1024,height:600}});p.on('pageerror',e=>errs.push(String(e)));
   await p.addInitScript(([app])=>{localStorage.setItem('h4look',JSON.stringify({lang:'el'}));
    if(app){window.LOGTEXT='04/11 10:00 → 04/11 10:20 · app 1.36 · το έκλεισε το Android ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ\n';window.H4App={settings(){},changeAddress(){},checkAppUpdate(){},checkFirmware(){},
-    exitLog(){return window.LOGTEXT},clearExitLog(){window.LOGTEXT='-'},orientation(){return 'auto'},setOrientation(){},setLang(){},version(){return '1.37'}}}},[app]);
+    exitLog(){return window.LOGTEXT},clearExitLog(){window.LOGTEXT='-'},orientation(){return 'auto'},setOrientation(){},setLang(){},version(){return '1.40'},
+    deviceStatus(){return JSON.stringify({battery:67,charging:false,wifi:3})},fullscreen(){return window.FS!==false},setFullscreen(v){window.FS=v}}}},[app]);
   await p.goto('file://'+require('path').resolve(process.argv[2])+'?demo');await p.waitForTimeout(700);
   await p.evaluate(()=>tab('settings'));
   for(const k of ['look','screen','pad','m0','wifi','fw']){await p.evaluate(k=>setShow(k),k);await p.waitForTimeout(150);
@@ -24,6 +25,12 @@ const { chromium } = require('playwright');
   // the list itself
   r=await p.evaluate(()=>[...document.querySelectorAll('#slist button')].map(b=>b.dataset.k));
   ok(app?r.includes('applog'):!r.includes('applog'),'App log only in the app: '+r);
+  // the header: clock always; battery and WiFi from the app
+  r=await p.evaluate(()=>{devShow();return $('hDev').textContent});
+  ok(/\d\d:\d\d/.test(r)&&(app?/67%/.test(r):true),'header '+(app?'app':'browser')+': '+r);
+  // full screen switch: only in the app, kept by it
+  r=await p.evaluate(()=>{setShow('screen');return !$('scFullRow').classList.contains('nope')});ok(r==app,'full screen choice only in the app');
+  if(app){await p.evaluate(()=>{$('scFull').value='0';$('scFull').onchange()});ok(await p.evaluate(()=>window.FS===false),'full screen off sent to the app')}
   if(app){await p.evaluate(()=>setShow('applog'));await p.waitForTimeout(150);
    r=await p.evaluate(()=>$('appLog').textContent);ok(/ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ/.test(r),'app log shown: '+r);
    p.once('dialog',d=>d.accept());await p.evaluate(()=>[...document.querySelectorAll('.spage[data-sp=applog] button')].pop().click());await p.waitForTimeout(150);

@@ -179,7 +179,7 @@ The page **never scrolls** (but *Settings*, whose pages scroll with the finger):
 **button at the top left** that names the screen you are on: a tap rolls the list of screens down under it, a choice
 rolls it up again (or swipe left / right; the phone's Back key goes to the screen before). Axes are always in the
 order **Z, X, C**, as in the lathe drawing, on the H4's own keys and on the gamepad's sticks. What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
-On a tablet turned sideways the parts of a screen sit side by side. **STOP** is always at the top right. Messages
+On a tablet turned sideways the parts of a screen sit side by side. **STOP** is always at the top right; beside it the clock (in the app also the tablet's battery and WiFi: the app runs full screen, see *Settings, Screen and jog*). Messages
 also appear for a few seconds; a red dot on *Machine* means a new message, *G-code* shows the progress while a
 program runs.
 
