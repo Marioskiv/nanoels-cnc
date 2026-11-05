@@ -220,6 +220,17 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 @media (max-height:640px),(orientation:portrait) and (max-height:1000px){.ltg label{line-height:1.15}.ltg .f{gap:1px}.ltg{padding:3px 6px;gap:3px}.ltgroups{gap:4px}.ltgc .ltgf{gap:3px 4px}}
 @media (max-height:640px){.card.ltpanel{gap:3px}.ltzero>b{display:none}.ltpanel>.ltinfo{min-height:2.2em}.ltgc .ltgf,.ltfields{grid-template-columns:repeat(auto-fill,minmax(138px,1fr))!important}.ltg .step,.ltfields .step{grid-template-columns:46px 1fr 46px!important}.ltg .step button:not(.numv),.ltfields .step button:not(.numv){min-height:31px;font-size:30px!important}.ltg .step .numv{padding:0}}
 @media (orientation:portrait) and (max-height:1000px){.ltg .step button:not(.numv),.ltfields .step button:not(.numv){min-height:34px}.ltg .step .numv{padding:0}}
+/* Choice lists roll down under their own button (owner 2026-11-05): Android's own list is a centred window and the tap
+   that closed it went on to the field and opened it again. The <select> stays (hidden) and keeps the value. */
+select.ddsel{position:absolute;opacity:0;pointer-events:none;width:1px!important;height:1px;padding:0;border:0;margin:0}
+button.ddb{font:inherit;padding:7px;border-radius:6px;border:1px solid var(--line);background:var(--in);color:var(--fg);width:100%;min-width:0;
+ display:flex;justify-content:space-between;align-items:center;gap:6px;text-align:left;font-weight:inherit;box-shadow:none}
+button.ddb>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}button.ddb>i{font-style:normal;opacity:.6;transition:transform .15s}
+button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}button.ddb:disabled{opacity:.45}
+.dd{position:fixed;z-index:75;display:flex;flex-direction:column;gap:4px;padding:5px;overflow:auto;background:var(--bg);border:1px solid var(--line);
+ border-radius:10px;box-shadow:0 12px 30px #000a;max-width:calc(100vw - 16px)}
+.dd button{text-align:left;padding:9px 12px;background:var(--btn2);border:1px solid transparent;border-radius:7px;color:var(--fg);font:inherit}
+.dd button.on{border-color:var(--or)}
 </style></head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="icCyl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d6570"/><stop offset=".45" stop-color="#d4d9e0"/><stop offset="1" stop-color="#5d6570"/></linearGradient></defs></svg>
 <div id="app">
 <header><button type="button" class="navb" id="navBtn" aria-haspopup="true"></button><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
@@ -344,6 +355,34 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 <div class="sheet" id="sheet" hidden onclick="if(event.target==this)sheetClose()"><div class="sbox"><div class="shead"><span id="shTitle"></span><button onclick="sheetClose()">&#x2715;</button></div><div id="shBody" style="display:flex;flex-direction:column;gap:8px;min-height:0"></div></div></div>
 <div class="toast off" id="toast"></div>
 <script>
+// Choice lists: a button that rolls its list down under itself; a second tap on it closes the list (owner 2026-11-05).
+(function(){const P=HTMLSelectElement.prototype,DV=Object.getOwnPropertyDescriptor(P,'value'),DI=Object.getOwnPropertyDescriptor(P,'selectedIndex');
+ let cur=null;const L=document.createElement('div');L.className='dd';L.id='ddList';L.hidden=true;document.body.appendChild(L);
+ const text=s=>{const o=s.options[DI.get.call(s)];return o?o.textContent:''};
+ function sync(s){const b=s._dd;if(!b)return;const t=text(s);if(b.firstChild.textContent!=t)b.firstChild.textContent=t;b.disabled=s.disabled;b.hidden=s.hidden;b.title=s.title||''}
+ function close(){L.hidden=true;L.innerHTML='';if(cur)cur._dd.classList.remove('on');cur=null}
+ function open(s){cur=s;sync(s);const b=s._dd;b.classList.add('on');const sel=DI.get.call(s);
+  L.innerHTML='';[...s.options].forEach((o,i)=>{if(o.hidden)return;const x=document.createElement('button');x.type='button';x.textContent=o.textContent;
+   x.disabled=o.disabled;if(i==sel)x.className='on';x.onclick=()=>{close();if(i!=DI.get.call(s)){DI.set.call(s,i);sync(s);
+    s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}))}};L.appendChild(x)});
+  L.hidden=false;const r=b.getBoundingClientRect(),H=innerHeight,below=H-r.bottom-8,above=r.top-8;L.style.minWidth=r.width+'px';
+  L.style.maxHeight='none';const h=L.offsetHeight,up=h>below&&above>below;L.style.maxHeight=(up?above:below)-4+'px';
+  L.style.top=up?'':r.bottom+4+'px';L.style.bottom=up?H-r.top+4+'px':'';
+  L.style.left=Math.max(8,Math.min(r.left,innerWidth-8-L.offsetWidth))+'px';const on=L.querySelector('.on');if(on)on.scrollIntoView({block:'nearest'})}
+ function wrap(s){if(s._dd||s.multiple||s.size>1)return;const b=document.createElement('button');b.type='button';
+  b.className=(s.className?s.className+' ':'')+'ddb';b.style.cssText=s.style.cssText;b.innerHTML='<span></span><i>&#9662;</i>';
+  if(s.getAttribute('aria-label'))b.setAttribute('aria-label',s.getAttribute('aria-label'));
+  s.classList.add('ddsel');s.tabIndex=-1;s.after(b);s._dd=b;b.onclick=()=>{if(cur==s)close();else{close();open(s)}};
+  Object.defineProperty(s,'value',{configurable:true,get(){return DV.get.call(this)},set(v){DV.set.call(this,v);sync(this)}});
+  Object.defineProperty(s,'selectedIndex',{configurable:true,get(){return DI.get.call(this)},set(v){DI.set.call(this,v);sync(this)}});
+  new MutationObserver(()=>{sync(s);if(cur==s&&!s.isConnected)close()}).observe(s,{childList:true,subtree:true,characterData:true,attributes:true});
+  s.addEventListener('change',()=>sync(s));if(s.id){const l=document.querySelector(`label[for="${s.id}"]`);if(l)l.onclick=e=>{e.preventDefault();b.click()}}sync(s)}
+ const scan=n=>{if(n.nodeType!=1)return;if(n.tagName=='SELECT')wrap(n);else n.querySelectorAll('select').forEach(wrap)};
+ new MutationObserver(ms=>{for(const m of ms){m.addedNodes.forEach(scan);if(cur&&!cur.isConnected)close()}}).observe(document.body,{childList:true,subtree:true});
+ document.addEventListener('DOMContentLoaded',()=>scan(document.body));scan(document.body);
+ document.addEventListener('pointerdown',e=>{if(cur&&!L.contains(e.target)&&!cur._dd.contains(e.target))close()},true);
+ addEventListener('scroll',e=>{if(cur&&!L.contains(e.target))close()},true);addEventListener('resize',()=>{if(cur)close()});
+ window.ddClose=close})();
 // Demo (the page opened with ?demo, e.g. in the Android app without an H4): a simulated machine answers instead
 // of the controller, so the page can be seen and tried. Nothing here runs when the page comes from an H4.
 const DEMO=/[?&]demo\b/.test(location.search);
@@ -886,7 +925,7 @@ $('navBtn').addEventListener('click',e=>{e.stopPropagation();navOpen(!$('tabs').
 document.addEventListener('pointerdown',e=>{if($('tabs').classList.contains('open')&&!e.target.closest('#tabs,#navBtn'))navOpen(false)},true);
 $('tabs').innerHTML=TABS.map(([t,n,ic])=>`<button data-t="${t}" onclick="tab('${t}')"><svg viewBox="0 0 24 24">${ic}</svg><span>${n}</span></button>`).join('');
 try{subs=JSON.parse(localStorage.getItem('h4subs')||'{}')}catch(e){}
-function tab(t,noHist){if(!TN.includes(t))t='control';if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
+function tab(t,noHist){if(!TN.includes(t))t='control';if(window.ddClose)ddClose();if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
   document.querySelectorAll('main>section').forEach(s=>s.hidden=s.dataset.tab!=t);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
   if(t=='machine'){logRead=logSeen;tabBadges()}
@@ -922,7 +961,7 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
  $('navBtn').classList.toggle('bdg',unread||(run&&curTab!='program'))}
 // swipe left / right changes the screen (never on the jog buttons, the wheel, the drawing, fields or the H4 keys)
 (function(){let x0=null,y0=0,t0=0;addEventListener('touchstart',e=>{const t=e.target;
- x0=t.closest('#pad,.wheelbox,canvas,input,select,textarea,.keys,.lcd,.chips,.sheet')?null:e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
+ x0=t.closest('#pad,.wheelbox,canvas,input,select,.ddb,.dd,textarea,.keys,.lcd,.chips,.sheet')?null:e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
  addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
   if(Date.now()-t0<600&&Math.abs(dx)>80&&Math.abs(dx)>2*Math.abs(dy)){const i=TN.indexOf(curTab)+(dx<0?1:-1);if(i>=0&&i<TN.length)tab(TN[i])}},{passive:true})})();
 
