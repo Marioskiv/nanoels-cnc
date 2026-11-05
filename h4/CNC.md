@@ -315,6 +315,12 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
   G64, spindle, coolant and tool in force for the same moves as in LinuxCNC, 500 random programs). GitHub Actions run all of it on every
   change.
 
+`sh h4/test/record.sh [--lathe]` runs the same tests (with `--lathe` also the H4 screen tests of `test/lathe/run.sh`)
+and keeps a record in `h4/test/results/<UTC date>-<commit>.txt`: commit, firmware and app versions, tools, whether
+LinuxCNC's `rs274` was used, every "checks / failures" line, PASS or FAIL. It then shows what changed since the
+previous record. GitHub Actions keep the record of every run as a download (artifact *test-record*). These are PC
+results (simulation), never a test on a real H4.
+
 ## License
 
 The original NanoEls code is MIT (`LICENSE`, © Maxim Kachurovskiy). `cnc_core.cpp` is ported from Grbl
