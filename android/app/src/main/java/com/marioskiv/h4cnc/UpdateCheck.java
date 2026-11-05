@@ -45,6 +45,7 @@ final class UpdateCheck {
 
     static final long DELAY_MS = 5000;               // the automatic check waits this long after the app opens
     static final long RETRY_MS = 60000;              // and once more after this, when the network was not up yet
+    static final long INSTALLING_MS = 3 * 60000;     // an install handed to Android this recently may still run
     static final long LATER_MS = 24L * 3600 * 1000;  // "Later" keeps that version quiet this long
 
     // When the app opens: first, did the last install go through? Then, after a few seconds, look for a newer version,
@@ -54,8 +55,18 @@ final class UpdateCheck {
         final String current = BuildInfo.version(activity);
         final String tried = prefs.getString("installTried", null);
         if (tried != null) {
+            // opened again while Android still installs it (it takes up to a minute or two): wait, ask nothing;
+            // Android closes this old version and the new one opens by itself (UpdatedReceiver)
+            if (newer(tried, current) && System.currentTimeMillis() - prefs.getLong("installAt", 0) < INSTALLING_MS) {
+                ExitWatch.event(activity, "opened while " + tried + " installs", "άνοιξε ενώ εγκαθίσταται η " + tried);
+                activity.web().postDelayed(() -> tell(activity, Tr.t(activity,
+                        "H4 CNC " + tried + " is still being installed. Wait a little: this version closes and the new one opens by itself.",
+                        "Το H4 CNC " + tried + " εγκαθίσταται ακόμα. Περίμενε λίγο: αυτή η έκδοση θα κλείσει και η νέα θα ανοίξει μόνη της.")), 1500);
+                return;
+            }
             prefs.edit().remove("installTried").apply();
             if (newer(tried, current)) {
+                ExitWatch.event(activity, tried + " NOT installed (way: " + way(activity) + ")", "η " + tried + " ΔΕΝ εγκαταστάθηκε (τρόπος: " + way(activity) + ")");
                 // the installer was opened for that version, but this is still the old one: the next try uses
                 // Android's other installer screen
                 flipWay(activity);
@@ -135,6 +146,7 @@ final class UpdateCheck {
                     return;
                 }
                 final String version = best, url = bestUrl;
+                ExitWatch.event(activity, "update " + version + " offered", "προτάθηκε η ενημέρωση " + version);
                 activity.runOnUiThread(() -> offer(activity, current, version, url, prefs));
             } catch (Exception e) {
                 // no network or GitHub unreachable: the automatic check tries again next time
@@ -300,8 +312,13 @@ final class UpdateCheck {
                 Intent cb = new Intent(activity, InstallReceiver.class).setAction(InstallReceiver.ACTION);
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
                 PendingIntent pending = PendingIntent.getBroadcast(activity, id, cb, flags);
-                activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().putString("installTried", version).commit();
+                activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().putString("installTried", version)
+                        .putLong("installAt", System.currentTimeMillis()).commit();
+                ExitWatch.event(activity, version + " handed to Android (session)", "η " + version + " δόθηκε στο Android (session)");
                 s.commit(pending.getIntentSender());
+                // the session shows no progress: say what happens
+                tell(activity, Tr.t(activity, "Android asks \"Install?\": press Install. Then the install runs in the background (up to a minute): this app closes and H4 CNC " + version + " opens by itself. Do not open the app meanwhile.",
+                        "Το Android ρωτά «Εγκατάσταση;»: πάτα Εγκατάσταση. Μετά η εγκατάσταση γίνεται στο παρασκήνιο (ως ένα λεπτό): αυτό το app κλείνει και το H4 CNC " + version + " ανοίγει μόνο του. Μην ανοίξεις το app στο μεταξύ."));
             } catch (Exception e) {
                 s.abandon();
                 throw e;
@@ -332,7 +349,9 @@ final class UpdateCheck {
         i.putExtra(Intent.EXTRA_RETURN_RESULT, true);
         try {
             // remembered: if the app opens again still at the old version, it says the install did not go through
-            activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().putString("installTried", version).commit();
+            activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().putString("installTried", version)
+                    .putLong("installAt", System.currentTimeMillis()).commit();
+            ExitWatch.event(activity, version + " handed to Android (installer screen)", "η " + version + " δόθηκε στο Android (οθόνη εγκατάστασης)");
             activity.startActivityForResult(i, INSTALL_REQUEST);
         } catch (Exception e) {
             tell(activity, Tr.t(activity, "Android's installer did not open: ", "Ο εγκαταστάτης του Android δεν άνοιξε: ") + e.getMessage());
@@ -363,6 +382,8 @@ final class UpdateCheck {
 
     // The installer's answer (MainActivity.onActivityResult). On success Android replaces and restarts the app.
     static void installResult(MainActivity activity, int result, Intent data) {
+        ExitWatch.event(activity, "installer screen answered " + result + (data != null ? " (" + data.getIntExtra("android.intent.extra.INSTALL_RESULT", 0) + ")" : ""),
+                "η οθόνη εγκατάστασης απάντησε " + result + (data != null ? " (" + data.getIntExtra("android.intent.extra.INSTALL_RESULT", 0) + ")" : ""));
         // cancelled in the installer: not a failed install, no reminder at the next start
         if (result == android.app.Activity.RESULT_CANCELED) {
             activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().remove("installTried").apply();

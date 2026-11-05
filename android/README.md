@@ -44,6 +44,11 @@ with Android 7 the session's *Install* button did nothing. From app 1.39 the fir
 screen (Ackpine and F-Droid advise against the session there, above all on Huawei and Xiaomi installers); from
 Android 13 on, the session.
 
+**After an update (from app 1.41).** When Android has installed the new version, it opens by itself (Android tells
+the app, MY_PACKAGE_REPLACED); while an install handed to Android less than 3 minutes ago may still run, opening the
+app says so instead of offering the update again. Every step (offered, handed to Android and how, Android's answer,
+updated) is written to *Settings, App log*.
+
 **Full screen (from app 1.40).** The app hides the tablet's status bar and its Back / Home / Recent keys (a
 swipe from the top or bottom edge shows them for a moment); the page shows the clock, the battery and the WiFi
 signal beside STOP. *Settings, Screen and jog, Full screen* switches it off.

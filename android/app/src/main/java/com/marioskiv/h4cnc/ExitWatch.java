@@ -167,7 +167,12 @@ final class ExitWatch {
                     case "killedScreen": how = Tr.t(c, "closed by Android WHILE ON SCREEN (power saving?)", "το έκλεισε το Android ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ (εξοικονόμηση ενέργειας;)"); break;
                     case "killedScreenMem": how = Tr.t(c, "closed by Android WHILE ON SCREEN, little free memory", "το έκλεισε το Android ΕΝΩ ΗΤΑΝ ΣΤΗΝ ΟΘΟΝΗ, λίγη ελεύθερη μνήμη"); break;
                     case "killedBg": case "killedBgMem": how = Tr.t(c, "closed by Android in the background (normal)", "το έκλεισε το Android στο παρασκήνιο (κανονικό)"); break;
+                    case "ev": how = Tr.greek(c) ? o.optString("el") : o.optString("en"); break;
                     default: how = k;
+                }
+                if ("ev".equals(k)) {  // a step of an app update
+                    sb.append(f.format(new Date(s))).append(" · app ").append(o.optString("v")).append(" · ").append(how).append('\n');
+                    continue;
                 }
                 sb.append(f.format(new Date(s))).append(" → ").append(f.format(new Date(e))).append(" · app ").append(o.optString("v"))
                         .append(" · ").append(how);
@@ -193,6 +198,20 @@ final class ExitWatch {
         int t = p.getInt("trim", -1);
         long avail = p.getLong("availMb", -1), thr = p.getLong("thresholdMb", -1);
         return p.getBoolean("low", false) || t == 10 || t == 15 || t >= 60 || (avail >= 0 && thr >= 0 && avail < thr + 64);
+    }
+
+    // A step of an app update (offered, handed to Android, answered, installed) into the same list.
+    static void event(Context c, String en, String el) {
+        try {
+            SharedPreferences lp = c.getSharedPreferences(LOG, Context.MODE_PRIVATE);
+            JSONArray a = new JSONArray(lp.getString("list", "[]")), b = new JSONArray();
+            JSONObject o = new JSONObject();
+            o.put("s", System.currentTimeMillis()).put("v", BuildInfo.version(c)).put("k", "ev").put("en", en).put("el", el);
+            b.put(o);
+            for (int i = 0; i < a.length() && b.length() < LOG_MAX; i++) b.put(a.get(i));
+            lp.edit().putString("list", b.toString()).commit();
+        } catch (Exception ignored) {
+        }
     }
 
     static void clearHistory(Context c) {
