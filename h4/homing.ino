@@ -93,6 +93,18 @@ const char* cncStartRefusal() {
   return NULL;
 }
 
+// An axis still moved by moveAxis() (jog with the keys or a handwheel, a step move, braking after the key was let go):
+// a program started now would be planned from a position the axis then leaves, and the end of that jog switches the
+// axis's driver off while the program runs (h4.ino, the keypad task: stepperEnable(a, false) after the move). NULL when
+// all axes stand still. Asked only when a GCODE program starts (setIsOnFromLoop, Grbl cycle start); the lathe modes and
+// the web jog (which goes through the planner) are not affected.
+const char* cncAxisMovingRefusal() {
+  if (x.movingManually || x.pendingPos != 0) return "X is still moving: start again when it has stopped";
+  if (z.movingManually || z.pendingPos != 0) return "Z is still moving: start again when it has stopped";
+  if (a1.movingManually || a1.pendingPos != 0) return "C is still moving: start again when it has stopped";
+  return NULL;
+}
+
 // Stops an axis driven by moveAxis() where it is (called from loop(), which also runs moveAxis()).
 void stopAxisNow(Axis* a) {
   a->pendingPos = 0;

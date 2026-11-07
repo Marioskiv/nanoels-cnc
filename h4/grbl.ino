@@ -242,6 +242,7 @@ bool grblEnsureOn(int ch) {
     if (mode != MODE_GCODE) return false;
   }
   const char* refusal = cncStartRefusal();
+  if (refusal == NULL) refusal = cncAxisMovingRefusal(); // a jog with the keys still moving or braking
   if (refusal != NULL) {
     grblMessage(refusal);
     return false;

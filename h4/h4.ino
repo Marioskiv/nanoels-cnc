@@ -158,7 +158,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.24"
+#define FW_VERSION "1.25"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -3382,7 +3382,7 @@ void buttonOnOffPress(bool on) {
   } else if (isOn && on && (mode == MODE_TURN || mode == MODE_FACE || mode == MODE_THREAD)) {
     // Move to the next pass.
     opIndexAdvanceFlag = true;
-  } else if (!on && (z.movingManually || x.movingManually || x.movingManually)) {
+  } else if (!on && (z.movingManually || x.movingManually || a1.movingManually)) {
     setEmergencyStop(ESTOP_OFF_MANUAL_MOVE);
   } else if (!isOn && on && mode == MODE_GCODE && gcodeProgramIndex >= gcodeProgramCount) {
     beep();
@@ -3440,6 +3440,7 @@ void setIsOnFromLoop(bool on) {
   }
   if (on && mode == MODE_GCODE) {
     const char* refusal = cncStartRefusal(); // homing.ino: not homed, limit switch pressed, driver alarm
+    if (refusal == NULL) refusal = cncAxisMovingRefusal(); // homing.ino: a jog still moving or braking
     if (refusal != NULL) {
       cncStatusText = refusal;
       beepFlag = true;

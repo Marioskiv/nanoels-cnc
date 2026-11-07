@@ -217,6 +217,25 @@ int main() {
   check(cncFaultCount == 0, "no limit fault from the bounce during homing");
   check(cncStartRefusal() == NULL, "after Home All a program may start");
   check(!strcmp(cncStatusText, "Homed"), "status Homed");
+  // A jog with the keys still moving or braking (firmware 1.25): a program may not start until every axis stands still
+  // (the keypad task would switch the driver off at the end of its move, under the running program).
+  check(cncAxisMovingRefusal() == NULL, "all axes stand still: no refusal");
+  {
+    Axis* axes[3] = {&x, &z, &a1};
+    const char* names[3] = {"X", "Z", "C"};
+    for (int i = 0; i < 3; i++) {
+      char what[96];
+      axes[i]->movingManually = true;
+      snprintf(what, sizeof(what), "%s jogged with the keys: refused (%s)", names[i], cncAxisMovingRefusal() ? cncAxisMovingRefusal() : "none");
+      check(cncAxisMovingRefusal() != NULL && cncAxisMovingRefusal()[0] == names[i][0], what);
+      axes[i]->movingManually = false;
+      axes[i]->pendingPos = i == 1 ? -3 : 7;  // braking: steps still to give, the key already let go
+      snprintf(what, sizeof(what), "%s still braking (steps left): refused", names[i]);
+      check(cncAxisMovingRefusal() != NULL && cncAxisMovingRefusal()[0] == names[i][0], what);
+      axes[i]->pendingPos = 0;
+    }
+  }
+  check(cncAxisMovingRefusal() == NULL, "after the jog has stopped a program may start");
 
   // 2. Normally closed switches: the same result.
   machine(true, true);
