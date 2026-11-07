@@ -162,7 +162,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.26"
+#define FW_VERSION "1.27"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1689,6 +1689,12 @@ volatile uint32_t cncDiagSteps = 0;             // step pulses given (all axes t
 volatile uint32_t moveDiagPulseMinCycles = UINT32_MAX;
 volatile uint32_t moveDiagPulseMaxCycles = 0;
 volatile uint32_t moveDiagPulses = 0;
+// The longest pause between two runs of loop() (keys, inputs, jog and the lathe modes run there) and how often it
+// was over 50 ms, since the program started or Clear (Diagnostics). In the GCODE mode the step interrupt reads the
+// limits and the alarm itself (cncInputsTick); the lathe modes and jog rely on loop().
+volatile uint32_t loopGapMaxUs = 0;
+volatile uint32_t loopGapLongCount = 0;
+uint32_t loopLastUs = 0;
 
 void cncDiagReset() {
   cncDiagIsrMaxCycles = 0;
@@ -1699,6 +1705,8 @@ void cncDiagReset() {
   moveDiagPulseMinCycles = UINT32_MAX;
   moveDiagPulseMaxCycles = 0;
   moveDiagPulses = 0;
+  loopGapMaxUs = 0;
+  loopGapLongCount = 0;
 }
 
 // One tick of the step interrupt: count = timer value now, alarmValue = the alarm that fired. Returns the next alarm.
@@ -4692,6 +4700,13 @@ void applySettings() {
 }
 
 void loop() {
+  uint32_t loopNowUs = micros();
+  if (loopLastUs != 0) {
+    uint32_t gap = loopNowUs - loopLastUs;
+    if (gap > loopGapMaxUs) loopGapMaxUs = gap;
+    if (gap > 50000) loopGapLongCount = loopGapLongCount + 1;
+  }
+  loopLastUs = loopNowUs;
   if (emergencyStop != ESTOP_NONE) {
     return;
   }
