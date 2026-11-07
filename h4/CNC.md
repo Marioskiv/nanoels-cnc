@@ -67,6 +67,11 @@ threading cannot be planned without the spindle: the check ends at the first thr
 program takes a moment to check; STOP during the check cancels the start. A Grbl sender's stream cannot be checked
 before (it arrives line by line). Test: `preflight_test.cpp`.
 
+Since firmware 1.25 a program (stored, from the page, or a Grbl sender's) also does not start while an axis moved by
+the keys or a handwheel is still moving or braking ("X is still moving: start again when it has stopped"): the
+program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
+Test: `homing_test.cpp`.
+
 ### G-code read
 
 The language is **RS274/NGC as LinuxCNC reads it** (Grbl reads a subset of the same language), for a lathe
