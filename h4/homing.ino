@@ -219,7 +219,7 @@ void cncInputsLoop() {
   uint8_t isrFault = cncIsrFault;
   if (isrFault) {
     if (isrFault == 3) cncFault("Driver alarm or E-stop", true);
-    else cncFault(isrFault == 1 ? "Limit X" : "Limit Z", false);
+    else cncFault(isrFault == 1 ? "Limit X" : "Limit Z", LIMIT_UNHOMES);
     isrReported[isrFault - 1] = true;
     cncIsrFault = 0; // cncFaultStop (set by cncFault) keeps the steps stopped until taskGcode has reset the planner
   }
@@ -234,9 +234,9 @@ void cncInputsLoop() {
   if (inAlarm && !prevAlarm && !recentA) {
     cncFault("Driver alarm or E-stop", true); // a driver that stopped (or lost its power) has lost its position
   } else if (inHomeX && !prevHomeX && HOME_X_IS_LIMIT && watch != &x && !recentX) {
-    cncFault("Limit X", false);
+    cncFault("Limit X", LIMIT_UNHOMES);
   } else if (inHomeZ && !prevHomeZ && HOME_Z_IS_LIMIT && watch != &z && !recentZ) {
-    cncFault("Limit Z", false);
+    cncFault("Limit Z", LIMIT_UNHOMES);
   }
   if (prevHomeX && !inHomeX) isrReported[0] = false;
   if (prevHomeZ && !inHomeZ) isrReported[1] = false;

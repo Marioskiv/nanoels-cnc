@@ -142,6 +142,10 @@ float LIMIT_Z_MIN = -300;
 float LIMIT_Z_MAX = 0;
 bool HOME_Z_FIRST = true; // Home All: Z first, then X (HOME_SEQUENCE); A1 (C) takes its zero where it stands
 bool HOME_REQUIRED = true; // a G-code program starts only after Home All (when a home switch is used)
+// A home switch used as a limit stopped the machine: the axes count as not homed, so the next program needs Home All
+// again (as Grbl's hard limit). The stop is immediate, without deceleration: a motor may not follow it, a belt may
+// skip. false: the axes stay homed (as LinuxCNC; every step given is counted).
+bool LIMIT_UNHOMES = true;
 bool ALARM_USE = false; // driver alarm outputs on A23 (all drivers together, see CNC.md)
 bool ALARM_WHEN_LOW = true; // true: an alarm connects A23 to GND (output closes on alarm)
 #define IN_HOME_X 12 // A21
@@ -162,7 +166,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.27"
+#define FW_VERSION "1.28"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
