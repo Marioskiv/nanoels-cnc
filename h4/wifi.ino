@@ -240,7 +240,8 @@ void handleStatus() {
       ",\"limit\":" + String(cncStepRateLimit()) + ",\"steps\":" + String(cncDiagSteps) +
       ",\"movePulses\":" + String(moveDiagPulses) + ",\"timer\":\"" + jsonEscape(String(cncStepTimerText)) + "\"" +
       ",\"movePulseMinUs\":" + String(moveDiagPulses ? moveDiagPulseMinCycles / (float)cncCpuCyclesPerUs : 0, 2) +
-      ",\"movePulseMaxUs\":" + String(moveDiagPulseMaxCycles / (float)cncCpuCyclesPerUs, 2) + "}";
+      ",\"movePulseMaxUs\":" + String(moveDiagPulseMaxCycles / (float)cncCpuCyclesPerUs, 2) +
+      ",\"loopGapMs\":" + String(loopGapMaxUs / 1000.0, 1) + ",\"loopLong\":" + String(loopGapLongCount) + "}";
   json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
   cnc_modes_t modes;
   cnc_gc_get_modes(&modes);

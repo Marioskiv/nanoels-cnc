@@ -436,6 +436,9 @@ No instrument is needed to see whether the controller keeps up with a machine an
     the defaults (pulse 4, hold 5, set-up 5 µs) 71 000 steps/s, with 5 / 10 / 10 µs (a typical LinuxCNC `.ini`)
     40 000 steps/s;
   - how often the step buffer ran empty while moves were waiting (the controller could not keep up) - should be 0.
+  - the main loop (firmware 1.27): the longest pause between two readings of the keys, the inputs and the jog, and
+    how often it was over 50 ms - a few ms is normal, over 50 ms should not happen (in the GCODE mode the step
+    interrupt reads the limits and the alarm itself; the lathe modes and jog rely on this loop).
   The page shows **OK** or **CHECK**.
 - How to use them: *Test* the file, then run it **in the air** at full speed with the page open (WiFi in use) and
   look at *Diagnostics*. For fast rotary axes also do the mark test (section 7, step 5).
