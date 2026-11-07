@@ -229,7 +229,10 @@ void handleStatus() {
   json += ",\"inch\":" + String(measure == MEASURE_METRIC ? 0 : 1);
   json += ",\"feed\":" + String(cnc_st_realtime_rate(), 1);
   json += ",\"rpm\":" + String(getApproxRpm());
-  json += ",\"line\":\"" + jsonEscape(String(gcodeDisplayLine)) + "\"";
+  char execLine[64];
+  cncExecLine(execLine, sizeof(execLine), true);  // the line that runs now, with its number (h4.ino)
+  json += ",\"line\":\"" + jsonEscape(String(execLine)) + "\"";
+  json += ",\"lineNo\":" + String(cnc_st_current_line()) + ",\"stoppedAt\":" + String(cncStoppedAtLine);
   json += ",\"progress\":" + String(progress, 4);
   json += ",\"program\":\"" + jsonEscape(webProgramName) + "\"";
   json += ",\"programLoaded\":" + String(webProgram != NULL && gcodeProgramData == webProgram ? 1 : 0);

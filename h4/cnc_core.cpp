@@ -410,6 +410,7 @@ void cnc_st_reset() {
   segment_next_head = 1;
   step_control = STEP_CONTROL_NORMAL_OP;
   exec_active = false;
+  exec_line = 0;  // nothing of the dropped blocks is running any more
 }
 
 static void st_update_plan_block_parameters() {

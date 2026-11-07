@@ -169,7 +169,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.29"
+#define FW_VERSION "1.30"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -817,7 +817,13 @@ String gcodeSerialBacklog = ""; // characters read while waiting for the planner
 bool gcodePollInBrace = false;
 bool gcodePollInSemicolon = false;
 unsigned long gcodeAwaitOnMs = 0;
-uint32_t cncLineNo = 0;
+uint32_t cncLineNo = 0; // the line number given to the planner: a stored program's own line (as Test counts), else a count
+uint32_t gcodeNewlines = 0; // '\n' read so far from the stored program (its line numbers)
+uint32_t cncStoppedAtLine = 0; // the program line that was running when a program was stopped (0: none)
+// The lines read ahead of the motion (the planner holds up to 64 blocks): their text, to show the line that runs now.
+#define CNC_LINE_RING 128
+struct CncRingLine { uint32_t no; char text[44]; };
+CncRingLine cncLineRing[CNC_LINE_RING];
 uint32_t cncOffsetsSeen = 0;
 uint32_t cncOffsetsSaved = 0;
 volatile uint32_t cncCpuCyclesPerTick = 12; // set in setup() from the CPU clock
@@ -1139,7 +1145,8 @@ void updateDisplay() {
 
   long numpadResult = getNumpadResult();
   long gcodeCommandHash = 0;
-  // From the copy, not from gcodeCommand: taskGcode changes that String while the display runs.
+  // The line the motion is in now (not the one read ahead), its text only: the screen has 20 characters.
+  if (mode == MODE_GCODE) cncExecLine(gcodeDisplayLine, sizeof(gcodeDisplayLine), false);
   for (int i = 0; gcodeDisplayLine[i]; i++) {
     gcodeCommandHash += gcodeDisplayLine[i] * (i + 1);
   }
@@ -1192,7 +1199,7 @@ void updateDisplay() {
       } else if (isOn && cncStatusText[0]) {
         charIndex += lcd.print((const char*)cncStatusText);
       } else if (isOn) {
-        charIndex += lcd.print(gcodeDisplayLine);
+        charIndex += lcd.print(gcodeDisplayLine);  // the line that runs now (filled above)
       } else if (wifiDisplayLine() != NULL) {
         charIndex += lcd.print(wifiDisplayLine()); // the address of the web page
       }
@@ -2332,6 +2339,16 @@ void cncLinkWatch() {
   }
 }
 
+// A program is stopped (STOP, OFF, a limit, an alarm): which of its lines was running, for the log and the page.
+void cncNoteStoppedLine() {
+  uint32_t at = cnc_st_current_line();
+  if (at == 0) return;
+  cncStoppedAtLine = at;
+  char t[48];
+  snprintf(t, sizeof(t), "Stopped at line %lu", (unsigned long)at);
+  cncLog(t);
+}
+
 void cncService() {
   if (cncFeedOverrideWanted != cnc_feed_override() || cncRapidOverrideWanted != cnc_rapid_override()) {
     cnc_set_overrides(cncFeedOverrideWanted, cncRapidOverrideWanted);  // re-plans what is queued at once
@@ -2345,6 +2362,7 @@ void cncService() {
     cncSpindleHold = false;
     cncUserHold = false;
     cncStopRequest = false;
+    cncNoteStoppedLine();
     cncSyncFromAxes();
     cncFaultStop = false;
     cncStatusText = cncFaultText;
@@ -2365,6 +2383,7 @@ void cncService() {
       cncSpindleHold = false;
       cncUserHold = false;
       cncStatusText = "";
+      cncNoteStoppedLine();
       cncSyncFromAxes(); // drops what is left of the program; the position is exact
       if (cncOwesDisable) {
         cncOwesDisable = false;
@@ -2483,15 +2502,47 @@ bool cncDwell(float seconds) {
 }
 
 // Runs one G-code line in the GCODE mode. False on an error (printed) or if the program was stopped.
+// Keeps a line read for the planner (its number and text), to show it when its motion runs.
+void cncRingRecord(uint32_t no, const char* text) {
+  CncRingLine& rl = cncLineRing[no % CNC_LINE_RING];
+  rl.no = 0;  // being written
+  size_t i = 0;
+  for (; text[i] && i < sizeof(rl.text) - 1; i++) rl.text[i] = text[i];  // cut to fit
+  rl.text[i] = '\0';
+  rl.no = no;
+}
+
+// The number of a stored program's line that has just ended: the '\n' that ends a line is counted when read, a '\r' is
+// not (the '\n' after it ends an empty line). As Test (cnc_bench) counts lines.
+uint32_t gcodeFileLineNo(uint32_t newlines, char terminator) {
+  return terminator == '\n' ? newlines : newlines + 1;
+}
+
+// The line the motion is in now (the planner's block that runs): "N: text", or "N" when its text is no longer kept,
+// or "" before the first move. Since firmware 1.30 the screen and the page show this one, not the line just read
+// (that one is up to 64 moves ahead).
+void cncExecLine(char* out, size_t size, bool withNumber) {
+  uint32_t no = cnc_st_current_line();
+  out[0] = '\0';
+  if (no == 0) return;
+  const CncRingLine& rl = cncLineRing[no % CNC_LINE_RING];
+  char text[sizeof(rl.text)];
+  memcpy(text, rl.text, sizeof(text));
+  text[sizeof(text) - 1] = '\0';
+  bool kept = rl.no == no;
+  if (withNumber) snprintf(out, size, kept ? "%lu: %s" : "%lu", (unsigned long)no, text);
+  else snprintf(out, size, "%s", kept ? text : "");
+}
+
 bool cncProcessLine(const String& line, bool isSerial) {
   if (cncStartRequest && !cncBusy()) {
     cncStartRequest = false;
+    cncLineNo = 0;
     cncSyncFromAxes(cncStartKeepModes);
     cncStartKeepModes = false;
   }
   cncLineNo++;
-  strncpy(gcodeDisplayLine, line.c_str(), sizeof(gcodeDisplayLine) - 1);
-  gcodeDisplayLine[sizeof(gcodeDisplayLine) - 1] = '\0';
+  cncRingRecord(cncLineNo, line.c_str());
   char msg[96];
   float dwell = 0;
   int r;
@@ -2598,6 +2649,9 @@ void taskGcode(void *param) {
       cncStartRequest = false;
       safetyProgramStart(currentProgramName()); // known at the next start if the power goes (safety.ino)
       cncDiagReset(); // the diagnostics of the web page describe this program
+      cncLineNo = 0;     // a stored program's lines are numbered from 1, as Test (the check before the start) counts them
+      gcodeNewlines = 0;
+      cncStoppedAtLine = 0;
       cncSyncFromAxes(cncStartKeepModes);
       cncStartKeepModes = false;
     }
@@ -2637,9 +2691,12 @@ void taskGcode(void *param) {
     // GCODE mode: all USB input goes through cncPollSerial(), which acts on '!', '~' and '?' at once
     // (also while a line waits for the planner) and keeps the rest, in order, in gcodeSerialBacklog.
     if (mode == MODE_GCODE && !GRBL_ON_USB) cncPollSerial();
+    bool fromProgram = false;
     if (mode == MODE_GCODE && isOn && gcodeProgramCharIndex < gcodeProgramSize) {
       receivedChar = gcodeProgramData[gcodeProgramCharIndex];
       gcodeProgramCharIndex++;
+      fromProgram = true;
+      if (receivedChar == '\n') gcodeNewlines++;
     } else if (mode == MODE_GCODE) {
       bool awaitingOn = gcodeAwaitOnMs != 0 && !isOn && millis() - gcodeAwaitOnMs < 200;
       if (isOn || !awaitingOn) gcodeAwaitOnMs = 0;
@@ -2744,6 +2801,8 @@ void taskGcode(void *param) {
           line.trim();
           gcodeCommand = "";
           gcodeInSemicolon = false;
+          // a stored program: the line's own number in the file ('\n' already counted when it ended the line)
+          if (fromProgram) cncLineNo = gcodeFileLineNo(gcodeNewlines, receivedChar) - 1;  // cncProcessLine adds 1
           if (line.length() == 0) {
             if (isSerial) Serial.println("ok");
           } else if (cncProcessLine(line, isSerial)) {
