@@ -90,3 +90,5 @@ void cnc_gc_get_modes(cnc_modes_t* m);
 void cnc_gc_set_modes(const cnc_modes_t* m);
 // Origin of the program coordinates of an axis in the planner's coordinates (steps / stepsPerUnit), mm.
 double cnc_gc_origin(int axis);
+// Where the interpreter is, in machine coordinates (G53, mm or degrees).
+double cnc_gc_machine_position(int axis);

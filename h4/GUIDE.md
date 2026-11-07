@@ -401,6 +401,10 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
    program (the position stays known). The H4 keys work as well (ON / OFF).
 4. Messages and refused lines appear under *Messages*. A home switch hit outside homing or a driver alarm stops
    all motion at once; after a driver alarm the machine counts as not homed (Home All again).
+5. **Start from a line** (firmware 1.31, *Run*, *From line…*): after a STOP (*Messages* say `Stopped at line N`) or
+   a broken tool. The H4 reads the program up to line N without moving (all modes, offsets, F as in a full run),
+   goes up to the program's highest Z so far, across to the start of line N, pauses: switch the router on (new
+   tool: touch off Z first), *Resume*: it goes down slowly to the start and carries on. Not after threading.
 
 ## 10 Jogging and the gamepad
 

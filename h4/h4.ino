@@ -104,6 +104,8 @@ bool CNC_SPINDLE_START_PAUSE = true;
 // many seconds: WiFi lost, tablet switched off, app closed or in the background. Resume on the page once it is back, or
 // ON on the H4. 0: never. A program started with no app watching, and a Grbl sender's lines, are not affected.
 long CNC_LINK_LOSS_PAUSE_S = 3;
+// Start from line N (firmware 1.31): the feed of the last move, down from above the work to the start of line N.
+float CNC_RESUME_PLUNGE_FEED = 100;
 bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops. Set to false for polar milling, where the chuck is turned by the C motor
 int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 
@@ -169,7 +171,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.30"
+#define FW_VERSION "1.31"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -383,6 +385,7 @@ Adafruit_TCA8418 keypad;
 #include "cnc_core.h"
 #include "cnc_gcode.h"
 #include "cnc_bench.h"
+#include "cnc_runfrom.h"
 unsigned long keypadTimeUs = 0;
 
 // Most buttons we only have "down" handling, holding them has no effect.
@@ -820,6 +823,8 @@ unsigned long gcodeAwaitOnMs = 0;
 uint32_t cncLineNo = 0; // the line number given to the planner: a stored program's own line (as Test counts), else a count
 uint32_t gcodeNewlines = 0; // '\n' read so far from the stored program (its line numbers)
 uint32_t cncStoppedAtLine = 0; // the program line that was running when a program was stopped (0: none)
+uint32_t cncRunFromRequest = 0;  // start from this line (the page), once the check before the start has passed
+uint32_t cncRunFrom = 0;         // ... and now, when the program starts
 // The lines read ahead of the motion (the planner holds up to 64 blocks): their text, to show the line that runs now.
 #define CNC_LINE_RING 128
 struct CncRingLine { uint32_t no; char text[44]; };
@@ -1914,6 +1919,8 @@ void cncRequestPreflight(const char* data, size_t size, const char* name) {
 }
 
 void cncRunPreflight() {
+  uint32_t from = cncRunFromRequest;  // start from this line (the page), 0: from the beginning
+  cncRunFromRequest = 0;
   if (isOn || cncBusy() || homingActive || mode != MODE_GCODE) {
     snprintf(cncBenchText, sizeof(cncBenchText), "Not started: the machine is busy");
   } else {
@@ -1936,6 +1943,7 @@ void cncRunPreflight() {
           " (threading is not checked)").c_str() : ", all can run");
       gcodeProgramCharIndex = 0;
       cncUserHold = false;
+      cncRunFrom = from;
       setIsOnFromTask(true);
     }
   }
@@ -2339,6 +2347,89 @@ void cncLinkWatch() {
   }
 }
 
+// A pause until Resume (page), ON (H4) or '~': M0 / M1 / M6 / M3, and before going down when starting from a line.
+// False when the program was stopped meanwhile. Two text buffers in turn: the screen redraws when the pointer changes.
+bool cncWaitResume(const char* text) {
+  static char pauseText[2][160];
+  static int pauseIdx = 0;
+  pauseIdx ^= 1;
+  snprintf(pauseText[pauseIdx], sizeof(pauseText[0]), "%s", text);
+  cncPaused = true;
+  cncResumeRequest = false;
+  cncStatusText = pauseText[pauseIdx];
+  beepFlag = true;
+  while (!cncResumeRequest) {
+    if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) {
+      cncPaused = false;
+      cncStatusText = "";
+      return false;
+    }
+    cncPollSerial();
+    vTaskDelay(10);
+  }
+  cncPaused = false;
+  cncResumeRequest = false;
+  cncStatusText = "";
+  return true;
+}
+
+// Start the stored program from line n (firmware 1.31, cnc_runfrom.cpp): lines 1 .. n-1 are read through the
+// interpreter and the planner without moving (their modes, offsets, F, S, tool: as in a full run); the machine goes up
+// to the highest Z the program reached before line n (or stays higher), to X and C of its start, pauses for the
+// router, goes down at CNC_RESUME_PLUNGE_FEED and the program goes on reading at line n. False: not started (said why).
+bool cncRunFromStart(uint32_t n) {
+  static char text[200];
+  snprintf(text, sizeof(text), "Reading the program up to line %lu (nothing moves)", (unsigned long)n);
+  cncStatusText = text;
+  cnc_runfrom_t r;
+  bool ok = cnc_runfrom_prepare(gcodeProgramData, gcodeProgramSize, n, machinePosMm(&z), &r, []() { vTaskDelay(1); });
+  if (!ok) {
+    snprintf(text, sizeof(text), "Not started from line %lu: %s. Nothing moved.", (unsigned long)n, r.reason);
+    cncStatusText = text;
+    cncLog(text);
+    return false;
+  }
+  cnc_modes_t saved;
+  cnc_gc_get_modes(&saved);
+  // the interpreter and the planner back to where the machine is; the program's modes and offsets stay
+  int32_t pos[CNC_N_AXIS], mOffset[CNC_N_AXIS];
+  bool neg[CNC_N_AXIS];
+  char names[CNC_N_AXIS];
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    pos[i] = a->pos;
+    mOffset[i] = a->machineOffset;
+    neg[i] = a->backlashSteps > 0 && a->motorPos != a->pos;
+    names[i] = a->name;
+  }
+  cnc_gc_sync(pos, mOffset, neg);
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    if (a->backlashSteps > 0) cnc_gc_set_slack(i, a->pos - a->motorPos);
+  }
+  char moves[3][96];
+  cnc_runfrom_approach(&r, names, a1.active, CNC_RESUME_PLUNGE_FEED, moves);
+  snprintf(text, sizeof(text), "Started from line %lu: up to Z %.3f, to the start, then down to Z %.3f", (unsigned long)n,
+      r.highestZ, r.machine[CNC_Z]);
+  cncLog(text);
+  for (int i = 0; i < 2; i++) {
+    cncLineNo = n - 1;  // shown as line n
+    if (!cncProcessLine(String(moves[i]), false)) return false;
+  }
+  if (!cncWaitIdle()) return false;
+  snprintf(text, sizeof(text), "Line %lu: above its start. Switch the router on, then Resume: down to Z %.3f at %.0f mm/min",
+      (unsigned long)n, r.machine[CNC_Z], CNC_RESUME_PLUNGE_FEED);
+  if (!cncWaitResume(text)) return false;
+  cncLineNo = n - 1;
+  if (!cncProcessLine(String(moves[2]), false)) return false;
+  cnc_gc_set_modes(&saved);  // the program's modes at line n (the moves above set G90 G94 G21 G8)
+  if (saved.inches) setMeasure(MEASURE_INCH);
+  gcodeProgramCharIndex = r.startPos;
+  gcodeNewlines = n - 1;
+  cncLineNo = n - 1;
+  return true;
+}
+
 // A program is stopped (STOP, OFF, a limit, an alarm): which of its lines was running, for the log and the page.
 void cncNoteStoppedLine() {
   uint32_t at = cnc_st_current_line();
@@ -2609,30 +2700,7 @@ bool cncProcessLine(const String& line, bool isSerial) {
   if (r == CNC_DWELL) {
     if (!cncDwell(dwell)) return false;
   } else if (r == CNC_PAUSE) {
-    cncPaused = true;
-    cncResumeRequest = false;
-    if (msg[0]) {  // M6: which tool; M0 / M1: why. Two buffers in turn: the screen redraws when the pointer changes
-      static char pauseText[2][96];
-      static int pauseIdx = 0;
-      pauseIdx ^= 1;
-      snprintf(pauseText[pauseIdx], sizeof(pauseText[0]), "%s", msg);
-      cncStatusText = pauseText[pauseIdx];
-    } else {
-      cncStatusText = "Paused: ON to go on";
-    }
-    beepFlag = true;
-    while (!cncResumeRequest) {
-      if (!isOn || cncStopRequest || emergencyStop != ESTOP_NONE) {
-        cncPaused = false;
-        cncStatusText = "";
-        return false;
-      }
-      cncPollSerial();
-      vTaskDelay(10);
-    }
-    cncPaused = false;
-    cncResumeRequest = false;
-    cncStatusText = "";
+    if (!cncWaitResume(msg[0] ? msg : "Paused: ON to go on")) return false;  // M6: which tool; M0 / M1: why
   } else if (r == CNC_END) {
     gcodeProgramCharIndex = gcodeProgramSize; // a stored program stops reading here
     setIsOnFromTask(false);
@@ -2652,8 +2720,12 @@ void taskGcode(void *param) {
       cncLineNo = 0;     // a stored program's lines are numbered from 1, as Test (the check before the start) counts them
       gcodeNewlines = 0;
       cncStoppedAtLine = 0;
+      uint32_t from = cncRunFrom;
+      cncRunFrom = 0;
       cncSyncFromAxes(cncStartKeepModes);
       cncStartKeepModes = false;
+      // start from line N (the page): read up to it without moving, go there; on a refusal nothing has moved
+      if (from > 1 && gcodeProgramSize > 0 && !cncRunFromStart(from)) setIsOnFromTask(false);
     }
     if (GRBL_ON_USB) {
       // USB speaks Grbl (grbl.ino): every byte goes there, in every mode
