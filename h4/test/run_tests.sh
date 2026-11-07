@@ -96,6 +96,10 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/homing_test" homing_test.cpp
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/move_pulse_test" move_pulse_test.cpp
 "$OUT/move_pulse_test" > "$OUT/mp.txt" || { cat "$OUT/mp.txt"; fail=$((fail + 1)); }
 tail -1 "$OUT/mp.txt"
+# the line shown while a program runs: the one whose motion runs now, numbered as in the file (h4.ino, unchanged)
+sh lathe/extract.sh ../h4.ino "void cncRingRecord" "uint32_t gcodeFileLineNo" "void cncExecLine" > "$OUT/exec_funcs.inc"
+g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/exec_line_test" exec_line_test.cpp
+"$OUT/exec_line_test" || fail=$((fail + 1))
 # a program the app was watching pauses when the app's connection is lost (h4.ino cncLinkWatch, compiled unchanged)
 sh lathe/extract.sh ../h4.ino "void cncLinkWatch" > "$OUT/link_funcs.inc"
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/link_test" link_test.cpp

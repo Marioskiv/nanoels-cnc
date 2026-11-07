@@ -57,6 +57,14 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
 - The H4 display shows the positions while the program runs; the H4 position bookkeeping is kept exactly,
   so every other mode continues from the true position.
 
+### The line shown while a program runs (firmware 1.30)
+
+The H4's screen and the page show the line whose **motion runs now** (the planner reads up to 64 moves ahead; before
+1.30 the line just read was shown). The page shows it with its number in the file, counted as *Test* and the check
+before the start count (comments and empty lines included), e.g. `1234: G1 X20.5 C90 F600`; an error message gives
+the same number. STOP, OFF, a limit or an alarm during a program writes `Stopped at line N` to *Messages*: the line
+from which a run-from-line would start. Test: `exec_line_test.cpp`.
+
 ### Check before a program starts (firmware 1.22)
 
 START on the page (or ON on the H4 with a stored program) first sends the whole program through the interpreter and
