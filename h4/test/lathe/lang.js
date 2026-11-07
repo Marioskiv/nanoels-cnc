@@ -33,8 +33,9 @@ const OKW=/^(STOP|Home|Home All|G-code|WiFi|Firmware|MDI|OK|PS|PS4 \/ PS5|Share|
  if(a!=c){const A=new Set(en1),C=new Set(en2);console.log('only first:',[...A].filter(x=>!C.has(x)).slice(0,10),'only second:',[...C].filter(x=>!A.has(x)).slice(0,10))}
  // a reload in Greek starts in Greek
  await setLang('el');ok(await p.evaluate(()=>JSON.parse(localStorage.getItem('h4look')).lang=='el'),'Greek kept');
- // (a file:// page's storage is not always written before a reload in the test browser: put it back if so)
- await p.reload();await p.waitForTimeout(500);if(await p.evaluate(()=>JSON.parse(localStorage.getItem('h4look')).lang!='el')){await p.evaluate(()=>localStorage.setItem('h4look',JSON.stringify(Object.assign(JSON.parse(localStorage.getItem('h4look')),{lang:'el'}))));await p.reload()}await p.waitForTimeout(800);{const t=await p.evaluate(()=>$('navBtn').textContent+'|'+localStorage.getItem('h4look'));ok(/Ρυθμίσεις|Έλεγχος|Τόρνος/.test(t),'Greek after a reload '+t)}
+ // (a file:// page's storage is not always written before a reload in the test browser: put it back if so, up to
+ // 3 times, waiting for the write before reloading)
+ await p.reload();await p.waitForTimeout(500);for(let i=0;i<3&&await p.evaluate(()=>JSON.parse(localStorage.getItem('h4look')).lang!='el');i++){await p.evaluate(()=>localStorage.setItem('h4look',JSON.stringify(Object.assign(JSON.parse(localStorage.getItem('h4look')),{lang:'el'}))));await p.waitForTimeout(300);await p.reload();await p.waitForTimeout(500)}await p.waitForTimeout(800);{const t=await p.evaluate(()=>$('navBtn').textContent+'|'+localStorage.getItem('h4look'));ok(/Ρυθμίσεις|Έλεγχος|Τόρνος/.test(t),'Greek after a reload '+t)}
  await b.close();
  const all=fails.concat(errs.map(e=>'page error: '+e));all.forEach(f=>console.log('FAIL',f));
  console.log('lang: '+n+' checks, '+all.length+' failures');process.exit(all.length?1:0)})();
