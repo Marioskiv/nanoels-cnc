@@ -473,6 +473,15 @@ void cnc_st_prep_buffer() {
       float inv_2_accel = 0.5f / pl_block->acceleration;
       if (step_control & STEP_CONTROL_EXECUTE_HOLD) {
         prep.ramp_type = RAMP_DECEL;
+        if (pl_block->entry_speed_sqr <= 0.0f) {
+          // A hold while the tool stands at the start of this block (e.g. Pause right after Resume): it is complete
+          // at once, as in Grbl and LinuxCNC; the whole block stays for the resume. (Before: the rounding left one
+          // step whose time was distance / (0 + 0), about 20 s of creeping.)
+          prep.mm_complete = pl_block->millimeters;
+          prep.exit_speed = 0.0f;
+          step_control |= STEP_CONTROL_END_MOTION;
+          return;
+        }
         float decel_dist = pl_block->millimeters - inv_2_accel * pl_block->entry_speed_sqr;
         if (decel_dist < 0.0f) {
           prep.exit_speed = sqrtf(pl_block->entry_speed_sqr - 2 * pl_block->acceleration * pl_block->millimeters);
@@ -584,7 +593,18 @@ void cnc_st_prep_buffer() {
               break;
             }
           }
-          time_var = 2.0f * (mm_remaining - prep.mm_complete) / (prep.current_speed + prep.exit_speed);
+          {
+            // The rest of the deceleration. When the speed has come down to (nearly) zero with a little distance still
+            // left (rounding: the stopping distance of a slow start is below the float resolution of the block's
+            // length), distance / speed would be a step lasting seconds (a Pause right after a Resume crept for ~20 s).
+            // At most the time to cover that rest from standing within the acceleration (accelerate, decelerate):
+            // 2 * sqrt(rest / a); otherwise unchanged (that bound is longer than distance / speed for a normal end).
+            float rest = mm_remaining - prep.mm_complete;
+            float v = prep.current_speed + prep.exit_speed;
+            float bound = 2.0f * sqrtf(rest / pl_block->acceleration);
+            time_var = v > 0.0f ? 2.0f * rest / v : bound;
+            if (time_var > bound) time_var = bound;
+          }
           mm_remaining = prep.mm_complete;
           prep.current_speed = prep.exit_speed;
       }
