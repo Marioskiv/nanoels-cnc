@@ -406,6 +406,11 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
   LinuxCNC `gamepad.hal`: **hold L1** to move; left stick Z, right stick X, L2 / R2 C, R1 fast, L1 + Share Home
   All, L1 + D-pad down touch off Z, Options STOP, PS unlock (`$X`), D-pad up / down / left feed override
   +10 / -10 / 100 %.
+  - **Dead zones** (app 1.49): for the left stick, the right stick and L2 / R2, in % of the full travel (defaults
+    35 / 45 / 5 %, 0-90 %). Below its dead zone a stick or trigger moves nothing. The same page shows where each
+    stick and trigger is now: grey band = dead zone, the marker turns green when it would move. With a worn gamepad
+    whose released stick does not come back to the middle, raise that dead zone until the released stick stays in
+    the grey.
   - **Android app** (recommended): pair the gamepad with the phone, open the app. See
     [android/README.md](../android/README.md).
   - Chrome on a phone or computer: the page reads the gamepad after a one-time browser setting (see *Settings, Gamepad*).

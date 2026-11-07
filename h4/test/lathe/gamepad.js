@@ -40,6 +40,25 @@ const { chromium } = require('playwright');
  await p.evaluate(()=>{$('gpSL').value='';$('gpSL').dispatchEvent(new Event('change'));$('gpSR').value='z';$('gpSR').dispatchEvent(new Event('change'));FP.axes=[1,0,0,1]});
  await p.waitForTimeout(300);r=await reqs();ok(/\/jog\?x=0\.0&z=400\.0/.test(r),'right stick moves Z when set so');
  await press(4,false);await p.evaluate(()=>{FP.axes=[0,0,0,0]});await p.waitForTimeout(400);ok(/\/jog\?x=0\.0&z=0\.0&c=0\.0/.test(await reqs()),'release: stop sent');
+ // dead zones (app 1.49): a worn stick that rests at 40 % moves Z with the default 35 %; with 45 % it does not.
+ // The indicator shows where the stick is, the dead zone, and green when it would move.
+ await p.evaluate(()=>{$('gpSL').value='z';$('gpSL').dispatchEvent(new Event('change'));$('gpSR').value='x';$('gpSR').dispatchEvent(new Event('change'))});
+ r=await p.evaluate(()=>[$('gpDL').value,$('gpDR').value,$('gpDT').value]);ok(r.join()=='35,45,5','dead zone defaults 35 / 45 / 5 % '+r);
+ await p.evaluate(()=>{FP.axes=[0.4,0,0,0]});await press(4,true);await p.waitForTimeout(250);r=await reqs();
+ ok(/\/jog\?x=0\.0&z=[1-9]/.test(r),'stick at 40 %, dead zone 35 %: Z moves '+r.slice(0,80));
+ r=await p.evaluate(()=>{const a=$('gpAx').children[0];return [a.classList.contains('on'),a.querySelector('.v').textContent,a.querySelector('.m').style.left,a.querySelector('.dz').style.width]});
+ ok(r[0]&&r[1]=='40%'&&r[2]=='70%'&&r[3]=='35%','indicator: left stick 40 %, marker at 70 %, dead zone 35 % wide, green '+r);
+ await p.evaluate(()=>{$('gpDL').value='45';$('gpDL').dispatchEvent(new Event('change'))});await reqs();await p.waitForTimeout(300);r=await reqs();
+ ok(!/\/jog\?x=0\.0&z=[1-9]/.test(r),'dead zone 45 %: the stick at 40 % does not move Z '+r.slice(0,80));
+ r=await p.evaluate(()=>[$('gpAx').children[0].classList.contains('on'),JSON.parse(localStorage.getItem('h4gamepad')).dl]);ok(!r[0]&&r[1]==45,'indicator grey, 45 saved '+r);
+ r=await p.evaluate(()=>{const e=$('gpDL');e.value='150';e.dispatchEvent(new Event('change'));const a=[gp.dl,e.value];e.value='0';e.dispatchEvent(new Event('change'));a.push(gp.dl);e.value='abc';e.dispatchEvent(new Event('change'));a.push(gp.dl);return a});
+ ok(r[0]==90&&r[1]=='90'&&r[2]===0&&r[3]==35,'dead zone kept within 0 .. 90 %, empty = default '+r);
+ await p.evaluate(()=>{$('gpDL').value='45';$('gpDL').dispatchEvent(new Event('change'));FP.axes=[0,0,0,0];FP.buttons[6]={pressed:true,value:0.5}});await p.waitForTimeout(100);
+ r=await p.evaluate(()=>{const a=$('gpAx').children[2];return [a.querySelector('.v').textContent,a.classList.contains('on')]});ok(r[0]=='50%'&&r[1],'indicator: L2 half pressed '+r);
+ await p.evaluate(()=>{FP.buttons[6]={pressed:false,value:0}});await press(4,false);await p.waitForTimeout(400);await reqs();
+ // the app's own reading (H4 CNC app): h4AppPadAxes, and nothing when the pad is gone
+ r=await p.evaluate(()=>{h4AppPadAxes(-0.2,0.5,0,1);const c=$('gpAx').children;const a=[c[0].querySelector('.v').textContent,c[1].classList.contains('on'),c[3].querySelector('.v').textContent];h4AppPadAxes();a.push(c[0].querySelector('.v').textContent);return a});
+ ok(r.join()=='-20%,true,100%,-','app reading shown, "-" without a pad '+r);
  // Defaults brings the layout back
  await p.evaluate(()=>gpDefaults());r=await p.evaluate(()=>[gp.map.cross,gp.sl,gp.sr]);ok(r[0]===undefined,'defaults: Cross does nothing again '+r);ok(r[1]=='z'&&r[2]=='x','sticks back');
  await b.close();

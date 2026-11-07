@@ -447,6 +447,12 @@ public class MainActivity extends Activity {
         web.evaluateJavascript("window.h4DemoRequest&&h4DemoRequest(" + JSONObject.quote(path) + ")", null);
     }
 
+    // Where the sticks and triggers are, for the page's indicator: "lx,ry,l2,r2" (-1 .. 1, triggers 0 .. 1), or ""
+    // without a gamepad.
+    void showGamepadAxes(String values) {
+        web.evaluateJavascript("window.h4AppPadAxes&&h4AppPadAxes(" + values + ")", null);
+    }
+
     // Gamepad state for the page's Gamepad box (the page shows it when it runs in this app).
     void showGamepadState(String text) {
         web.evaluateJavascript("window.h4AppGamepad&&h4AppGamepad(" + JSONObject.quote(text) + ")", null);
