@@ -65,6 +65,19 @@ before the start count (comments and empty lines included), e.g. `1234: G1 X20.5
 the same number. STOP, OFF, a limit or an alarm during a program writes `Stopped at line N` to *Messages*: the line
 from which a run-from-line would start. Test: `exec_line_test.cpp`.
 
+### Start from a line (firmware 1.31)
+
+*Program*, *Run*, **From line…** (the line where the last program stopped is proposed). Not a jump: the whole program
+is checked first, then lines 1 to N-1 go through the interpreter and the planner without moving (as *Test*), so line
+N starts with the program's own modes, work offset, G10 / G92 values, F, S, tool and position, exactly as in a full
+run. Then the machine moves in machine coordinates: **up** to the highest Z the program reached before line N (or
+stays where it is if higher), **across** to X and C of the start of line N (rapid, above the work), **pauses**
+("switch the router on, then Resume"), goes **down** to the start at *Start from a line: feed down* (100 mm/min) and
+the program goes on at line N. Refused, with nothing moved: line N past the end or after M2 / M30, an error or
+threading (G33 / G76) before it. It assumes Z+ is away from the work (as on a mill and the polar machine). Test:
+`runfrom_test.cpp` (from every line of the sample programs and of a program with G55, G10, G91, G92, G20, G93 and
+arcs, the moves after line N equal those of the full run).
+
 ### Check before a program starts (firmware 1.22)
 
 START on the page (or ON on the H4 with a stored program) first sends the whole program through the interpreter and

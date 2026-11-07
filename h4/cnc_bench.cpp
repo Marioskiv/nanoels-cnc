@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 // A line as the firmware reads a stored program: ( ) and ; comments removed, blanks around trimmed.
-static size_t benchLine(const char* text, size_t length, size_t pos, char* out, size_t outSize, size_t* outLen) {
+size_t cnc_bench_line(const char* text, size_t length, size_t pos, char* out, size_t outSize, size_t* outLen) {
   size_t n = 0;
   bool paren = false, semicolon = false;
   while (pos < length && text[pos] != '\n') {
@@ -73,7 +73,7 @@ void cnc_bench_run(const char* text, size_t length, cnc_bench_t* r, uint64_t (*n
 
   while (pos < length) {
     size_t n;
-    pos = benchLine(text, length, pos, line, sizeof(line), &n);
+    pos = cnc_bench_line(text, length, pos, line, sizeof(line), &n);
     lineNo++;
     if (n == 0 || (n == 1 && line[0] == '%')) continue;
     r->lines++;

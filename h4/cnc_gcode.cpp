@@ -197,6 +197,7 @@ void cnc_gc_set_offsets(const cnc_offsets_t* o) { offs = *o; }
 uint32_t cnc_gc_offsets_changes() { return offsChanges; }
 double cnc_gc_work_position(int axis) { return absPos[axis] - origin(axis); }
 double cnc_gc_origin(int axis) { return origin(axis); }
+double cnc_gc_machine_position(int axis) { return absPos[axis] + mOff[axis]; }
 void cnc_gc_get_modes(cnc_modes_t* m) {
   m->motion = motionMode;
   m->plane = plane;

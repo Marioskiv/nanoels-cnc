@@ -32,3 +32,7 @@ typedef struct {
 // nowUs: a clock in microseconds; yield: called now and then (the firmware lets other tasks run), not timed.
 // The interpreter's position, modes and offsets change: the caller restores them afterwards.
 void cnc_bench_run(const char* text, size_t length, cnc_bench_t* result, uint64_t (*nowUs)(), void (*yield)());
+
+// One line of a stored program from pos, as the firmware reads it: ( ) and ; comments removed, blanks around trimmed;
+// returns the position after its '\n'. Lines are numbered by their '\n' (as Test and the running program count them).
+size_t cnc_bench_line(const char* text, size_t length, size_t pos, char* out, size_t outSize, size_t* outLen);

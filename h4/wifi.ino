@@ -577,6 +577,7 @@ void handleCommand() {
     gcodeProgramData = webProgram;
     gcodeProgramSize = webProgramSize;
     cncUserHold = false;
+    cncRunFromRequest = server.hasArg("from") ? (uint32_t)max(0L, server.arg("from").toInt()) : 0; // start from line N
     // the whole program is checked first (nothing moves), then the machine turns on (h4.ino cncRunPreflight)
     cncRequestPreflight(webProgram, webProgramSize, name.c_str());
     server.send(200, "text/plain", "Checking " + name + " before it starts (nothing moves) ...");
