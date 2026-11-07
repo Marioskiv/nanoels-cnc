@@ -100,6 +100,10 @@ const long GCODE_WAIT_EPSILON_STEPS = 10;
 // GCODE mode: M3 / M4 that start (or reverse) the spindle pause the program until the operator, who switches the spindle /
 // router on by hand, resumes it (the H4 does not switch it). Not used when "Pause the program when the spindle stops" is on.
 bool CNC_SPINDLE_START_PAUSE = true;
+// GCODE mode: a program the app / web page was watching pauses (as Pause does) when its connection has been lost for this
+// many seconds: WiFi lost, tablet switched off, app closed or in the background. Resume on the page once it is back, or
+// ON on the H4. 0: never. A program started with no app watching, and a Grbl sender's lines, are not affected.
+long CNC_LINK_LOSS_PAUSE_S = 3;
 bool SPINDLE_PAUSES_GCODE = true; // pause GCode execution when spindle stops. Set to false for polar milling, where the chuck is turned by the C motor
 int GCODE_MIN_RPM = 30; // pause GCode execution if RPM is below this
 
@@ -158,7 +162,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.25"
+#define FW_VERSION "1.26"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -758,6 +762,10 @@ void cncOverrideCommand(int code) {
 volatile bool cncStartRequest = false;
 volatile bool wifiFsBusy = false; // the web page is reading or writing the flash: no program may start now
 volatile bool cncUserHold = false; // Pause from the web page: decelerate and wait for Resume
+volatile unsigned long cncAppSeenMs = 0; // the last /status request of the app / web page (wifi.ino)
+bool cncLinkArmed = false; // the app is watching the running program
+volatile bool cncLinkHold = false; // the pause came from the lost connection (for its message)
+extern volatile bool grblSession; // grbl.ino: a Grbl sender's lines are running
 bool cncOwesDisable = false; // steppers to release once a stopped program has come to rest
 // Inputs on A2 (homing.ino). Read and debounced in loop().
 volatile uint8_t inRaw = 0; // bit 0 A21, bit 1 A22, bit 2 A23: level as read (1 = high)
@@ -2287,6 +2295,28 @@ bool cncThread() {
 }
 
 // Called often from taskGcode: stop requests, the spindle check and the step segments.
+// The app / web page asks for /status about every 0.35 s. While a program runs that it was watching (a request within the
+// last second), those requests stopping for CNC_LINK_LOSS_PAUSE_S seconds pause the program as Pause does (decelerate on
+// the path, wait): the place is kept and Resume goes on from there. Not during an M0 / M1 / M6 wait (nothing moves then)
+// or a Grbl sender's session (the sender drives the program). Called from cncService().
+void cncLinkWatch() {
+  if (!isOn || mode != MODE_GCODE || grblSession || CNC_LINK_LOSS_PAUSE_S <= 0) {
+    cncLinkArmed = false;
+    return;
+  }
+  unsigned long since = millis() - cncAppSeenMs;
+  if (since < 1000) {
+    cncLinkArmed = true;
+    return;
+  }
+  if (cncLinkArmed && !cncUserHold && !cncPaused && since > (unsigned long)CNC_LINK_LOSS_PAUSE_S * 1000UL) {
+    cncLinkArmed = false;  // armed again by the next request
+    cncLinkHold = true;
+    cncUserHold = true;
+    cncLog("Paused: the app's connection was lost");
+  }
+}
+
 void cncService() {
   if (cncFeedOverrideWanted != cnc_feed_override() || cncRapidOverrideWanted != cnc_rapid_override()) {
     cnc_set_overrides(cncFeedOverrideWanted, cncRapidOverrideWanted);  // re-plans what is queued at once
@@ -2331,9 +2361,12 @@ void cncService() {
     }
     return;
   }
+  cncLinkWatch();
   if (cncUserHold && !cnc_hold_active()) {
     cnc_hold_start();
-    cncStatusText = "Paused from the web";
+    cncStatusText = cncLinkHold ? "Paused: the app's connection was lost. Resume on the page when it is back, or ON on the H4"
+                                : "Paused from the web";
+    cncLinkHold = false;
   } else if (!cncUserHold && cnc_hold_active() && !cncSpindleHold && cnc_hold_complete()) {
     cnc_hold_resume();
     cncStatusText = "";
@@ -3821,6 +3854,7 @@ void processKeypadEvent() {
   if (mode == MODE_GCODE && isOn) {
     // Not allowed to interfere other than turn off, or ON to go on after M0 / M1 / M6.
     if (isPress && keyCode == B_ON && cncPaused) cncResumeRequest = true;
+    else if (isPress && keyCode == B_ON && cncUserHold) cncUserHold = false; // a Pause (web page, lost connection): go on
     else if (isPress && keyCode != B_OFF) beep();
     return;
   }

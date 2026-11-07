@@ -96,6 +96,10 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/homing_test" homing_test.cpp
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/move_pulse_test" move_pulse_test.cpp
 "$OUT/move_pulse_test" > "$OUT/mp.txt" || { cat "$OUT/mp.txt"; fail=$((fail + 1)); }
 tail -1 "$OUT/mp.txt"
+# a program the app was watching pauses when the app's connection is lost (h4.ino cncLinkWatch, compiled unchanged)
+sh lathe/extract.sh ../h4.ino "void cncLinkWatch" > "$OUT/link_funcs.inc"
+g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/link_test" link_test.cpp
+"$OUT/link_test" || fail=$((fail + 1))
 # the lathe modes' zero and the GCODE mode's zero stay apart (zeros.ino)
 g++ -O2 -Wall -Wextra -std=c++17 -x c++ -o "$OUT/zeros_test" zeros_test.cpp
 "$OUT/zeros_test" || fail=$((fail + 1))

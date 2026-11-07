@@ -72,6 +72,16 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Lost connection to the app (firmware 1.26)
+
+A program the app or web page was watching (it asks for the status about every 0.35 s) **pauses** when that connection
+has been lost for 3 s (setting *Pause the program when the app's connection is lost for*, 0 = never): WiFi lost, tablet
+switched off, app closed or put in the background. It decelerates on the path, as Pause does, and keeps its place: once
+the app is back, **Resume** on the page goes on from there; **ON on the H4** does the same without the app. Not during an
+M0 / M1 / M6 wait (nothing moves then; if the app is still away afterwards, the program pauses then). A program started
+with no app watching (keys of the H4) and a Grbl sender's lines are not affected: a sender that is lost runs the lines it
+has already sent and stops (as Grbl). Test: `link_test.cpp`.
+
 ### G-code read
 
 The language is **RS274/NGC as LinuxCNC reads it** (Grbl reads a subset of the same language), for a lathe
