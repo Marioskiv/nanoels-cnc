@@ -45,7 +45,9 @@ import java.util.concurrent.Executors;
 class GamepadJog {
     private static final long TICK_MS = 20;
     private static final long SEND_MS = 100;
-    private static final float DEAD_Z = 0.35f, DEAD_X = 0.45f, DEAD_TRIGGER = 0.05f;
+    // dead zones (defaults; the page's Gamepad box sets them, in %): left stick, right stick, L2 / R2
+    private static final float DEAD_L = 0.35f, DEAD_R = 0.45f, DEAD_TRIGGER = 0.05f;
+    private volatile float deadL = DEAD_L, deadR = DEAD_R, deadT = DEAD_TRIGGER;
 
     private final MainActivity activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -115,7 +117,8 @@ class GamepadJog {
     // sending (main thread)
     private boolean running, moving;
     private int stops, jogsInFlight;
-    private long lastSendMs, lastStateMs;
+    private long lastSendMs, lastStateMs, lastAxesMs;
+    private float[] shownAxes;
     private String error = "", lastState = "";
 
     GamepadJog(MainActivity activity) {
@@ -141,6 +144,9 @@ class GamepadJog {
             revC = o.optBoolean("ic", false);
             stickL = o.optString("sl", "z");
             stickR = o.optString("sr", "x");
+            deadL = dead(o, "dl", DEAD_L);
+            deadR = dead(o, "dr", DEAD_R);
+            deadT = dead(o, "dt", DEAD_TRIGGER);
             JSONObject m = o.optJSONObject("map");
             if (m != null) {
                 Map<String, String[]> n = new HashMap<>();
@@ -158,6 +164,13 @@ class GamepadJog {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    // a dead zone in % from the page -> 0 .. 0.9
+    private static float dead(JSONObject o, String k, float def) {
+        double v = o.optDouble(k, Double.NaN);
+        if (Double.isNaN(v)) return def;
+        return (float) Math.min(0.9, Math.max(0, v / 100));
     }
 
     private static boolean fromPad(int source) {
@@ -296,7 +309,7 @@ class GamepadJog {
             hatDown = hatUp = hatLeft = hatRight = false;
         }
         double sp = held("fast") ? fast : speed;
-        double sl = dz(lx, DEAD_Z), sr = dz(ry, DEAD_X);
+        double sl = dz(lx, deadL), sr = dz(ry, deadR);
         double vz = (revZ ? -1 : 1) * ("z".equals(stickL) ? sl : "z".equals(stickR) ? sr : 0) * sp;
         double vx = (revX ? -1 : 1) * ("x".equals(stickL) ? sl : "x".equals(stickR) ? sr : 0) * sp;
         float left = l2, right = r2;
@@ -304,7 +317,8 @@ class GamepadJog {
             if (!down.contains(KeyEvent.KEYCODE_BUTTON_L2)) left = 0;
             if (!down.contains(KeyEvent.KEYCODE_BUTTON_R2)) right = 0;
         }
-        double vc = (revC ? -1 : 1) * (dz(amount("cp", left, right), DEAD_TRIGGER) - dz(amount("cm", left, right), DEAD_TRIGGER)) * sp * cFactor;
+        double vc = (revC ? -1 : 1) * (dz(amount("cp", left, right), deadT) - dz(amount("cm", left, right), deadT)) * sp * cFactor;
+        showAxes(now, left, right);
         boolean en = held("enable");
         boolean want = en && (vx != 0 || vz != 0 || vc != 0);
         if (want) {
@@ -328,6 +342,17 @@ class GamepadJog {
                 activity.showGamepadState(s);
             }
         }
+    }
+
+    // the page's indicator of the sticks and triggers: on a change, at most every 100 ms, and once a second anyway
+    private void showAxes(long now, float left, float right) {
+        float[] a = deviceId == -1 ? null : new float[]{lx, ry, left, right};
+        boolean changed = (a == null) != (shownAxes == null);
+        if (!changed && a != null) for (int i = 0; i < 4; i++) if (Math.abs(a[i] - shownAxes[i]) > 0.005f) changed = true;
+        if (now - lastAxesMs < (changed ? 100 : 1000)) return;
+        lastAxesMs = now;
+        shownAxes = a;
+        activity.showGamepadAxes(a == null ? "" : String.format(Locale.US, "%.3f,%.3f,%.3f,%.3f", a[0], a[1], a[2], a[3]));
     }
 
     private void jog(double x, double z, double c, long now) {
