@@ -36,7 +36,7 @@ bool PULSE_2_USE = false;
 bool HOME_X_USE, HOME_X_NC, HOME_X_IS_LIMIT, LIMIT_X_USE, HOME_Z_USE, HOME_Z_NC, HOME_Z_IS_LIMIT, LIMIT_Z_USE;
 float HOME_X_SEARCH_VEL, HOME_X_LATCH_VEL, HOME_X_FINAL_VEL, HOME_X_OFFSET, HOME_X_HOME, LIMIT_X_MIN, LIMIT_X_MAX;
 float HOME_Z_SEARCH_VEL, HOME_Z_LATCH_VEL, HOME_Z_FINAL_VEL, HOME_Z_OFFSET, HOME_Z_HOME, LIMIT_Z_MIN, LIMIT_Z_MAX;
-bool HOME_Z_FIRST, HOME_REQUIRED, ALARM_USE, ALARM_WHEN_LOW;
+bool HOME_Z_FIRST, HOME_REQUIRED, ALARM_USE, ALARM_WHEN_LOW, LIMIT_UNHOMES = true;
 #define IN_HOME_X 12
 #define IN_HOME_Z 13
 #define IN_ALARM 14
@@ -287,8 +287,9 @@ int main() {
   LIMIT_Z_USE = true;
 
   // 6. Noise on a limit input while a program runs: a pulse shorter than the 0.5 ms debounce is ignored, a longer
-  //    one stops everything ("Limit X", positions kept, still homed).
+  //    one stops everything ("Limit X"). Setting off (as LinuxCNC): positions kept, still homed.
   machine();
+  LIMIT_UNHOMES = false;
   homingRun();
   busy = true;
   swX.noiseFrom = nowUs + 1000; swX.noiseTo = swX.noiseFrom + 300;
@@ -297,8 +298,22 @@ int main() {
   swX.noiseFrom = nowUs + 1000; swX.noiseTo = swX.noiseFrom + 900;
   vTaskDelay(5);
   check(cncFaultCount == 1 && !strcmp(cncFaultText, "Limit X"), "0.9 ms on the input: Limit X");
-  check(x.homed, "a limit keeps the axes homed (every step given is counted)");
+  check(x.homed, "setting off: a limit keeps the axes homed (every step given is counted)");
   busy = false;
+  // 6b. The same with the setting on (default, firmware 1.28, as Grbl): not homed, the next program needs Home All.
+  machine();
+  LIMIT_UNHOMES = true;
+  homingRun();
+  check(cncStartRefusal() == NULL, "homed: a program may start");
+  busy = true;
+  swX.noiseFrom = nowUs + 1000; swX.noiseTo = swX.noiseFrom + 900;
+  vTaskDelay(5);
+  busy = false;
+  check(cncFaultCount == 1 && !strcmp(cncFaultText, "Limit X"), "setting on: Limit X");
+  check(!x.homed && !z.homed, "setting on: after the limit nothing is homed");
+  check(cncStartRefusal() != NULL && !strcmp(cncStartRefusal(), "Home All first"), "setting on: the next program needs Home All first");
+  homingRun();
+  check(x.homed && z.homed && cncStartRefusal() == NULL, "Home All again: a program may start");
 
   // 7. Driver alarm in the middle of homing: everything stops at once, nothing homed, "Driver alarm".
   machine();
@@ -330,8 +345,11 @@ int main() {
   isOn = false;
 
   // 10. Soft limits once homed: in machine coordinates, the limits of the .ini; jogging is clamped to them and
-  //     never further into a pressed switch; before homing there are none.
+  //     never further into a pressed switch; before homing there are none. (The axis is put on its switch by hand
+  //     below: with the setting 'Home All again after a limit' that unhomes it, as in 6b; here it is off, to test the
+  //     clamping.)
   machine();
+  LIMIT_UNHOMES = false;
   long lo, hi;
   check(!softLimitSteps(&x, &lo, &hi), "no soft limits before homing");
   homingRun();
@@ -347,6 +365,7 @@ int main() {
   x.pos = x.motorPos = hi + 500;  // beyond the upper soft limit
   vTaskDelay(5);
   check(cncClampJog(&x, x.pos, -1) == -1 && cncClampJog(&x, x.pos, 1) == 0, "outside the upper limit: back in only");
+  LIMIT_UNHOMES = true;
 
   // 11. X first (HOME_SEQUENCE the other way) and latch in the search direction (back off, approach slowly).
   machine();

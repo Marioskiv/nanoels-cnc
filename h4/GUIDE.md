@@ -92,7 +92,9 @@ GND is the `GND` of the Encoder terminal (use a small terminal strip for the swi
   transistor that connects them to GND. **Never** connect a sensor that outputs 12 or 24 V (PNP sensors) directly.
 - Switches may be normally open or normally closed: one setting per switch. Normally closed is safer (a broken
   wire reads as "pressed").
-- A switch can also be the limit at its end of travel: *The switch also stops everything*.
+- A switch can also be the limit at its end of travel: *The switch also stops everything*. After it has stopped the
+  machine, jog off the switch and **Home All** again before the next program (firmware 1.28, setting *After a limit
+  switch stopped the machine, Home All again*; the stop is immediate, a motor or belt may have slipped).
 - NPN inductive sensors: their supply (often 12-24 V) has its own ground; join that ground to the H4 GND.
 
 ### 3.4 Spindle encoder

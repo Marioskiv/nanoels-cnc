@@ -285,7 +285,10 @@ together with the alarms: a second contact of the same button (or of the relay)
 The page then says *Driver alarm or E-stop*; the program stops and the machine counts as not homed. After the
 button is released and the drivers are powered again: Home All. A home switch that is hit outside
 homing (*The switch also stops everything*) stops all motion at once as well; the axis can then be jogged away
-from the switch only.
+from the switch only. Since firmware 1.28 the axes then count as not homed (setting *After a limit switch stopped the
+machine, Home All again*, on, as Grbl's hard limit): the stop is immediate, without deceleration, so a motor may not
+have followed it or a belt may have skipped; jog off the switch and Home All before the next program. Off: they stay
+homed, as LinuxCNC.
 
 Since firmware 1.21 the step interrupt reads these inputs too, on every tick and with the same 0.5 ms debounce (as
 FluidNC and grblHAL stop on their limit pins): a switch used as a limit or the alarm that becomes active while a
