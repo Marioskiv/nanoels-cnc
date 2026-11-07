@@ -146,6 +146,9 @@ bool HOME_REQUIRED = true; // a G-code program starts only after Home All (when 
 // again (as Grbl's hard limit). The stop is immediate, without deceleration: a motor may not follow it, a belt may
 // skip. false: the axes stay homed (as LinuxCNC; every step given is counted).
 bool LIMIT_UNHOMES = true;
+// Home check (firmware 1.29): an axis whose switch is found further than this from where Home All found it has
+// moved (lost steps, a skipped belt) and counts as not homed.
+float HOME_CHECK_TOL_MM = 0.05;
 bool ALARM_USE = false; // driver alarm outputs on A23 (all drivers together, see CNC.md)
 bool ALARM_WHEN_LOW = true; // true: an alarm connects A23 to GND (output closes on alarm)
 #define IN_HOME_X 12 // A21
@@ -166,7 +169,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.28"
+#define FW_VERSION "1.29"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -792,7 +795,7 @@ const char* wifiDisplayLine() {
   return wifiDisplayText[(millis() / 3000) % n];
 }
 const char* volatile cncFaultText = "";
-volatile bool homingRequest = false, homingAbort = false, homingActive = false;
+volatile bool homingRequest = false, homingAbort = false, homingActive = false, homeCheckRequest = false;
 Axis* volatile homingWatchAxis = NULL; // loop() stops this axis when its switch reaches homingWantActive
 volatile bool homingWantActive = false, homingHit = false;
 volatile long homingHitPos = 0;

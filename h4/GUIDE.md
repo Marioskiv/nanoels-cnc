@@ -95,6 +95,11 @@ GND is the `GND` of the Encoder terminal (use a small terminal strip for the swi
 - A switch can also be the limit at its end of travel: *The switch also stops everything*. After it has stopped the
   machine, jog off the switch and **Home All** again before the next program (firmware 1.28, setting *After a limit
   switch stopped the machine, Home All again*; the stop is immediate, a motor or belt may have slipped).
+- **Home check** (*Machine*, *Position*, firmware 1.29): has an axis moved since Home All (lost steps, a skipped
+  belt)? Each axis goes to its switch again the way Home All found it, the difference is shown (e.g. `Home check:
+  Z -0.002 mm OK X +0.004 mm OK`) and it goes back to where it was; nothing is corrected. Further off than the
+  setting *Home check: the switch may be this far ...* (0.05 mm), or the switch found more than 2 mm early or not
+  at all: that axis counts as not homed, Home All again. Useful before a long program or after a crash.
 - NPN inductive sensors: their supply (often 12-24 V) has its own ground; join that ground to the H4 GND.
 
 ### 3.4 Spindle encoder

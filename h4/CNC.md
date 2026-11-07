@@ -290,6 +290,11 @@ machine, Home All again*, on, as Grbl's hard limit): the stop is immediate, with
 have followed it or a belt may have skipped; jog off the switch and Home All before the next program. Off: they stay
 homed, as LinuxCNC.
 
+**Home check** (firmware 1.29, page *Machine*, *Position*): each axis goes at its search speed to 2 mm before the point
+where Home All saw its switch, then makes Home All's last approach (latch speed), compares where the switch is seen
+now with that point and goes back. Within the setting (0.05 mm) OK; further off, found more than 2 mm early or not
+found within 4 mm: the axis counts as not homed. Nothing is corrected. Test: `homing_test.cpp`.
+
 Since firmware 1.21 the step interrupt reads these inputs too, on every tick and with the same 0.5 ms debounce (as
 FluidNC and grblHAL stop on their limit pins): a switch used as a limit or the alarm that becomes active while a
 program (or a gamepad jog) moves stops the steps there, whatever the rest of the firmware is doing, and they stay
