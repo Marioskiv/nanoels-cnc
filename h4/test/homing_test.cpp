@@ -37,6 +37,7 @@ bool HOME_X_USE, HOME_X_NC, HOME_X_IS_LIMIT, LIMIT_X_USE, HOME_Z_USE, HOME_Z_NC,
 float HOME_X_SEARCH_VEL, HOME_X_LATCH_VEL, HOME_X_FINAL_VEL, HOME_X_OFFSET, HOME_X_HOME, LIMIT_X_MIN, LIMIT_X_MAX;
 float HOME_Z_SEARCH_VEL, HOME_Z_LATCH_VEL, HOME_Z_FINAL_VEL, HOME_Z_OFFSET, HOME_Z_HOME, LIMIT_Z_MIN, LIMIT_Z_MAX;
 bool HOME_Z_FIRST, HOME_REQUIRED, ALARM_USE, ALARM_WHEN_LOW, LIMIT_UNHOMES = true;
+float HOME_CHECK_TOL_MM = 0.05;
 #define IN_HOME_X 12
 #define IN_HOME_Z 13
 #define IN_ALARM 14
@@ -50,7 +51,7 @@ volatile bool inHomeX, inHomeZ, inAlarm, cncHomeOverride, cncFaultStop, cncStopR
 volatile uint32_t cncFaultCount;
 const char* volatile cncFaultText = "";
 const char* volatile cncStatusText = "";
-volatile bool homingRequest, homingAbort, homingActive;
+volatile bool homingRequest, homingAbort, homingActive, homeCheckRequest;
 Axis* volatile homingWatchAxis = NULL;
 volatile bool homingWantActive, homingHit;
 volatile long homingHitPos;
@@ -468,6 +469,65 @@ int main() {
   homingRun();
   check(x.homed && z.homed && !isrStopped && cncIsrFault == 0, "Home All: the step interrupt does not interfere");
 
+
+  // 12. Home check (firmware 1.29): each axis to its switch again the way Home All found it, compared, back.
+  {
+    char buf[200];
+    machine();
+    homeCheckRun();
+    check(!strcmp(cncStatusText, "Home check: Home All first"), "home check before Home All: refused");
+    homingRun();
+    stepToFinal(&x, x.pos + 20 * 1200); stepToFinal(&z, z.pos - 30 * 400); homingWaitMotion(&x); homingWaitMotion(&z);
+    long xp = x.pos, zp = z.pos;
+    homeCheckRun();
+    snprintf(buf, sizeof(buf), "nothing moved: OK for both, back where they were (%s)", cncStatusText);
+    check(x.homed && z.homed && x.pos == xp && z.pos == zp && strstr(cncStatusText, "X +0.00") && strstr(cncStatusText, "Z ")
+          && !strstr(cncStatusText, "MOVED") && cncFaultCount == 0, buf);
+    // X lost 0.5 mm (its switch is now 0.5 mm further away, as seen by the step count): MOVED, X not homed
+    swX.at -= 600;
+    homeCheckRun();
+    snprintf(buf, sizeof(buf), "X slipped 0.5 mm: found, MOVED, X not homed, Z still OK (%s)", cncStatusText);
+    check(!x.homed && z.homed && x.pos == xp && strstr(cncStatusText, "X -0.50") && strstr(cncStatusText, "MOVED")
+          && strstr(cncStatusText, "Home All again"), buf);
+    check(cncStartRefusal() != NULL && !strcmp(cncStartRefusal(), "Home All first"), "after a failed home check: Home All first");
+    // Z slipped 3 mm the other way: its switch is met before the 2 mm mark
+    homingRun();
+    stepToFinal(&z, z.pos - 30 * 400); homingWaitMotion(&z);
+    swZ.at -= 3 * 400;
+    homeCheckRun();
+    snprintf(buf, sizeof(buf), "Z slipped 3 mm: switch found early, Z not homed, no limit fault (%s)", cncStatusText);
+    check(!z.homed && strstr(cncStatusText, "more than 2 mm early") && cncFaultCount == 0, buf);
+    // a switch that no longer answers: not found, not homed, the axis back where it was
+    homingRun();
+    stepToFinal(&x, x.pos + 20 * 1200); homingWaitMotion(&x);
+    xp = x.pos;
+    swX.disconnected = true;
+    homeCheckRun();
+    snprintf(buf, sizeof(buf), "X switch not answering: not found, X not homed, back (%s)", cncStatusText);
+    check(!x.homed && x.pos == xp && strstr(cncStatusText, "not found"), buf);
+    swX.disconnected = false;
+    // within the tolerance: 0.02 mm is OK
+    homingRun();
+    stepToFinal(&x, x.pos + 20 * 1200); homingWaitMotion(&x);
+    swX.at -= 24;
+    homeCheckRun();
+    snprintf(buf, sizeof(buf), "X 0.02 mm off: within 0.05 mm, OK, still homed (%s)", cncStatusText);
+    check(x.homed && !strstr(cncStatusText, "MOVED"), buf);
+    // STOP during the check: stops, nothing judged
+    onTick = [&]() { if (homingActive && nowUs % 100000 == 0) homingAbort = true; };
+    homeCheckRun();
+    onTick = nullptr;
+    check(!strcmp(cncStatusText, "Home check stopped") && x.homed, "STOP during the check: stopped, X still homed");
+    // on its switch (put there by hand; with 'Home All again after a limit' that alone unhomes it): refused
+    LIMIT_UNHOMES = false;
+    homingRun();
+    x.pos = x.motorPos = swX.at - 5;
+    vTaskDelay(5);
+    homeCheckRun();
+    LIMIT_UNHOMES = true;
+    snprintf(buf, sizeof(buf), "X on its switch: jog off first (%s)", cncStatusText);
+    check(strstr(cncStatusText, "jog it off first") != NULL, buf);
+  }
   printf("homing: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

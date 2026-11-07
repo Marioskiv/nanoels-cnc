@@ -377,11 +377,124 @@ void homingRun() {
   }
 }
 
+// ------------------------------------------------------------------ Home check (firmware 1.29)
+// Has an axis moved from where Home All put it (lost steps, a skipped belt)? Its switch is found again the way Home
+// All found it: at the search speed to 2 mm before the point where Home All saw the switch, then the same last
+// approach (latch speed), the position there compared with that point, and back to where the axis was. Nothing is
+// corrected: within HOME_CHECK_TOL_MM it is OK; further off the axis counts as not homed (Home All again).
+
+const char* homeCheckFailText = NULL;
+
+// True when measured; *deltaMm = where the switch was found now minus where Home All found it.
+bool homeCheckAxis(Axis* a, float* deltaMm) {
+  bool isX = a == &x;
+  float spm = axisStepsPerMm(a);
+  float search = isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL;
+  float latch = isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL;
+  float offset = isX ? HOME_X_OFFSET : HOME_Z_OFFSET;
+  int dir = search > 0 ? 1 : -1;
+  const float nearMm = 2;
+  long start = a->pos;
+  long expected = lround(offset * spm) - a->machineOffset;  // the switch point of Home All, in positions
+  long before = expected - dir * lround(nearMm * spm);
+  homeCheckFailText = NULL;
+  if (switchActive(a)) {
+    homeCheckFailText = "the axis is on its switch: jog it off first";
+    return false;
+  }
+  a->movingManually = true;
+  stepperEnable(a, true);
+  bool ok = true;
+  float toBefore = (before - a->pos) * dir / spm;  // > 0: towards the switch
+  if (toBefore > 0) {
+    // towards the switch, watching it: found before the 2 mm mark = moved more than 2 mm
+    if (homingMoveUntil(a, dir, search, true, toBefore)) {
+      homeCheckFailText = "the switch was found more than 2 mm early: the axis has moved, Home All again";
+      ok = false;
+    } else if (homingAbort) {
+      ok = false;
+    }
+  } else {
+    a->speedMax = max(1L, lround(fabs(search) * spm));
+    ok = stepToFinal(a, before) && homingWaitMotion(a);
+  }
+  if (ok) {
+    if (latch * search < 0) {
+      ok = homingMoveUntil(a, dir, search, true, nearMm * 3) && homingMoveUntil(a, -dir, latch, false, 20);
+    } else {
+      ok = homingMoveUntil(a, dir, latch, true, nearMm * 3);
+    }
+    if (ok) *deltaMm = (homingHitPos - expected) / spm;
+    else if (!homingAbort && !homeCheckFailText) homeCheckFailText = "the switch was not found within 4 mm after its point: Home All again";
+  }
+  if (!homingAbort) {  // back to where the axis was
+    a->speedMax = max(1L, lround(fabs(search) * spm));
+    if (!(stepToFinal(a, start) && homingWaitMotion(a)) && ok) ok = false;
+  }
+  a->speedMax = LONG_MAX;
+  a->movingManually = false;
+  stepperEnable(a, false);
+  return ok;
+}
+
+void homeCheckRun() {
+  homingAbort = false;
+  const char* refusal = NULL;
+  if (mode != MODE_GCODE) refusal = "Home check: GCODE mode only";
+  else if (isOn || cncBusy() || cncStopRequest) refusal = "Home check: stop the program first";
+  else if (ALARM_USE && inAlarm) refusal = "Home check: driver alarm or E-stop";
+  else if (emergencyStop != ESTOP_NONE) refusal = "Home check: emergency stop";
+  else if ((switchUsed(&x) && !x.homed) || (switchUsed(&z) && !z.homed) || (!switchUsed(&x) && !switchUsed(&z)))
+    refusal = "Home check: Home All first";
+  if (refusal != NULL) {
+    cncStatusText = refusal;
+    cncLog(refusal);
+    return;
+  }
+  homingActive = true;
+  static char text[160];
+  int n = snprintf(text, sizeof(text), "Home check:");
+  bool allOk = true, stopped = false;
+  Axis* axes[2] = {HOME_Z_FIRST ? &z : &x, HOME_Z_FIRST ? &x : &z};
+  for (int i = 0; i < 2 && !stopped; i++) {
+    Axis* a = axes[i];
+    if (!switchUsed(a)) continue;
+    cncStatusText = a == &x ? "Home check X" : "Home check Z";
+    float d = 0;
+    if (homeCheckAxis(a, &d)) {
+      bool inTol = fabsf(d) <= HOME_CHECK_TOL_MM;
+      if (!inTol) a->homed = false;
+      allOk = allOk && inTol;
+      n += snprintf(text + n, sizeof(text) - n, " %c %+.3f mm%s", a->name, d, inTol ? " OK" : " MOVED");
+    } else if (homingAbort) {
+      stopped = true;
+    } else {
+      a->homed = false;
+      allOk = false;
+      n += snprintf(text + n, sizeof(text) - n, " %c: %s", a->name, homeCheckFailText ? homeCheckFailText : "failed");
+    }
+    if (n >= (int)sizeof(text)) n = sizeof(text) - 1;
+  }
+  homingActive = false;
+  if (stopped) {
+    if (!cncFaultStop) cncStatusText = "Home check stopped";
+    cncLog("Home check stopped");
+    return;
+  }
+  if (!allOk) snprintf(text + n, sizeof(text) - n, ". Home All again");
+  cncStatusText = text;
+  cncLog(text);
+}
+
 void taskHoming(void* param) {
   while (emergencyStop == ESTOP_NONE) {
     if (homingRequest) {
       homingRequest = false;
       homingRun();
+    }
+    if (homeCheckRequest) {
+      homeCheckRequest = false;
+      homeCheckRun();
     }
     vTaskDelay(10);
   }

@@ -294,7 +294,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="pg"><div style="font:600 22px ui-monospace,monospace">Z <span id="z">-</span></div><div style="font:600 22px ui-monospace,monospace">X <span id="x">-</span></div>
 <div style="font:600 22px ui-monospace,monospace"><span id="cl">C</span> <span id="c">-</span></div>
 <div class="small" id="mach"></div><div class="small" id="info"></div><div class="small">Inputs (terminal A2): <span id="ins"></span></div></div><div class="pgc"></div>
-<button id="bHome" onclick="homeAll()">Home All</button></div>
+<div class="row"><button id="bHome" onclick="homeAll()">Home All</button><button onclick="homeCheck()">Home check</button></div></div>
 <div class="pane card" data-p="diag" hidden><h2>Diagnostics <span class="grow"></span><button class="info" onclick="infoSheet('diag')">i</button></h2>
 <div class="pg"><div id="diag" class="small">-</div></div><button onclick="cmd('diagReset')">Clear</button></div>
 <div class="pane card" data-p="log" hidden><h2>Messages <button onclick="eventsShow()">Lasting log</button></h2><div class="pg" id="log"></div><div class="pgc"></div></div>
@@ -456,6 +456,7 @@ if(DEMO)(function(){
    if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
    if(d=='resume'){S.paused=false;return ok('Resuming')}
    if(d=='home'){S.homed=[1,1,1];S.x=0;S.z=0;add('Demo: Home All');return ok('Home All')}
+   if(d=='homecheck'){add('Demo: Home check: X +0.004 mm OK Z -0.002 mm OK');return ok('Home check')}
    if(d=='ovr'){const c=+arg('code');if(c==144)S.fo=100;if(c==145)S.fo+=10;if(c==146)S.fo-=10;if(c==147)S.fo++;if(c==148)S.fo--;
     if(c==149)S.ro=100;if(c==150)S.ro=50;if(c==151)S.ro=25;S.fo=Math.max(10,Math.min(200,S.fo));return ok('Feed '+S.fo+' %, rapids '+S.ro+' %')}
    if(d=='diagReset'){S.steps=0;return ok('Diagnostics cleared')}
@@ -667,7 +668,7 @@ const I18N={
  'Handwheel A1 inverted':'Χειροτροχός A1 ανάποδα','Handwheel A1 moves':'Ο χειροτροχός A1 κινεί','Handwheel A2 inverted':'Χειροτροχός A2 ανάποδα','Handwheel A2 moves':'Ο χειροτροχός A2 κινεί',
  'Handwheel on terminal A1':'Χειροτροχός στην κλέμα A1','Handwheel on terminal A2':'Χειροτροχός στην κλέμα A2','Handwheel pulses per turn':'Παλμοί χειροτροχού ανά στροφή',
  'Alarm connects A23 to GND (off: opens it)':'Το alarm γειώνει το A23 (όχι: το ανοίγει)','Driver alarm / E-stop contact connected (A23)':'Συνδεδεμένα alarm drivers / επαφή E-stop (A23)',
- 'Home All: Z first, then X':'Home All: πρώτα Z, μετά X','Programs start only after Home All':'Τα προγράμματα ξεκινούν μόνο μετά το Home All','After a limit switch stopped the machine, Home All again':'Αφού ένας τερματικός διακόπτης σταμάτησε τη μηχανή, ξανά Home All',
+ 'Home All: Z first, then X':'Home All: πρώτα Z, μετά X','Programs start only after Home All':'Τα προγράμματα ξεκινούν μόνο μετά το Home All','Home check: the switch may be this far from where Home All found it':'Έλεγχος home: πόσο μπορεί να απέχει ο διακόπτης από εκεί που τον βρήκε το Home All','Home check':'Έλεγχος home','Home check? Each axis goes to its switch again and back; nothing is changed.':'Έλεγχος home; Κάθε άξονας πηγαίνει ξανά στον διακόπτη του και επιστρέφει· τίποτα δεν αλλάζει.','After a limit switch stopped the machine, Home All again':'Αφού ένας τερματικός διακόπτης σταμάτησε τη μηχανή, ξανά Home All',
  'HOME: go there after homing':'HOME: πήγαινε εκεί μετά το homing','HOME_FINAL_VEL (0: maximum speed)':'HOME_FINAL_VEL (0: μέγιστη ταχύτητα)','HOME_LATCH_VEL (opposite sign: leave the switch)':'HOME_LATCH_VEL (αντίθετο πρόσημο: φεύγει από τον διακόπτη)',
  'HOME_OFFSET: machine coordinate of the switch':'HOME_OFFSET: συντεταγμένη μηχανής του διακόπτη','HOME_SEARCH_VEL, sign = towards the switch':'HOME_SEARCH_VEL, πρόσημο = προς τον διακόπτη',
  'Home switch connected':'Διακόπτης home συνδεδεμένος','MAX_LIMIT (machine coordinate)':'MAX_LIMIT (συντεταγμένη μηχανής)','MIN_LIMIT (machine coordinate)':'MIN_LIMIT (συντεταγμένη μηχανής)',
@@ -703,7 +704,7 @@ const I18NR=[
  [/^Step interrupt, longest: (\S+) µs(.*)$/,(m,a,r)=>'Διακοπή βημάτων, μέγιστη: '+a+' µs'+r.replace(' (time between steps at the highest rate: ',' (χρόνος ανάμεσα στα βήματα στον μέγιστο ρυθμό: ')],
  [/^Highest step rate: (\S+) \/s \(limit (\S+) \/s\)$/,'Μέγιστος ρυθμός βημάτων: $1 /s (όριο $2 /s)'],
  [/^Started late \(over 10 µs\): (\S+) times, latest (\S+) µs$/,'Ξεκίνησε αργά (πάνω από 10 µs): $1 φορές, τελευταία $2 µs'],
- [/^MCS (\S+)$/,'μηχανή $1'],[/^Jog \/ homing step pulse: shortest (\S+) µs, longest (\S+) µs \((\S+) pulses\)$/,'Παλμός βήματος jog / homing: μικρότερος $1 µs, μεγαλύτερος $2 µs ($3 παλμοί)'],[/^Jog \/ homing step pulse: no pulses yet$/,'Παλμός βήματος jog / homing: δεν έγινε ακόμα παλμός'],[/^Step timer: IRAM \(runs while the flash is busy\)$/,'Χρονιστής βημάτων: γρήγορη μνήμη (δουλεύει και όταν γράφονται αρχεία ή ρυθμίσεις)'],[/^Step timer: gptimer \(waits while the flash is busy\)$/,'Χρονιστής βημάτων: παλιός (περιμένει όταν γράφονται αρχεία ή ρυθμίσεις)'],[/^Step buffer ran empty: (\S+)$/,'Ο buffer βημάτων άδειασε: $1'],[/^Steps given: (\S+)$/,'Βήματα που δόθηκαν: $1'],[/^Main loop \(keys, inputs, jog\), longest pause: (\S+) ms$/,'Κύριος βρόχος (πλήκτρα, είσοδοι, jog), μεγαλύτερη παύση: $1 ms'],[/^Main loop \(keys, inputs, jog\), longest pause: (\S+) ms \((\S+) times over 50 ms\)$/,'Κύριος βρόχος (πλήκτρα, είσοδοι, jog), μεγαλύτερη παύση: $1 ms ($2 φορές πάνω από 50 ms)'],
+ [/^MCS (\S+)$/,'μηχανή $1'],[/^Jog \/ homing step pulse: shortest (\S+) µs, longest (\S+) µs \((\S+) pulses\)$/,'Παλμός βήματος jog / homing: μικρότερος $1 µs, μεγαλύτερος $2 µs ($3 παλμοί)'],[/^Jog \/ homing step pulse: no pulses yet$/,'Παλμός βήματος jog / homing: δεν έγινε ακόμα παλμός'],[/^Step timer: IRAM \(runs while the flash is busy\)$/,'Χρονιστής βημάτων: γρήγορη μνήμη (δουλεύει και όταν γράφονται αρχεία ή ρυθμίσεις)'],[/^Step timer: gptimer \(waits while the flash is busy\)$/,'Χρονιστής βημάτων: παλιός (περιμένει όταν γράφονται αρχεία ή ρυθμίσεις)'],[/^Step buffer ran empty: (\S+)$/,'Ο buffer βημάτων άδειασε: $1'],[/^Steps given: (\S+)$/,'Βήματα που δόθηκαν: $1'],[/^Home check: (.*)$/,'Έλεγχος home: $1'],[/^Main loop \(keys, inputs, jog\), longest pause: (\S+) ms$/,'Κύριος βρόχος (πλήκτρα, είσοδοι, jog), μεγαλύτερη παύση: $1 ms'],[/^Main loop \(keys, inputs, jog\), longest pause: (\S+) ms \((\S+) times over 50 ms\)$/,'Κύριος βρόχος (πλήκτρα, είσοδοι, jog), μεγαλύτερη παύση: $1 ms ($2 φορές πάνω από 50 ms)'],
  [/^(A21 home X|A22 home Z|A23 alarm): /,null],   // the inputs line: done word by word below
  [/^Start (.+) on the machine\?$/,'Έναρξη του $1 στο μηχάνημα;'],[/^Delete (.+)\?$/,'Διαγραφή του $1;'],[/^Update the firmware with (.+)\?$/,'Ενημέρωση firmware με το $1;'],
  [/^Run (.+) \?$/,'Εκτέλεση: $1 ;'],[/^Set ([XZC]) = 0 here \(active work offset\)\?([\s\S]*)$/,(m,a,r)=>'Μηδέν '+a+' εδώ (ενεργές συντεταγμένες εργασίας);'+r.replace('On a polar machine X0 must stay the chuck centre: zero X only if the tool is exactly there.','Σε πολική μηχανή το X0 πρέπει να μένει το κέντρο του τσοκ: μηδένισε το X μόνο αν το κοπτικό είναι ακριβώς εκεί.')],
@@ -872,6 +873,8 @@ function selAxis(a){jogAxis=a;ctlJogShow();axesShow()}
 function zeroAxis(a){const warn=a=='X'?'\n\nOn a polar machine X0 must stay the chuck centre: zero X only if the tool is exactly there.':'';
  if(confirm('Set '+a+' = 0 here (active work offset)?'+warn))gpMdi('G10 L20 P0 '+a+'0')}
 function homeAll(){if(confirm('Home All? The axes move to their switches.'))cmd('home')}
+// Has an axis moved since Home All? Each axis goes to its switch again, the difference is shown, then it goes back.
+function homeCheck(){if(confirm('Home check? Each axis goes to its switch again and back; nothing is changed.'))cmd('homecheck')}
 function ctlJogShow(){const wheel=sc.jog=='wheel',list=wheel?STEPS:STEPS.concat(['cont']);
  $('chips').innerHTML=list.map(v=>`<button class="${v==jogStep?'on':''}" onclick="setStep('${v}')">${v=='cont'?'Cont':v<1?String(v).slice(1):v}</button>`).join('')+
   (sc.lock=='1'?`<button class="lk${unlocked?' on':''}" onclick="lockToggle()" title="Jog lock">${unlocked?'&#x1F513;':'&#x1F512;'}</button>`:'');

@@ -110,6 +110,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"lzMax", 'f', (void*)&LIMIT_Z_MAX, -100000, 100000, "Home switch and limits Z (A22)", "MAX_LIMIT (machine coordinate)", "mm"},
   {"hZFirst", 'b', (void*)&HOME_Z_FIRST, 0, 1, "Home All and driver alarm", "Home All: Z first, then X", ""},
   {"hUnhome", 'b', (void*)&LIMIT_UNHOMES, 0, 1, "Home All and driver alarm", "After a limit switch stopped the machine, Home All again", ""},
+  {"hCheckTol", 'f', (void*)&HOME_CHECK_TOL_MM, 0.001, 10, "Home All and driver alarm", "Home check: the switch may be this far from where Home All found it", "mm"},
   {"hReq", 'b', (void*)&HOME_REQUIRED, 0, 1, "Home All and driver alarm", "Programs start only after Home All", ""},
   {"alUse", 'b', (void*)&ALARM_USE, 0, 1, "Home All and driver alarm", "Driver alarm / E-stop contact connected (A23)", ""},
   {"alLow", 'b', (void*)&ALARM_WHEN_LOW, 0, 1, "Home All and driver alarm", "Alarm connects A23 to GND (off: opens it)", ""},

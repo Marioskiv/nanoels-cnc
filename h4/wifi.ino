@@ -524,6 +524,18 @@ void handleCommand() {
     if (refuseWhileRunning()) return;
     homingRequest = true;
     server.send(200, "text/plain", "Home All");
+  } else if (what == "homecheck") {
+    if (!homingConfigured()) {
+      server.send(409, "text/plain", "No home switch is set up (Machine settings).");
+      return;
+    }
+    if (refuseWhileRunning()) return;
+    if (homingActive || homingRequest) {
+      server.send(409, "text/plain", "Home All or a home check is running.");
+      return;
+    }
+    homeCheckRequest = true;
+    server.send(200, "text/plain", "Home check");
   } else if (what == "pause") {
     if (mode != MODE_GCODE || !isOn) {
       server.send(409, "text/plain", "Nothing runs.");
