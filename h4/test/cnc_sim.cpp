@@ -87,6 +87,8 @@ static std::string stripComments(const std::string& raw) {
 int main(int argc, char** argv) {
   const char* file = NULL;
   double taskGapMs = 50, holdAt = -1;
+  int holdCount = 0; unsigned holdSeed = 1;
+  std::vector<double> holdList;  // --holds K:seed: K Pause / Resume at random times (work plan B3)
   int32_t backlash[CNC_N_AXIS] = {0, 0, 0};
   const char* machineName = "marios";
   struct Ovr { double at; int feed, rapid; bool done; };
@@ -98,6 +100,8 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--task-gap-ms")) taskGapMs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--hold-at")) holdAt = atof(argv[++i]);
+    else if (!strcmp(argv[i], "--hold-list")) { char* p = argv[++i]; while (*p) { holdList.push_back(strtod(p, &p)); if (*p == ',') p++; else break; } }
+    else if (!strcmp(argv[i], "--holds")) sscanf(argv[++i], "%d:%u", &holdCount, &holdSeed);
     else if (!strcmp(argv[i], "--backlash")) sscanf(argv[++i], "%d,%d,%d", &backlash[0], &backlash[1], &backlash[2]);
     else if (!strcmp(argv[i], "--machine")) machineName = argv[++i];
     else if (!strcmp(argv[i], "--delayed")) delayed = true;
@@ -174,6 +178,13 @@ int main(int argc, char** argv) {
   uint64_t steps[CNC_N_AXIS] = {0, 0, 0};
   bool waitingIdle = false; int pendingAction = CNC_OK; float dwellLeft = 0;
   bool holdRequested = false, holdDone = false; uint64_t holdStopAt = 0;
+  // the holds: --hold-at, and --holds K random ones 0.2 .. 2.5 s apart (each resumed 0.5 s after the tool stands)
+  std::vector<double> holdTimes;
+  if (holdAt >= 0) holdTimes.push_back(holdAt);
+  for (double t : holdList) holdTimes.push_back(t);
+  { uint32_t r = holdSeed * 2654435761u + 1; double t = 0;
+    for (int k = 0; k < holdCount; k++) { r = r * 1103515245 + 12345; t += 0.2 + ((r >> 8) % 2300) / 1000.0; holdTimes.push_back(t); } }
+  size_t holdIdx = 0; int holdsDone = 0; double worstHoldS = 0; uint64_t holdAskedAt = 0;
   // speed / acceleration measurement from position samples (inside one move only: at a corner the
   // axis speeds change at once by design, limited by the junction deviation)
   struct Sample { int32_t p[CNC_N_AXIS]; size_t block; };
@@ -213,7 +224,9 @@ int main(int argc, char** argv) {
     if (now >= nextTask) {
       // what the firmware reads as "motion finished" must mean every step was given
       if (pendValid && (!cnc_st_busy() || cnc_hold_complete())) pendingWhileIdle++;
-      if (holdAt >= 0 && !holdRequested && now >= (uint64_t)(holdAt * TIMER_HZ)) { cnc_hold_start(); holdRequested = true; }
+      if (holdIdx < holdTimes.size() && !holdRequested && now >= (uint64_t)(holdTimes[holdIdx] * TIMER_HZ) && cnc_st_busy()) {
+        cnc_hold_start(); holdRequested = true; holdAskedAt = now;
+      }
       if (stopAt >= 0 && !stopRequested && now >= (uint64_t)(stopAt * TIMER_HZ)) { cnc_hold_start(); stopRequested = true; stopLine = lineIdx; }
       if (stopRequested && !stopped && (cnc_hold_complete() || !cnc_st_busy())) {
         // the firmware's STOP: the rest is dropped (cncSyncFromAxes), the position is where the tool stands
@@ -239,8 +252,16 @@ int main(int argc, char** argv) {
         if (!o.done && now >= (uint64_t)(o.at * TIMER_HZ)) { cnc_set_overrides((uint8_t)o.feed, (uint8_t)o.rapid); o.done = true; }
       }
       if (holdRequested && !holdDone && cnc_hold_complete()) {
-        if (holdStopAt == 0) holdStopAt = now;
-        if (now >= holdStopAt + TIMER_HZ / 2) { cnc_hold_resume(); holdDone = true; }
+        if (holdStopAt == 0) {
+          holdStopAt = now;
+          double s = (double)(now - holdAskedAt) / TIMER_HZ;
+          if (s > worstHoldS) worstHoldS = s;
+        }
+        if (now >= holdStopAt + TIMER_HZ / 2) {
+          cnc_hold_resume(); holdDone = true; holdsDone++;
+          // the next hold: a fresh request (a time already passed is taken at the next chance)
+          if (++holdIdx < holdTimes.size()) { holdRequested = false; holdDone = false; holdStopAt = 0; }
+        }
       }
       if (!cnc_hold_active() && !(stopRequested && !stopped)) {
         if (waitingIdle) {
@@ -476,7 +497,13 @@ int main(int argc, char** argv) {
            dirUs, minDirHold < 1e9 ? minDirHold : 0.0, holdUs, dirChanges, maxLateUs);
     fails += pinErrors;
   }
-  if (holdAt >= 0 && holdStopAt) printf("  hold: the tool stood still %.0f ms after the request\n", ((double)holdStopAt / TIMER_HZ - holdAt) * 1000);
+  if (holdAt >= 0 && holdCount == 0 && holdStopAt) printf("  hold: the tool stood still %.0f ms after the request\n", ((double)holdStopAt / TIMER_HZ - holdAt) * 1000);
+  if (holdCount > 0) {
+    // every hold stops within the braking time from the highest speed (no axis here needs more than 1 s), then resumes
+    printf("  holds: %d of %zu done (the rest after the end), the longest from request to standstill %.0f ms\n", holdsDone,
+           holdTimes.size(), worstHoldS * 1000);
+    if (holdsDone < 3 || worstHoldS > 2.0) { printf("  holds: too few done or too slow to stop\n"); fails++; }
+  }
   if (stopAt >= 0) {
     printf("  STOP at %.1f s (line %zu): stopped at %d %d %d, then moved on to %d %d %d\n", stopAt, stopLine,
            stopPos[0], stopPos[1], stopPos[2], tool[0], tool[1], tool[2]);

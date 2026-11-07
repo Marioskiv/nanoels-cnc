@@ -29,6 +29,16 @@ for i in $(seq 61 80); do
   hold=""; [ $((i % 2)) = 0 ] && hold="--hold-at 2.3"
   run "$OUT/r.ngc" --ovr 0.7:30:25 --ovr 2.1:180:50 --ovr 3.3:100:100 --ovr 5:70:100 $hold
 done
+# Pause / Resume stress (work plan B3): 25 holds at random times per program, also right after a Resume, with
+# overrides, backlash and the H4 interrupt order; each hold must stop within 2 s and the program end exactly
+for i in $(seq 201 260); do
+  python3 gen_random.py "$i" > "$OUT/r.ngc"
+  bl="0,0,0"; [ $((i % 3)) = 0 ] && bl="40,80,3"
+  d=""; [ $((i % 2)) = 0 ] && d="--delayed"
+  m=marios; [ $((i % 5)) = 0 ] && m=h4default
+  run "$OUT/r.ngc" --machine $m --backlash $bl $d --holds 25:$i --ovr 1.3:60:50 --ovr 3.9:150:100
+done
+run polar_sample.ngc --delayed --backlash 120,240,5 --holds 60:7 --ovr 5:60:50
 # the H4 step interrupt order (step put out by the next interrupt), with holds and overrides
 run polar_sample.ngc --delayed --backlash 120,240,5 --hold-at 3 --ovr 5:60:50
 run lathecode_sample.ngc --machine h4default --delayed --hold-at 1.5

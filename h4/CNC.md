@@ -93,6 +93,14 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Pause right after Resume (firmware 1.32)
+
+Pause (feed hold) decelerates along the path and stops, as Grbl and LinuxCNC do; a Pause given while the tool stands
+(e.g. right after a Resume, before it has moved) is complete at once. Before 1.32 such a Pause left one last step whose
+time came out as distance / speed with the speed at zero: the machine crept for up to about 20 s before it counted as
+stopped (found by the Pause / Resume stress test, work plan B3: `cnc_sim --holds`, 25 holds at random times in each
+of 60 random programs, each must stop within 2 s and the program must end exactly where it should).
+
 ### Lost connection to the app (firmware 1.26)
 
 A program the app or web page was watching (it asks for the status about every 0.35 s) **pauses** when that connection
