@@ -1,0 +1,44 @@
+# H4 test record
+date (UTC): 2026-11-07T193548Z
+commit: f3f7c95
+firmware: 1.27  app: 1.52
+tools: g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; Python 3.13.18; node v22.23.4
+LinuxCNC rs274: not used (set RS274=/path/to/rs274)
+firmware tests (run_tests.sh): exit 0
+screen tests (lathe/run.sh): exit 0
+result: PASS
+
+## firmware tests
+parse: 207 checks, 0 failures
+simulation: 0 failure(s)
+g93 timing: 0 failure(s)
+corners: 0 failure(s)
+homing: 71 checks, 0 failures
+move pulses: 6892 checks, 0 failures
+link: 14 checks, 0 failures
+zeros: 60004 checks, 0 failures
+latheview: 16333 checks, 0 failures
+threadpass: 96039 checks, 0 failures
+safety: 24 checks, 0 failures
+cam: 0 failure(s)
+preflight: 9 checks, 0 failures
+polar_sample.ngc: 234 lines, 225 blocks, 1.1 min at programmed speeds; this PC plans 1315789 blocks/s; the program needs up to 9 blocks/s (line 51)
+lathecode_sample.ngc: 15 lines, 8 blocks, 0.8 min at programmed speeds; this PC plans 1600000 blocks/s; the program needs up to 0 blocks/s (line 0)
+
+## screen tests
+threads: 325 checks, 0 failures
+guard: 20 checks, 0 failures
+measure: 13 checks, 0 failures
+recipe: 21 checks, 0 failures
+advice: 12 checks, 0 failures
+cone: 10 checks, 0 failures
+draw: 11 checks, 0 failures
+nodef: 15 checks, 0 failures
+zface: 13 checks, 0 failures
+gamepad: 25 checks, 0 failures
+lang: 6 checks, 0 failures
+settings: 27 checks, 0 failures
+dropdown: 12 checks, 0 failures
+applog: 12 checks, 0 failures
+lathe page vs H4: 18 plans, 0 failures
+flank: 54 checks, 0 failures
