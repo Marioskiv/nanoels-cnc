@@ -464,6 +464,7 @@ next step. A speed above what the pulse length allows is refused in the settings
 | Wrong distance | steps per turn or travel per turn; the driver's microstep switches |
 | Home All stops at once / "on its switch" | switch type (normally open / closed) or wiring; check *Inputs* |
 | "Home All first" | *Programs start only after Home All* is on: home, or `$X` to unlock |
+| "Paused: the app's connection was lost" | the app / page did not answer for 3 s (WiFi, tablet off, app in the background); the program waits where it stopped: Resume on the page, or ON on the H4 (setting in GCODE mode, 0 = never) |
 | "X / Z / C is still moving: start again when it has stopped" | a jog with the keys or a handwheel was still moving or braking when START was pressed (since firmware 1.25 a program never starts under it); wait a moment, press START again |
 | A line is refused | the message names the line and the reason; change the CAM post or the program |
 | Page does not open | the address on the H4 display; the phone on the same WiFi; restart the H4 |

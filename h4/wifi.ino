@@ -205,6 +205,7 @@ void handleMdi() {
 }
 
 void handleStatus() {
+  cncAppSeenMs = millis(); // the app / web page is watching (h4.ino cncLinkWatch)
   float divisor = measure == MEASURE_METRIC ? 10000.0 : 254000.0;
   const char* state = "Idle";
   if (cncStopRequest) state = "Stopping";
