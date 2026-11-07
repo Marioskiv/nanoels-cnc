@@ -100,8 +100,14 @@ final class UpdateCheck {
                         + "πάλι δεν μπει: Ρυθμίσεις, Εφαρμογές, εμφάνιση συστήματος, Πρόγραμμα εγκατάστασης πακέτων, "
                         + "Αποθηκευτικός χώρος, Διαγραφή δεδομένων, επανεκκίνηση του tablet και ξανά· ή κλείσε το H4 CNC "
                         + "(Ρυθμίσεις, Εφαρμογές, H4 CNC, Αναγκαστική διακοπή) και άνοιξε το H4CNC.apk από τα Αρχεία."))
-                .setPositiveButton(Tr.t(activity, "Try again (the other way)", "Ξανά (με τον άλλο τρόπο)"), (d, w) -> check(activity, true))
-                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null)
+                .setPositiveButton(Tr.t(activity, "Try again (the other way)", "Ξανά (με τον άλλο τρόπο)"), (d, w) -> {
+                    ExitWatch.event(activity, "not installed: Try again pressed", "δεν εγκαταστάθηκε: πατήθηκε Ξανά");
+                    check(activity, true);
+                })
+                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), (d, w) ->
+                        ExitWatch.event(activity, "not installed: Later pressed", "δεν εγκαταστάθηκε: πατήθηκε Αργότερα"))
+                .setOnCancelListener(d -> ExitWatch.event(activity, "not installed: message closed without a choice",
+                        "δεν εγκαταστάθηκε: το μήνυμα έκλεισε χωρίς επιλογή"))
                 .show();
     }
 
@@ -140,7 +146,12 @@ final class UpdateCheck {
                 }
                 prefs.edit().putLong("updateCheck", System.currentTimeMillis()).apply();
                 if (best != null && !manual && best.equals(prefs.getString("laterVersion", ""))
-                        && System.currentTimeMillis() - prefs.getLong("laterAt", 0) < LATER_MS) best = null;
+                        && System.currentTimeMillis() - prefs.getLong("laterAt", 0) < LATER_MS) {
+                    long h = (LATER_MS - (System.currentTimeMillis() - prefs.getLong("laterAt", 0))) / 3600000;
+                    ExitWatch.event(activity, "update " + best + " found, not offered: Later was pressed (asks again in " + h + " h)",
+                            "βρέθηκε η " + best + ", δεν προτάθηκε: είχε πατηθεί Αργότερα (ξαναρωτά σε " + h + " ώρες)");
+                    best = null;
+                }
                 if (best == null) {
                     if (manual) tell(activity, Tr.t(activity, "H4 CNC " + current + " is the newest version.", "Το H4 CNC " + current + " είναι η νεότερη έκδοση."));
                     return;
@@ -150,6 +161,8 @@ final class UpdateCheck {
                 activity.runOnUiThread(() -> offer(activity, current, version, url, prefs));
             } catch (Exception e) {
                 // no network or GitHub unreachable: the automatic check tries again next time
+                ExitWatch.event(activity, "update check failed" + (manual ? "" : " (automatic)") + ": " + e.getMessage(),
+                        "ο έλεγχος ενημέρωσης απέτυχε" + (manual ? "" : " (αυτόματος)") + ": " + e.getMessage());
                 if (manual) tell(activity, Tr.t(activity, "Could not look for an update (no internet?): ", "Δεν έγινε έλεγχος για ενημέρωση (χωρίς internet;): ") + e.getMessage());
             } finally {
                 busy = false;
@@ -181,9 +194,17 @@ final class UpdateCheck {
                         + "(παλιό app με άλλη υπογραφή), απεγκατάστησε πρώτα το H4 CNC και εγκατάστησε ξανά.\n\n"
                         + "Tablet Huawei (Android 7): άφησε την Αυτόματη περιστροφή ενεργή (ή κράτα το tablet κάθετα) "
                         + "όσο εγκαθιστά· με κλειδωμένη πλάγια περιστροφή ο εγκαταστάτης μένει στο «Εγκατάσταση...»."))
-                .setPositiveButton(Tr.t(activity, "Install", "Εγκατάσταση"), (d, w) -> install(activity, url, version))
-                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), (d, w) -> prefs.edit()
-                        .putString("laterVersion", version).putLong("laterAt", System.currentTimeMillis()).apply())
+                .setPositiveButton(Tr.t(activity, "Install", "Εγκατάσταση"), (d, w) -> {
+                    ExitWatch.event(activity, "update " + version + ": Install pressed", "ενημέρωση " + version + ": πατήθηκε Εγκατάσταση");
+                    install(activity, url, version);
+                })
+                .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), (d, w) -> {
+                    ExitWatch.event(activity, "update " + version + ": Later pressed (asks again in 24 h)",
+                            "ενημέρωση " + version + ": πατήθηκε Αργότερα (ξαναρωτά σε 24 ώρες)");
+                    prefs.edit().putString("laterVersion", version).putLong("laterAt", System.currentTimeMillis()).apply();
+                })
+                .setOnCancelListener(d -> ExitWatch.event(activity, "update " + version + ": message closed without a choice (asks again at the next opening)",
+                        "ενημέρωση " + version + ": το μήνυμα έκλεισε χωρίς επιλογή (ξαναρωτά στο επόμενο άνοιγμα)"))
                 .show();
     }
 
@@ -195,6 +216,8 @@ final class UpdateCheck {
     // installer opens: some installers only hang on it instead of saying why.
     private static void install(final MainActivity activity, final String url, final String version) {
         if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {
+            ExitWatch.event(activity, "update " + version + ": Android does not yet allow H4 CNC to install apps",
+                    "ενημέρωση " + version + ": το Android δεν επιτρέπει ακόμα στο H4 CNC να εγκαθιστά εφαρμογές");
             new AlertDialog.Builder(activity).setTitle(Tr.t(activity, "App update", "Ενημέρωση app"))
                     .setMessage(Tr.greek(activity) ? "Το Android πρέπει να επιτρέψει στο H4 CNC να εγκαθιστά εφαρμογές (μία φορά). "
                             + "Ενεργοποίησέ το στην επόμενη οθόνη, γύρνα πίσω και πάτα ξανά Έλεγχος για ενημέρωση." : "Android must allow H4 CNC to install apps (once). Switch it on in the next screen, "
@@ -235,6 +258,8 @@ final class UpdateCheck {
                 c.disconnect();
                 if (total > 0 && apk.length() != total) throw new Exception("the download was cut off");
                 final String problem = check(activity, apk);
+                ExitWatch.event(activity, "update " + version + " downloaded (" + apk.length() / 1024 + " kB)" + (problem == null ? "" : ", refused: " + problem),
+                        "η " + version + " κατέβηκε (" + apk.length() / 1024 + " kB)" + (problem == null ? "" : ", απορρίφθηκε: " + problem));
                 activity.runOnUiThread(() -> {
                     progress.dismiss();
                     if (problem == null) {
@@ -245,6 +270,8 @@ final class UpdateCheck {
                     else tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + problem);
                 });
             } catch (Exception e) {
+                ExitWatch.event(activity, "update " + version + ": download failed: " + e.getMessage(),
+                        "ενημέρωση " + version + ": η λήψη απέτυχε: " + e.getMessage());
                 activity.runOnUiThread(() -> {
                     progress.dismiss();
                     tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + e.getMessage());

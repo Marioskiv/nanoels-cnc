@@ -47,7 +47,9 @@ Android 13 on, the session.
 **After an update (from app 1.41).** When Android has installed the new version, it opens by itself (Android tells
 the app, MY_PACKAGE_REPLACED); while an install handed to Android less than 3 minutes ago may still run, opening the
 app says so instead of offering the update again. Every step (offered, handed to Android and how, Android's answer,
-updated) is written to *Settings, App log*.
+updated) is written to *Settings, App log*. From app 1.50 also what the user chose (Install, Later, the message
+closed without a choice), a newer version kept quiet by an earlier Later, a failed check (no internet) and a failed or
+refused download, so the log shows why a tablet stayed at an older version.
 
 **As the tablet's home screen (from app 1.42).** H4 CNC can be chosen as the home screen (Android settings, Apps,
 Default apps, Home / Launcher; or press Home once and choose H4 CNC, Always): the tablet starts in it and the Home key
