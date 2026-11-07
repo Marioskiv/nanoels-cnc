@@ -773,6 +773,11 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   if (dwellCode && VAL('P') < 0) return fail(msg, msgLen, "G4 P must not be negative");
   if (dwellCode && moving) return fail(msg, msgLen, "G4 and a move on one line");
   if (mTool == 6 && moving) return fail(msg, msgLen, "M6 and a move on one line");
+  // With the pause for the spindle, M3 / M4 that start it must not share a line with a move: the move would come before
+  // the pause, with the spindle (router) still off.
+  if (machine.pauseOnSpindleStart && (mSpindle == 3 || mSpindle == 4) && mSpindle != spindleState && moving) {
+    return fail(msg, msgLen, "M3 / M4 and a move on one line: put M3 / M4 on its own line (the program pauses there to switch the spindle on)");
+  }
   if (HAS('F') && VAL('F') < 0) return fail(msg, msgLen, "F must not be negative");
   if (HAS('F') && VAL('F') == 0 && !thread && !(nFeedMode == 930 && !moving)) return fail(msg, msgLen, "F must be positive");
   if (HAS('I') && !isArc && !isG76) return fail(msg, msgLen, "I without an arc or G76");
@@ -1100,8 +1105,17 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
     else if (n + 3 < (size_t)msgLen) snprintf(msg + n, msgLen - n, "; %s", text);
   };
   if (mSpindle >= 0) {
+    bool starts = (mSpindle == 3 || mSpindle == 4) && mSpindle != spindleState;
     spindleState = mSpindle;
-    if (mSpindle != 5 && !notedSpindle) {
+    if (starts && machine.pauseOnSpindleStart) {
+      // the H4 cannot switch the spindle: the program waits here until the operator has switched it on
+      char t[128];
+      snprintf(t, sizeof(t), "M%d S%g: switch the spindle / router on by hand (%s), then Resume", mSpindle, spindleSpeed,
+               mSpindle == 3 ? "clockwise" : "counter-clockwise");
+      note(t);
+      result = CNC_PAUSE;
+      notedSpindle = true;
+    } else if (mSpindle != 5 && !notedSpindle) {
       char t[128];
       snprintf(t, sizeof(t), "M%d S%g: the H4 does not switch the spindle - run it by hand (%s)", mSpindle, spindleSpeed,
                mSpindle == 3 ? "clockwise" : "counter-clockwise");

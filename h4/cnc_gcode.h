@@ -24,6 +24,8 @@ typedef struct {
   float arcTolerance;                // mm, largest distance of an arc segment from the true arc
   float (*spindleRpm)();             // measured spindle speed, for G95 (NULL: G95 refused)
   bool skipOptionalStop;             // the optional stop switch is off: M1 does not pause (as LinuxCNC / Grbl)
+  bool pauseOnSpindleStart;          // M3 / M4 that start (or reverse) the spindle pause the program: the operator
+                                     // switches the spindle / router on by hand, then resumes (the H4 cannot switch it)
 } cnc_machine_t;
 
 // Offsets kept by the interpreter (machine coordinates, mm or degrees). The firmware stores them.
