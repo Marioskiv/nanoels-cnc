@@ -99,6 +99,12 @@ threading cannot be planned without the spindle: the check ends at the first thr
 program takes a moment to check; STOP during the check cancels the start. A Grbl sender's stream cannot be checked
 before (it arrives line by line). Test: `preflight_test.cpp`.
 
+Since 1.40 the check also says, when the program starts, what the operator will meet: how many times it will wait for
+them and where the first is (a tool change M6, the router to switch on at M3 / M4, M0 / M1), and its first note, a
+G43 H before any other (the H4 stores no tool lengths: touch off Z for every tool). The program still says each of
+them when it gets there; the check no longer uses up the one-time spindle / coolant notes (it puts them back with the
+modes). Tests: `preflight_test.cpp`, `cnc_parse_test.cpp`, `test/h4sim/scenario_test.py`.
+
 Since firmware 1.25 a program (stored, from the page, or a Grbl sender's) also does not start while an axis moved by
 the keys or a handwheel is still moving or braking ("X is still moving: start again when it has stopped"): the
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.

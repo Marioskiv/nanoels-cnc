@@ -253,6 +253,18 @@ def run_checks():
     check(0.1 < s["x"] < 5.9 and abs(m["X"] - expected) <= 1,
           "STOP during a move: the tool stopped at X %.4f, the motor at %d steps (expected %d)" % (s["x"], m["X"], expected))
 
+    # the check before the start says where the program will wait and its first note (1.40): a tool change and a G43 H
+    upload("tools.ngc", "G21 G90\nT1 M6\nG43 H1\nG1 X1 F600\nM2\n")
+    post("/cmd", **{"do": "start", "name": "tools.ngc"})
+    time.sleep(1)
+    st = status()
+    check("It will wait for you 1 time, first at line 2: tool change: put in tool T1" in st["bench"] and
+          "Note, line 3: G43 H" in st["bench"], "START: the check says the wait and the note: \"%s\"" % st["bench"])
+    check(st["state"] == "Paused" and "put in tool T1" in st["text"], "the program waits at the tool change (%s): \"%s\"" % (st["state"], st["text"]))
+    post("/cmd", **{"do": "resume"})
+    s = wait_idle(30)
+    check(abs(s["x"] - 1) < 1e-3, "Resume: the program ends at X %.4f" % s["x"])
+
 
 if __name__ == "__main__":
     sys.exit(main())

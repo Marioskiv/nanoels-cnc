@@ -80,8 +80,21 @@ void cnc_bench_run(const char* text, size_t length, cnc_bench_t* r, uint64_t (*n
     bool stop = false;
     while (true) {
       float dwell = 0;
+      msg[0] = '\0';
       int res = cnc_gc_line(line, lineNo, msg, sizeof(msg), &dwell);
       drain(lineNo);
+      if (res == CNC_PAUSE) {
+        if (r->waits++ == 0) {
+          r->waitLine = lineNo;
+          snprintf(r->waitReason, sizeof(r->waitReason), "%s", msg[0] ? msg : "M0 / M1: program stop");
+        }
+      } else if (res != CNC_ERROR && msg[0]) {
+        bool g43 = strstr(msg, "G43 H") != NULL;
+        if (r->notes++ == 0 || (g43 && strstr(r->note, "G43 H") == NULL)) {
+          r->noteLine = lineNo;
+          snprintf(r->note, sizeof(r->note), "%s", msg);
+        }
+      }
       if (res == CNC_WAIT || res == CNC_DWELL_MORE) continue;  // the same line goes on (planner full, cycle)
       if (res == CNC_ERROR) {
         r->stopLine = lineNo;

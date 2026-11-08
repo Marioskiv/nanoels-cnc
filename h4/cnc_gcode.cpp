@@ -218,6 +218,8 @@ void cnc_gc_get_modes(cnc_modes_t* m) {
   m->toolSelected = toolSelected;
   m->feed = feedWord;
   m->tloZ = tloZ;
+  m->notedSpindle = notedSpindle;
+  m->notedCoolant = notedCoolant;
 }
 void cnc_gc_set_modes(const cnc_modes_t* m) {
   motionMode = m->motion;
@@ -239,6 +241,8 @@ void cnc_gc_set_modes(const cnc_modes_t* m) {
   toolSelected = m->toolSelected;
   feedWord = m->feed;
   tloZ = m->tloZ;
+  notedSpindle = m->notedSpindle;
+  notedCoolant = m->notedCoolant;
 }
 
 static int32_t toSteps(int i, double v) { return (int32_t)llround(v * spu(i)); }

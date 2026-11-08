@@ -3,7 +3,8 @@
   goes through the interpreter and the planner (cnc_bench_run), nothing moves, and a line that cannot run refuses the
   start with its line number. Here on a PC with the author's machine (X/Z/C, soft limits of the LinuxCNC .ini):
   an error far into a program, a move past a soft limit, an arc past a limit, a Y move from a 3-axis CAM program,
-  cutter compensation, a bad arc; notes only (M3, G43 H, M6) do not refuse; threading ends the check (said so);
+  cutter compensation, a bad arc; notes only (M3, G43 H, M6) do not refuse, and are said before the start (where
+  it will wait, the first note); threading ends the check (said so);
   a real program passes.
   Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
   Copyright (c) 2026 Marioskiv
@@ -18,6 +19,7 @@
 #include <string>
 
 static uint64_t fakeUs = 0;
+static bool pauseOnM3 = false;  // the H4's setting: M3 / M4 that start the spindle wait for the operator
 static uint64_t nowUs() { return fakeUs += 3; }
 static int checks = 0, failures = 0;
 static void check(bool ok, const char* what) {
@@ -40,6 +42,7 @@ static void machine() {
   m.rotary[CNC_C] = true;
   m.arcTolerance = 0.002f;
   // soft limits of the author's machine, machine coordinates = program coordinates here (homed, G54 at 0)
+  m.pauseOnSpindleStart = pauseOnM3;
   m.checkLimits = true;
   m.minSteps[CNC_X] = (int32_t)lround(-22.039 * 1200); m.maxSteps[CNC_X] = (int32_t)lround(108.961 * 1200);
   m.minSteps[CNC_Z] = -590 * 400; m.maxSteps[CNC_Z] = 7 * 400;
@@ -84,7 +87,7 @@ static std::string longProgram(int n, const char* bad) {
 }
 
 int main() {
-  char what[200];
+  char what[400];
   // 1. an error far into a long program: refused at that line, before anything moves
   {
     cnc_bench_t r = run(longProgram(5000, "G41 X20 Z0"));
@@ -126,6 +129,26 @@ int main() {
     cnc_bench_t r = run("G21 G90 G18\nS18000 M3\nT1 M6\nG43 H1\nG0 X10 Z1\nG1 Z-1 F100\nM5\nM2\n");
     snprintf(what, sizeof(what), "M3, M6, G43 H: not refused (stopped at %u: %s)", r.stopLine, r.stopReason);
     check(!refused(r) && r.lines >= 8, what);
+    // ... and says them before the start (1.40): where it will wait (the tool change), the first note, a G43 H
+    // before the M3 note that came earlier (the H4 stores no tool lengths)
+    snprintf(what, sizeof(what), "said before the start: waits %u at line %u (%s), notes %u, line %u (%s)", r.waits, r.waitLine,
+             r.waitReason, r.notes, r.noteLine, r.note);
+    check(r.waits == 1 && r.waitLine == 3 && strstr(r.waitReason, "put in tool T1") && r.notes == 2 && r.noteLine == 4 &&
+          strstr(r.note, "G43 H"), what);
+  }
+  // 7b. with "M3 waits for the router" (the author's setting) and an M0: two waits, the first is the M3
+  {
+    pauseOnM3 = true;
+    cnc_bench_t r = run("G21 G90 G18\nS18000 M3\nG0 X10 Z1\nM0\nG1 Z-1 F100\nM5\nM2\n");
+    pauseOnM3 = false;
+    snprintf(what, sizeof(what), "M3 waits, M0: waits %u, first at line %u (%s), notes %u", r.waits, r.waitLine, r.waitReason, r.notes);
+    check(!refused(r) && r.waits == 2 && r.waitLine == 2 && strstr(r.waitReason, "router on") && r.notes == 0, what);
+  }
+  // 7c. nothing to say: no wait, no note
+  {
+    cnc_bench_t r = run("G21 G90 G18\nG0 X10 Z1\nG1 Z-1 F100\nG0 Z1\nM2\n");
+    snprintf(what, sizeof(what), "a plain program: waits %u, notes %u", r.waits, r.notes);
+    check(!refused(r) && r.waits == 0 && r.notes == 0, what);
   }
   // 8. threading: the check ends there and says so (not a refusal); what comes after it is not checked
   {
