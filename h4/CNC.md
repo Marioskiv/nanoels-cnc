@@ -93,6 +93,13 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Encoder filter (firmware 1.33)
+
+The spindle / chuck encoder input ignores pulses shorter than 5 us (ESP32 pulse counter filter, 400 clocks; before:
+25 ns). With electrical noise from the router and the drivers, the short filter let glitches through and counts were
+lost (2.4 deg in the test); 5 us removes them and still follows the encoder up to about 5000 rpm (600 PPR). Test:
+`encoder_test.cpp` (a simulated encoder with noise, bounce, backlash and slips).
+
 ### Pause right after Resume (firmware 1.32)
 
 Pause (feed hold) decelerates along the path and stops, as Grbl and LinuxCNC do; a Pause given while the tool stands

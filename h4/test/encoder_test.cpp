@@ -194,8 +194,9 @@ static Result run(const Scenario& sc, bool verbose = false) {
   return r;
 }
 
-int main() {
+int main(int argc, char** argv) {
   char what[240];
+  int fwClocks = argc > 1 ? atoi(argv[1]) : 400;  // ENCODER_FILTER of h4.ino (run_tests.sh passes it)
   // a program's C: 2-turn rapids back and forth (G0 C720 / C0), short moves, and pauses
   std::vector<Move> prog;
   for (int i = 0; i < 4; i++) { prog.push_back({720, 0.3}); prog.push_back({0, 0.3}); }
@@ -217,9 +218,17 @@ int main() {
   // 3. the firmware's filter today (2 APB clocks = 25 ns): glitches get through; shown, and checked that they cost counts
   Scenario today = noisy; today.filterUs = 0.025; rnd = 2;
   r = run(today);
-  snprintf(what, sizeof(what), "the same with today's 25 ns filter: %ld counts lost (%.2f deg), %u false events: the filter must be raised for C8",
+  snprintf(what, sizeof(what), "the same with a 25 ns filter (firmware before 1.33): %ld counts lost (%.2f deg), %u false events",
            r.lostCounts, r.lostCounts * 0.3, r.events);
   check(r.lostCounts != 0, what);
+  // 3b. the firmware's own filter (ENCODER_FILTER APB clocks of 12.5 ns) under the same heavy noise: no count lost
+  Scenario fw = noisy; fw.filterUs = fwClocks * 0.0125; rnd = 2;
+  r = run(fw);
+  snprintf(what, sizeof(what), "the firmware's filter (%d clocks = %.2f us), 500 glitches/s: 0 counts lost (%ld), 0 events (%u)", fwClocks, fw.filterUs, r.lostCounts, r.events);
+  check(r.lostCounts == 0 && r.events == 0, what);
+  // and at a high lathe speed it must keep up: a quadrature edge every 1 / (4 x 600 x rpm / 60) s
+  snprintf(what, sizeof(what), "the filter (%.2f us) is shorter than the time between edges at 3000 rpm (%.1f us)", fw.filterUs, 1e6 / (4 * 600 * 3000 / 60.0));
+  check(fw.filterUs < 1e6 / (4 * 600 * 3000 / 60.0), what);
   // 4. one belt tooth skipped on the 86 T chuck pulley (4.19 deg) during a rapid: reported once, within 50 ms
   Scenario skip = base; skip.slips.push_back({1.0, 360.0 / 86, 0.002}); rnd = 3;
   r = run(skip, true);
