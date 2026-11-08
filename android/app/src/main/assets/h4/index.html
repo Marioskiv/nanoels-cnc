@@ -160,7 +160,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltax .v{font:600 clamp(28px,4.3vw,46px)/1.05 ui-monospace,monospace;text-align:right;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
 .ltax .v small,.ltsp .v small{font:500 12px system-ui;color:var(--dim);margin-left:5px}
 .ltsp{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:6px;background:var(--tile);border:1px solid var(--tileb);border-radius:12px;padding:5px 10px}
-.ltsp b{font-size:12px;color:var(--dim);font-weight:600}.ltsp .v{font:600 clamp(18px,2.4vw,24px) ui-monospace,monospace;text-align:right;white-space:nowrap}
+.ltsp b{font-size:12px;color:var(--dim);font-weight:600}button.ltsp{font:inherit;color:inherit;cursor:pointer;text-align:left}button.ltchz{display:block;text-align:center;font-weight:700;color:var(--or);border:2px solid var(--or)}.ltsp .v{font:600 clamp(18px,2.4vw,24px) ui-monospace,monospace;text-align:right;white-space:nowrap}
 .ltpanel h3{margin:0;font-size:16px}
 .card.ltpanel{overflow-y:auto;min-height:0}
 .ltfields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.ltfields .f{display:flex;flex-direction:column;gap:3px;min-width:0}.ltfields .wide{grid-column:1/-1}
@@ -170,7 +170,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .ltfields .step .numv,.ltg .step .numv{border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0;background:transparent;color:var(--fg);text-align:center;font:600 18px ui-monospace,monospace;width:100%;min-width:0;padding:6px 0;cursor:text}
 .ltzero{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.ltzero>button{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:6px 10px;font-weight:700}.ltzero>button.need{border:2px solid var(--warn,#e8a33a);color:var(--warn,#e8a33a)}.ltgdok{margin-left:6px;border:1px solid var(--line);border-radius:8px;background:var(--tile);color:var(--fg);padding:3px 8px;font-weight:700}
 .ltzero .ltxin{margin-left:auto;color:var(--dim)}.ltzero .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ltzero .seg button{border:0;border-radius:0;background:var(--tile);color:var(--fg);padding:6px 8px;font-size:12px}
-.ltzero .seg button.on{background:var(--or);color:#111;font-weight:700}.ltturn{font-size:14px;color:var(--dim);font-weight:600}
+.ltzero .seg button.on{background:var(--or);color:#111;font-weight:700}
 .lthead{display:flex;align-items:center;gap:8px}.ltadv{width:auto;display:inline-block;padding:2px 6px;margin:1px 0}.ltrecb{border:1px solid var(--line);border-radius:9px;background:var(--tile);color:var(--fg);padding:4px 9px;font-weight:700;white-space:nowrap}.rcrow{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--line)}.rcrow span{flex:1;min-width:0}.rcrow.cur{color:var(--or)}.rcrow button{padding:4px 9px}.rcta{width:100%;min-height:90px;font:12px monospace;background:var(--in);color:var(--fg);border:1px solid var(--line);border-radius:8px}.lthead h3{flex:1;min-width:0}.lthead .ltpre{width:auto;max-width:48%;padding:4px 8px}
 .lthelpb{margin-left:2px}.lthelp{font-size:12.5px;line-height:1.5;color:var(--fg);background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .ltgroups{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ltg{border:1px solid var(--line);border-left:4px solid var(--c,var(--dim));border-radius:10px;padding:6px 8px;display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -260,8 +260,8 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="ltside"><div class="ltdro"><div class="ltdroh" id="ltDroH"></div>
 <div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
 <div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
-<div class="ltsp"><b id="ltRpmL"></b><span class="v"><span id="ltRpm">-</span><small id="ltRpmU"></small></span></div>
-<div class="ltsp"><b id="ltAngL"></b><span class="v" id="ltAng">-</span></div></div>
+<button type="button" class="ltsp ltchk" id="ltChk" onclick="chkToggle()"><b id="ltAngL"></b><span class="v" id="ltAng">-</span></button>
+<button type="button" class="ltsp ltchz" id="ltChz" onclick="chkZero()"></button></div>
 <div class="card ltpanel" id="ltForm"></div></div></div>
 <div class="ltbot"><button type="button" class="ltstart" id="ltStart"><span class="fill" id="ltFill"></span><span id="ltStartT"></span></button>
 <div class="ltprog"><div class="bar"><div id="ltBar"></div></div><small id="ltProg"></small><small class="ltnow" id="ltNow"></small></div></div>
@@ -1021,7 +1021,7 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
 // H4 conventions (as its display): Z grows to the left (towards the chuck); X grows towards the centre, so with
 // X0 on the centre line the outside of the part is negative (X = -Ø/2).
 const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',settings:'Settings'},
-  rpm:'Spindle',rpmu:'rpm',ang:'Spindle angle',turning:'turning',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
+  rpm:'Spindle',rpmu:'rpm',ang:'Chuck',chz:'0° here',chzDone:'Chuck angle: 0° here.',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
   ext:'External',int:'Internal',none:'—',legend:['part','material that comes off','Z0 and lengths','tool path'],sim:'Simulate',
@@ -1054,7 +1054,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',
    infeed:'Infeed',radial:'Radial',flank:'Flank 29.5°',preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex (dome)',concave:'Concave (cove)',ext:'External',int:'Internal'}},
  el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},
-  rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Γωνία ατράκτου',turning:'γυρίζει',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
+  rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Τσοκ',chz:'0° εδώ',chzDone:'Γωνία τσοκ: 0° εδώ.',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
   ext:'Εξωτερικό',int:'Εσωτερικό',none:'—',legend:['κομμάτι','υλικό που φεύγει','Z0 και μήκη','διαδρομή κοπτικού'],sim:'Προσομοίωση',
@@ -1173,7 +1173,7 @@ let ltViewSeen='';function ltViewChanged(){const k=ltZv()+','+ltXv();if(k==ltVie
 function ltLang(){const L=ltT();document.documentElement.lang=look.lang=='el'?'el':'en';
  for(const [t,n] of Object.entries(L.tabs)){const b=document.querySelector('#tabs button[data-t="'+t+'"] span');if(b)b.textContent=n}navShow();
  $('ltOps').innerHTML=LTOPS.map(([m,ic])=>`<button type="button" class="ltop" data-m="${m}"><svg viewBox="0 0 40 31" aria-hidden="true">${ic}</svg><span>${L.m[m]}</span></button>`).join('');
- $('ltSim').textContent='▶ '+L.sim;$('ltDroH').textContent=L.dro;ltVwBtns();$('ltRpmL').textContent=L.rpm;$('ltRpmU').textContent=L.rpmu;$('ltAngL').textContent=L.ang;$('ltStartT').textContent=L.start;
+ $('ltSim').textContent='▶ '+L.sim;$('ltDroH').textContent=L.dro;ltVwBtns();$('ltChz').textContent=L.chz;$('ltStartT').textContent=L.start;
  const cols=['#8b95a6','#ff7a2e',AXC.Z,'var(--dim)'];$('ltLeg').innerHTML=L.legend.map((t,i)=>`<span><i style="background:${cols[i]}"></i>${t}</span>`).join('');
  $('ltXb').style.setProperty('--c',AXC.X);$('ltZb').style.setProperty('--c',AXC.Z);ltLast={};ltForm();if(st.lathe)ltShow()}
 function ltOpsOpen(o){const n=$('ltOps'),b=$('ltOpBtn');if(o&&(st.on||!b))return;if(o){const r=b.getBoundingClientRect(),h=Math.min(innerHeight-16,Math.ceil(LTOPS.length/(innerWidth>=700?2:1))*57+12);n.style.left=Math.round(Math.min(r.left,innerWidth-n.offsetWidth-8))+'px';n.style.top=Math.round(Math.max(8,Math.min(r.bottom+6,innerHeight-h-8)))+'px'}
@@ -1340,12 +1340,17 @@ function ltInfo(){if(!$('ltInfo')||!st.lathe)return;const L=ltT(),m=ltCur(),v=lt
    out.push('≈ '+(t<1?Math.max(1,Math.round(t*60))+(look.lang=='el'?' δευτ.':' s'):t.toFixed(1)+(look.lang=='el'?' λεπτά':' min'))+' '+L.estimate+' '+st.rpm+' '+L.rpmu)}else out.push(L.stopped)}
  ltPut('ltInfo',out.join('<br>'))}
 // X readout as a diameter or radius (X0 on the centre: the outside reads X = -Ø/2)
+// the chuck tile: degrees or rpm (remembered on this tablet); its 0 button sets the angle's 0 on the H4 (display only:
+// the lathe operations do not use it)
+let chkRpm=false;try{chkRpm=localStorage.getItem('h4chuck')=='rpm'}catch(e){}
+function chkToggle(){chkRpm=!chkRpm;try{localStorage.setItem('h4chuck',chkRpm?'rpm':'deg')}catch(e){}if(st)ltShow()}
+async function chkZero(){try{await post('/cmd?do=chuckzero');if(chkRpm)chkToggle();msg(ltT().chzDone)}catch(e){msg(e.message)}}
 function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm';
  document.querySelectorAll('.ltop').forEach(b=>{b.classList.toggle('on',+b.dataset.m==st.mode);b.classList.toggle('sel',+b.dataset.m==ltCur());b.disabled=!!st.on});
  ltViewChanged();$('ltXv').textContent=ltXn(st.x).toFixed(3);$('ltXu').textContent=['Ø ','R ',''][ltXv()]+u;$('ltZv').textContent=ltZs(st.z).toFixed(3);$('ltZu').textContent=u;
- $('ltRpm').textContent=st.rpm;
- // the angle only means something while the spindle stands or creeps: no number racing past, no animation
- ltPut('ltAng',Math.abs(st.rpm)>10?'<span class="ltturn">'+L.turning+'</span>':(+l.ang).toFixed(1)+'<small>°</small>');
+ // the chuck: its angle from the 0 set with the 0 button (the spindle encoder), or its speed - a tap on it switches
+ $('ltAngL').textContent=L.ang;
+ ltPut('ltAng',chkRpm?st.rpm+'<small>'+L.rpmu+'</small>':(+(st.chuck!=null?st.chuck:l.ang)).toFixed(1)+'<small>°</small>');
  const f=v=>v==null?L.none:(+v).toFixed(3),m=st.mode;
  const now=[L.m[m]||m,(m==7?'P ':'')+Math.abs(l.pitch).toFixed(3)+(l.pitch<0?' ←':''),[4,5,6,7,8].includes(m)?l.passes+' '+L.passes:'',m==7&&l.starts>1?l.starts+'×':'',m==3?'k '+(+l.cone).toFixed(5):'',
   'Z '+(l.zr==null||l.zl==null?f(l.zr==null?null:ltZs(l.zr))+'…'+f(l.zl==null?null:ltZs(l.zl)):[ltZs(l.zr),ltZs(l.zl)].sort((a,b)=>a-b).map(f).join('…')),

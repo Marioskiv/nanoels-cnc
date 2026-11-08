@@ -128,6 +128,7 @@ def main():
 
 def run_checks():
     spm_z = T.SPM["Z"]
+    chuck_checks()
     # 1. gearbox: pitch 1.5 mm, 10 turns forward, then 4 turns back
     pitch = 1.5
     a = pitch * spm_z / COUNTS
@@ -189,6 +190,30 @@ def run_checks():
     bl = T.BACKLASH["Z"] / spm_z
     check(zmin >= -8 - bl - 0.01 and zmax <= 0 + bl + 0.01,
           "turning: Z stayed between the stops 0 and -8 (%.3f .. %.3f mm, backlash %.2f)" % (zmin, zmax, bl))
+
+
+def chuck_checks():
+    """The app's chuck tile: the speed while the app watches (also with the H4's own tacho display off), and the angle
+    from the 0 its button sets, measured against the encoder counts the simulation turned."""
+    T.ctl("/spindle", rpm=120)
+    rpm = 0
+    for _ in range(12):                    # polled as the app does
+        time.sleep(0.35)
+        rpm = T.status()["rpm"]
+    check(abs(rpm - 120) <= 3, "the chuck at 120 rpm: the app reads %d rpm (H4 OFF, in a lathe mode)" % rpm)
+    T.ctl("/spindle", rpm=0)
+    time.sleep(0.3)
+    code, text = T.post("/cmd", **{"do": "chuckzero"})
+    a0 = T.status()["chuck"]
+    check(code == 200 and (a0 < 0.31 or a0 > 359.69), "0 button: the chuck angle reads %.1f deg" % a0)
+    c0 = T.sim()["spindleCounts"]
+    T.ctl("/spindle", rpm=10)              # about a quarter turn
+    time.sleep(1.5)
+    T.ctl("/spindle", rpm=0)
+    time.sleep(0.3)
+    turned = (T.sim()["spindleCounts"] - c0) * 360.0 / COUNTS
+    a1 = T.status()["chuck"]
+    check(abs(a1 - turned % 360) <= 0.31, "the chuck turned %.1f deg by the encoder: the app reads %.1f deg" % (turned, a1))
 
 
 def thread_case(pitch, starts, passes, rpm=100):

@@ -192,6 +192,25 @@ async function waitIdle(timeoutMs = 60000) {
     const m2 = (await sim()).motors;
     ok(s.x > 5.5 && s.x < 19.5 && Math.abs((m2.X - m1.X) - SIGN.X * (s.x - 10) * SPM.X) <= BL.X + 2,
       'STOP on the page: stopped at X ' + s.x.toFixed(4) + ', the X motor agrees');
+    // 8. the Lathe screen's chuck tile: degrees from its 0 button (the spindle encoder), a tap shows the speed
+    await page.evaluate(() => tab('lathe'));
+    await ctl('/spindle', { rpm: 0 });
+    await page.click('#ltChz');
+    await sleep(1200);
+    const ang0 = await page.textContent('#ltAng');
+    ok(/^0\.0°$/.test(ang0.trim()), 'Lathe screen: the 0° button sets the chuck to "' + ang0.trim() + '"');
+    const c0 = (await sim()).spindleCounts;
+    await ctl('/spindle', { rpm: 10 }); await sleep(1500); await ctl('/spindle', { rpm: 0 });
+    await sleep(1200);
+    const turned = ((await sim()).spindleCounts - c0) * 360 / 1200, ang1 = parseFloat(await page.textContent('#ltAng'));
+    ok(Math.abs(ang1 - turned % 360) <= 0.31, 'the chuck turned ' + turned.toFixed(1) + '° by the encoder: the tile shows ' + ang1.toFixed(1) + '°');
+    await page.click('#ltChk');
+    await ctl('/spindle', { rpm: 60 }); await sleep(2500);
+    const sp = (await page.textContent('#ltAng')).trim();
+    ok(/^(59|60|61)(rpm|σ\.α\.λ\.)$/.test(sp), 'a tap on the tile: it shows the speed "' + sp + '" (60 rpm)');
+    await ctl('/spindle', { rpm: 0 });
+    await page.click('#ltChk');
+
     ok(errs.length == 0, 'no error in the page' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
   } catch (e) {
     ok(false, 'exception: ' + e.stack);

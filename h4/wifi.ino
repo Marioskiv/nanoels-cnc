@@ -229,6 +229,8 @@ void handleStatus() {
   json += ",\"inch\":" + String(measure == MEASURE_METRIC ? 0 : 1);
   json += ",\"feed\":" + String(cnc_st_realtime_rate(), 1);
   json += ",\"rpm\":" + String(getApproxRpm());
+  // the chuck angle from the app's zero (spindle encoder, display only; chuckzero below)
+  json += ",\"chuck\":" + String(spindleModulo(spindlePosGlobal - chuckAngleZero) * 360 / ENCODER_STEPS_FLOAT, 1);
   char execLine[64];
   cncExecLine(execLine, sizeof(execLine), true);  // the line that runs now, with its number (h4.ino)
   json += ",\"line\":\"" + jsonEscape(String(execLine)) + "\"";
@@ -554,6 +556,11 @@ void handleCommand() {
     }
     cncUserHold = true;
     server.send(200, "text/plain", "Pausing");
+  } else if (what == "chuckzero") {
+    // the app's chuck angle 0 here: display only, any time (the lathe modes do not use it); saved as the H4's positions are
+    chuckAngleZero = spindlePosGlobal;
+    keypadTimeUs = micros();  // saved a few seconds later, as after a key press
+    server.send(200, "text/plain", "Chuck angle 0 here");
   } else if (what == "resume") {
     if (cncPaused) cncResumeRequest = true; // M0 / M1 / M6
     cncUserHold = false;
