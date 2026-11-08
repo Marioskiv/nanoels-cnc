@@ -40,6 +40,8 @@ jobs:
         run: |
           apt-get install -y --no-install-recommends python3-numpy
           id lcnc || useradd -m lcnc
+          # the steps before ran as root and may have left LinuxCNC's shared memory: the user lcnc could not open it
+          for id in $(ipcs -m | awk '/^0x/ {print $2}'); do ipcrm -m "$id" || true; done
           W=/home/lcnc/w
           mkdir -p $W
           g++ -O2 -std=c++17 -o $W/cnc_sim h4/test/cnc_sim.cpp h4/cnc_core.cpp h4/cnc_gcode.cpp
