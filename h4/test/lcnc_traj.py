@@ -203,7 +203,7 @@ def main():
             vr, ar = dRef[ax]
             if vh > vl * 1.02 + 2 / STEPS[ax] / ACC_WINDOW_S:
                 fails.append("%s speed %.2f > %.2f" % (ax.upper(), vh, vl))
-            if ah > al * 1.1:
+            if ah > al * 1.5 + 4 / STEPS[ax] / ACC_WINDOW_S ** 2:  # a corner may add a jump of a x 10 ms
                 notes.append("%s accel %.0f > %.0f (LinuxCNC %.0f)" % (ax.upper(), ah, al, ar))
         print("%s: %s time H4 %.3f s / LinuxCNC %.3f s = %.3f, path %.4f mm (rapids %.4f), end %.4f; "
               "max speed/accel H4 X %.1f/%.0f Z %.1f/%.0f C %.0f/%.0f, LinuxCNC X %.1f/%.0f Z %.1f/%.0f C %.0f/%.0f%s%s" % (

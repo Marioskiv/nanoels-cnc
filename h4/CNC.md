@@ -31,6 +31,12 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
   axis that would have to go faster than its maximum slows the whole move. Before 1.35 F was taken along X, Z and C
   together, degrees counted as mm (Grbl's way), so that move took 54 s and the gamepad moved X/Z about 13 times
   slower while C turned. G93 programs (the polar converter) did not change. Test: `cnc_parse_test.cpp`, `jog_test.cpp`.
+- **Corners** (firmware 1.36): the planner keeps Grbl's junction deviation, and in addition no axis may change its
+  speed at a corner by more than its acceleration x 10 ms (what the step generator itself changes in one segment while
+  accelerating). Grbl's rule works on the direction of all axes together, where C degrees count as mm, so a fast C
+  hid a reversal of X or Z: X jumped by ~2 mm/s, 2.3 x its acceleration measured over 20 ms in the author's polar
+  programs (5 x in a FreeCAD polar program). Now at most 1.5 x over 20 ms; the programs take 0-5.5 % longer (the
+  author's: 0.7-4 %). LinuxCNC 2.9 measured 0.9-1.4 x at such corners (`lcnc_traj.py`). Test: `junction_axis_test.cpp`.
 - Accelerations and top speeds per axis are the `ACCELERATION_*` and `SPEED_MANUAL_MOVE_*` values of the
   sketch, so no new settings are needed. Backlash (`BACKLASH_DU_*`) is taken up before a reversal, with
   the motor stopping before the carriage is driven. A STOP in the middle of a take-up is remembered: the next
