@@ -72,7 +72,10 @@ const long PULSE_MIN_WIDTH_US = 1000; // Microseconds width of the pulse that is
 const long PULSE_HALF_BACKLASH = 2; // Prevents spurious reverses when moving using a handwheel. Raise to 3 or 4 if they still happen.
 
 int ENCODER_STEPS_INT = ENCODER_PPR * 2; // Number of encoder impulses PCNT counts per revolution of the spindle
-const int ENCODER_FILTER = 2; // Encoder pulses shorter than this will be ignored. Clock cycles, 1 - 1023.
+// Encoder pulses shorter than this are ignored: APB clock cycles of 12.5 ns, 1 - 1023. 400 = 5 us (firmware 1.33; was 2 =
+// 25 ns, which let electrical noise through: counts lost, test/encoder_test.cpp). A quadrature edge comes at the
+// earliest every 1 / (4 x 600 PPR x rpm / 60): over 5 us up to 5000 rpm of the spindle.
+const int ENCODER_FILTER = 400;
 const int PCNT_LIM = 31000; // Limit used in hardware pulse counter logic.
 const int PCNT_CLEAR = 30000; // Limit where we reset hardware pulse counter value to avoid overflow. Less than PCNT_LIM.
 const long DUPR_MAX = 254000; // No more than 1 inch pitch
@@ -171,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.32"
+#define FW_VERSION "1.33"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
