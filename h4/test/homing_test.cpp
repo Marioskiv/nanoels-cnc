@@ -528,6 +528,81 @@ int main() {
     snprintf(buf, sizeof(buf), "X on its switch: jog off first (%s)", cncStatusText);
     check(strstr(cncStatusText, "jog it off first") != NULL, buf);
   }
+
+  // 13. (work plan B2) Repeatability: 300 Home All from random places, random contact bounce (0.5 .. 3 ms) and noise
+  //     pulses shorter than the 0.5 ms debounce on both inputs: the switch point found must stay within the
+  //     bounce time at the latch speed (X 0.5 mm/s, Z 2.5 mm/s) and never be refused.
+  {
+    char buf[200];
+    uint32_t r = 99;
+    auto rnd = [&]() { r = r * 1103515245u + 12345u; return (r >> 8) & 0xFFFFFF; };
+    double minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+    int bad = 0, faults = 0;
+    machine();
+    for (int k = 0; k < 300; k++) {
+      // a random place inside the travel (moved without the switches: as by hand / jog before homing)
+      x.pos = x.motorPos = swX.at + (long)(1200 * (5 + (rnd() % 100000) / 1000.0));
+      z.pos = z.motorPos = swZ.at - (long)(400 * (5 + (rnd() % 500000) / 1000.0));
+      swX.bounceUs = 500 + rnd() % 2500; swZ.bounceUs = 500 + rnd() % 2500;
+      swX.rnd = rnd(); swZ.rnd = rnd();
+      onTick = [&]() {  // a noise pulse of 50 .. 400 us now and then on either input
+        if (nowUs >= swX.noiseTo && rnd() % 4000 == 0) { swX.noiseFrom = nowUs; swX.noiseTo = nowUs + 50 + rnd() % 350; }
+        if (nowUs >= swZ.noiseTo && rnd() % 4000 == 0) { swZ.noiseFrom = nowUs; swZ.noiseTo = nowUs + 50 + rnd() % 350; }
+      };
+      vTaskDelay(5);
+      uint32_t f0 = cncFaultCount;
+      homingRun();
+      onTick = nullptr;
+      if (!x.homed || !z.homed) { bad++; continue; }
+      if (cncFaultCount != f0) faults++;
+      double sx = mm(x, swX.at + x.machineOffset), sz = mm(z, swZ.at + z.machineOffset);
+      minX = std::min(minX, sx); maxX = std::max(maxX, sx); minZ = std::min(minZ, sz); maxZ = std::max(maxZ, sz);
+    }
+    snprintf(buf, sizeof(buf), "300 Home All with bounce and short noise: all homed (%d failed), no fault (%d)", bad, faults);
+    check(bad == 0 && faults == 0, buf);
+    snprintf(buf, sizeof(buf), "repeatability X: switch found within %.4f mm (at 0.5 mm/s, 3 ms bounce + 0.5 ms debounce = 0.0018 mm)", maxX - minX);
+    check(maxX - minX <= 0.0018 + 2.0 / 1200, buf);
+    snprintf(buf, sizeof(buf), "repeatability Z: switch found within %.4f mm (at 2.5 mm/s: 0.0088 mm)", maxZ - minZ);
+    check(maxZ - minZ <= 0.0088 + 2.0 / 400, buf);
+  }
+
+  // 14. (B2) A normally open switch stuck closed (welded contact): homing moves off it, cannot, and says so; nothing homed
+  {
+    machine();
+    swX.disconnected = false;
+    x.pos = x.motorPos = swX.at + 1200 * 30;
+    swX.at = x.pos + 1200 * 200;  // pressed everywhere the axis can be
+    vTaskDelay(5);
+    homingRun();
+    char buf[200];
+    snprintf(buf, sizeof(buf), "NO switch stuck closed: not homed, message (%s)", cncStatusText);
+    check(!x.homed && strstr(cncStatusText, "stays pressed") != NULL, buf);
+  }
+
+  // 15. (B2) Noise longer than the debounce (1 ms) during the search, 25 mm before the switch: before firmware 1.34
+  //     X was homed 25 mm off; now refused, as LinuxCNC (the switch must still be pressed when the search has stopped)
+  {
+    machine();
+    x.pos = x.motorPos = swX.at + 1200 * 40;  // 40 mm from the switch
+    long trueSwitch = swX.at;
+    bool fired = false;
+    onTick = [&]() {
+      // when X is 25 mm from its switch during the search: a 1 ms pulse on its input
+      if (!fired && homingActive && homingWatchAxis == &x && x.pos < trueSwitch + 1200 * 25) {
+        fired = true; swX.noiseFrom = nowUs; swX.noiseTo = nowUs + 1000;
+      }
+    };
+    homingRun();
+    onTick = nullptr;
+    double err = x.homed ? mm(x, swX.at + x.machineOffset) - HOME_X_OFFSET : 0;
+    char buf[240];
+    snprintf(buf, sizeof(buf), "1 ms noise 25 mm before the X switch during the search: %s (%s)",
+             !x.homed ? "homing refused" : fabs(err) < 0.01 ? "ignored, homed right" : "WRONG HOME", cncStatusText);
+    check(!x.homed && strstr(cncStatusText, "not pressed any more") != NULL, buf);
+    homingRun();  // the noise is gone: Home All again works
+    snprintf(buf, sizeof(buf), "then Home All again: homed at the right place (off by %.4f mm)", mm(x, swX.at + x.machineOffset) - HOME_X_OFFSET);
+    check(x.homed && fabs(mm(x, swX.at + x.machineOffset) - HOME_X_OFFSET) < 0.01, buf);
+  }
   printf("homing: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;
 }

@@ -300,6 +300,14 @@ bool homeAxis(Axis* a, float search, float latch, float finalVel, float offset, 
     if (!ok) homingFailText = "the switch stays pressed (stuck, or the wire of a normally closed switch is broken)";
   }
   if (ok) ok = homingMoveUntil(a, dir, search, true, maxTravelMm);
+  // After the search the axis has stopped past the point where the switch closed, so a real switch is still pressed.
+  // Released already: what stopped the search was electrical noise (longer than the debounce), not the switch; homing
+  // on it would put machine zero where the noise happened (firmware 1.34; found by homing_test: 25 mm off). As
+  // LinuxCNC ("home switch inactive before start of backoff move"): refused, nothing homed.
+  if (ok && !switchActive(a)) {
+    ok = false;
+    homingFailText = "the switch was not pressed any more after the search (electrical noise on its input?): Home All again";
+  }
   if (ok) {
     if (latch * search < 0) {
       ok = homingMoveUntil(a, -dir, latch, false, backOffMm);
