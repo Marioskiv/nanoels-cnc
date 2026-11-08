@@ -1,0 +1,15 @@
+# h4ref.hal - see h4ref.ini. Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
+# Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: GPL-3.0-or-later
+loadrt [KINS]KINEMATICS
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[KINS]JOINTS
+loadrt sampler depth=20000 cfg=fff
+addf motion-command-handler servo-thread
+addf motion-controller servo-thread
+addf sampler.0 servo-thread
+# no hardware: every joint is where it was commanded
+net j0 joint.0.motor-pos-cmd => joint.0.motor-pos-fb sampler.0.pin.0
+net j1 joint.1.motor-pos-cmd => joint.1.motor-pos-fb sampler.0.pin.1
+net j2 joint.2.motor-pos-cmd => joint.2.motor-pos-fb sampler.0.pin.2
+net estop iocontrol.0.user-enable-out => iocontrol.0.emc-enable-in
+net tool-change iocontrol.0.tool-change => iocontrol.0.tool-changed
+net tool-prep iocontrol.0.tool-prepare => iocontrol.0.tool-prepared

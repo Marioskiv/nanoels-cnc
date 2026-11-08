@@ -6,7 +6,7 @@
      (cnc_core.cpp, cnc_gcode.cpp). Simulated: the step interrupt on a 20 MHz clock, taskGcode every 1 ms with now
      and then a long gap, the app's requests (also late and irregular, as over WiFi), and what the firmware does
      around them (models, written here: grblEnsureOn starting the session, setIsOnFromLoop / cncService stopping,
-     the end of the session in grblServiceLine). Checked on the author's machine (X 12 mm/s, Z 25 mm/s, C 360 deg/s):
+     the end of the session in grblServiceLine). Checked on the author's machine (X 12 mm/s 100 mm/s2, Z 25 mm/s 100 mm/s2, C 360 deg/s 720 deg/s2):
      - requests stop (WiFi lost, app closed, tablet asleep): standing still within 300 ms + one service period +
        braking, travel after the last request within speed * that time + v^2 / 2a; the position afterwards is exact
        (planner = steps given) and the next jog starts from there;
@@ -19,8 +19,9 @@
   moved ~13x slower: fixed in cnc_gcode.cpp (F along X/Z as LinuxCNC), checked here at full speed.
   Known, not changed (planner): when X or Z changes direction while C turns fast (a stick moved suddenly), X/Z change
   speed at the corner faster than their acceleration (1.4-1.9 x measured over 20 ms): the corner speed (Grbl's junction
-  deviation) is computed on the X-Z-C direction with degrees counted as mm, where C hides the X/Z corner. LinuxCNC keeps
-  every axis within its acceleration. Printed as NOTE in the one-minute run.
+  deviation) is computed on the X-Z-C direction with degrees counted as mm, where C hides the X/Z corner. LinuxCNC
+  blends such a corner without a jump in speed but measured 1.4 x the X acceleration there too (lcnc_traj.py).
+  Printed as NOTE in the one-minute run.
   2. the arrows on the app's screen: /key with hold=1 every 150 ms (wifi.ino handleKey, releaseHeldKey and the fail-safe
      line of the web task): when the repeats stop, the key is released after 500 ms, also when the keypad task is busy.
   Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
@@ -134,7 +135,7 @@ static void setup() {
   now = (uint64_t)TIMER_HZ * 60;  // a minute after power on
   settings.stepsPerUnit[CNC_X] = 1200; settings.stepsPerUnit[CNC_Z] = 400; settings.stepsPerUnit[CNC_C] = 91.733333f;
   settings.maxRate[CNC_X] = 12 * 60; settings.maxRate[CNC_Z] = 25 * 60; settings.maxRate[CNC_C] = 360 * 60;
-  settings.acceleration[CNC_X] = 100 * 3600; settings.acceleration[CNC_Z] = 200 * 3600; settings.acceleration[CNC_C] = 720 * 3600;
+  settings.acceleration[CNC_X] = 100 * 3600; settings.acceleration[CNC_Z] = 100 * 3600; settings.acceleration[CNC_C] = 720 * 3600;
   settings.junctionDeviation = 0.01f;
   settings.timerHz = TIMER_HZ;
   cnc_core_settings(&settings);

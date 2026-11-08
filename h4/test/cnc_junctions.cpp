@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
     // 100 mm/s2; Z 400 steps/mm (800 per turn); C 91.733 steps/deg (3200 per motor turn, 10.32:1), 360 deg/s, 720 deg/s2
     s.stepsPerUnit[CNC_X] = 1200; s.stepsPerUnit[CNC_Z] = 400; s.stepsPerUnit[CNC_C] = 91.733333f;
     s.maxRate[CNC_X] = 12 * 60; s.maxRate[CNC_Z] = 25 * 60; s.maxRate[CNC_C] = 360 * 60;
-    s.acceleration[CNC_X] = 100 * 3600; s.acceleration[CNC_Z] = 200 * 3600; s.acceleration[CNC_C] = 720 * 3600;
+    s.acceleration[CNC_X] = 100 * 3600; s.acceleration[CNC_Z] = 100 * 3600; s.acceleration[CNC_C] = 720 * 3600;
     motorStepsPerTurn[0] = 1600; motorStepsPerTurn[1] = 800; motorStepsPerTurn[2] = 3200;
   }
   s.junctionDeviation = jd;

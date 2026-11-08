@@ -32,6 +32,9 @@
                       the rest of the program is dropped. Checks that it stops on the path (within the speed and
                       acceleration limits) and that a new move from there reaches its target exactly.
     --reach-times     prints "R <line> <seconds>" when the tool reaches each planned point (g93_timing.py)
+    --samples FILE    writes the tool position every millisecond to FILE ("t x z c r", seconds and units, r 1 while a
+                      rapid G0 line runs), for the
+                      comparison with LinuxCNC's own trajectory (lcnc_traj.py)
     --stops all|none  checks the motion at the end of every programmed move (where the next point belongs to
                       another line; the pieces of an arc are one move): "all" = it stops there (G61.1), "none" =
                       it goes on without stopping (G64 on a path without sharp corners). The step generator
@@ -97,6 +100,7 @@ int main(int argc, char** argv) {
   const char* stopsMode = NULL;
   double pulseUs = 4, dirUs = 5, holdUs = 5, stopAt = -1;
   bool reachTimes = false;
+  const char* samplesFile = NULL;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--task-gap-ms")) taskGapMs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--hold-at")) holdAt = atof(argv[++i]);
@@ -107,6 +111,7 @@ int main(int argc, char** argv) {
     else if (!strcmp(argv[i], "--delayed")) delayed = true;
     else if (!strcmp(argv[i], "--stops")) stopsMode = argv[++i];
     else if (!strcmp(argv[i], "--reach-times")) reachTimes = true;
+    else if (!strcmp(argv[i], "--samples")) samplesFile = argv[++i];
     else if (!strcmp(argv[i], "--pulse-us")) pulseUs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--dir-us")) dirUs = atof(argv[++i]);
     else if (!strcmp(argv[i], "--dirhold-us")) holdUs = atof(argv[++i]);
@@ -129,11 +134,11 @@ int main(int argc, char** argv) {
     s.acceleration[CNC_X] = 10 * 2400 / s.stepsPerUnit[CNC_X] * 3600; s.acceleration[CNC_Z] = 30 * 800 / s.stepsPerUnit[CNC_Z] * 3600;
     s.acceleration[CNC_C] = 16000 / s.stepsPerUnit[CNC_C] * 3600;
   } else {
-    // The author's machine (LinuxCNC .ini 2026-10-25): X 1200 steps/mm 12 mm/s 100 mm/s2; C 91.733 steps/deg
-    // 360 deg/s 720 deg/s2; Z (not measured yet) 400 steps/mm 25 mm/s 200 mm/s2.
+    // The author's machine (LinuxCNC .ini 2026-10-25 and my_machine.h): X 1200 steps/mm 12 mm/s 100 mm/s2;
+    // Z 400 steps/mm 25 mm/s 100 mm/s2; C 91.733 steps/deg 360 deg/s 720 deg/s2.
     s.stepsPerUnit[CNC_X] = 1200; s.stepsPerUnit[CNC_Z] = 400; s.stepsPerUnit[CNC_C] = 91.733333f;
     s.maxRate[CNC_X] = 12 * 60; s.maxRate[CNC_Z] = 25 * 60; s.maxRate[CNC_C] = 360 * 60;
-    s.acceleration[CNC_X] = 100 * 3600; s.acceleration[CNC_Z] = 200 * 3600; s.acceleration[CNC_C] = 720 * 3600;
+    s.acceleration[CNC_X] = 100 * 3600; s.acceleration[CNC_Z] = 100 * 3600; s.acceleration[CNC_C] = 720 * 3600;
   }
   if (delayed) {
     // as the firmware (cncStepRateLimit): no axis faster than pulse + the longer of pulse and direction set-up
@@ -211,6 +216,10 @@ int main(int argc, char** argv) {
   size_t stopLine = 0;
   std::vector<double> gapsMs;  // per move end, in the order the tool reaches them
 
+  FILE* samplesOut = samplesFile ? fopen(samplesFile, "w") : NULL;
+  if (samplesFile && !samplesOut) { perror(samplesFile); return 2; }
+  uint64_t nextMsSample = 0;
+  std::vector<bool> lineRapid;
   auto done = [&]() { return lineIdx >= lines.size() && !waitingIdle && !cnc_st_busy(); };
 
   while (!done()) {
@@ -283,6 +292,12 @@ int main(int argc, char** argv) {
           int32_t before[CNC_N_AXIS];
           memcpy(before, cnc_plan_position(), sizeof(before));
           int r = cnc_gc_line(code.c_str(), (uint32_t)(lineIdx + 1), msg, sizeof(msg), &dwell);
+          if (samplesOut) {  // --samples: which lines are rapids (G0 in effect after the line)
+            cnc_modes_t md;
+            cnc_gc_get_modes(&md);
+            if (lineRapid.size() <= lineIdx + 1) lineRapid.resize(lineIdx + 2, false);
+            lineRapid[lineIdx + 1] = md.motion == 0;
+          }
           if (r == CNC_WAIT) break;
           if (r == CNC_DWELL_MORE) {  // a cycle dwells, then the same line goes on
             waitingIdle = true; pendingAction = CNC_DWELL; dwellLeft = dwell;
@@ -314,6 +329,12 @@ int main(int argc, char** argv) {
     // ---- the step interrupt
     while (nextIsr <= nextTask) {
       now = nextIsr;
+      while (samplesOut && nextMsSample <= now) {
+        uint32_t ln = cnc_st_current_line();
+        fprintf(samplesOut, "%.3f %.6f %.6f %.6f %d\n", (double)nextMsSample / TIMER_HZ, tool[0] / s.stepsPerUnit[0],
+                tool[1] / s.stepsPerUnit[1], tool[2] / s.stepsPerUnit[2], ln < lineRapid.size() && lineRapid[ln] ? 1 : 0);
+        nextMsSample += TIMER_HZ / 1000;
+      }
       // position samples every 50 ms, for the speed and acceleration check
       while (nextSample <= now) {
         Sample sm; memcpy(sm.p, tool, sizeof(tool)); sm.block = targetIdx; samples.push_back(sm);
@@ -515,5 +536,6 @@ int main(int argc, char** argv) {
     fails++;
   }
   printf("  %s\n", fails ? "FAIL" : "OK");
+  if (samplesOut) fclose(samplesOut);
   return fails ? 1 : 0;
 }
