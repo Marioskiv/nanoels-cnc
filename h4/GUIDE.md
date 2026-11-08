@@ -477,6 +477,7 @@ next step. A speed above what the pulse length allows is refused in the settings
 | Axis moves the wrong way | *Invert direction* for that axis |
 | Wrong distance | steps per turn or travel per turn; the driver's microstep switches |
 | Home All stops at once / "on its switch" | switch type (normally open / closed) or wiring; check *Inputs* |
+| "the switch was not pressed any more after the search" | something other than the switch stopped the search (electrical noise on its input, a loose wire): Home All again; if it repeats, screened cable, ground, a normally closed switch (firmware 1.34) |
 | "Home All first" | *Programs start only after Home All* is on: home, or `$X` to unlock |
 | "Paused: the app's connection was lost" | the app / page did not answer for 3 s (WiFi, tablet off, app in the background); the program waits where it stopped: Resume on the page, or ON on the H4 (setting in GCODE mode, 0 = never) |
 | "X / Z / C is still moving: start again when it has stopped" | a jog with the keys or a handwheel was still moving or braking when START was pressed (since firmware 1.25 a program never starts under it); wait a moment, press START again |

@@ -93,6 +93,15 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Homing against noise (firmware 1.34)
+
+After the search the axis stops past the point where its switch closed, so a real switch is still pressed. If it is
+not, the search was stopped by electrical noise longer than the 0.5 ms debounce, not by the switch: Home All is
+refused ("the switch was not pressed any more after the search"), as LinuxCNC does. Before 1.34 machine zero was set
+where the noise happened (the test found X 25 mm off). Also tested (`homing_test.cpp`, work plan B2): 300 Home All
+from random places with 0.5 .. 3 ms contact bounce and noise shorter than the debounce: all homed, the switch found
+within 0.0017 mm (X) and 0.0075 mm (Z); a normally open switch stuck closed is refused.
+
 ### Encoder filter (firmware 1.33)
 
 The spindle / chuck encoder input ignores pulses shorter than 5 us (ESP32 pulse counter filter, 400 clocks; before:
