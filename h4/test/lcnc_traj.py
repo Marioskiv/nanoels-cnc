@@ -133,8 +133,8 @@ def run_linuxcnc(lcnc, user, prog, workdir, reuse=False, mdi="G64 P0.025", tag="
         return read(out), err
     env_setup = "" if lcnc == "installed" else ". '%s/scripts/rip-environment'; " % lcnc
     pre = "export PATH='%s':$PATH; " % PATH_PREFIX if PATH_PREFIX else ""
-    cmd = "%s%sexport PATH='%s':$PATH; cd '%s' && H4REF_MDI='%s' H4REF_PROGRAM='%s' H4REF_OUT='%s' timeout 900 linuxcnc h4ref.ini > '%s.log' 2>&1" % (
-        pre, env_setup, ref, ref, mdi, p, out, out)
+    cmd = "%s%sexport PATH='%s':$PATH; cd '%s' && H4REF_MDI='%s' H4REF_PROGRAM='%s' H4REF_OUT='%s' timeout 900 linuxcnc h4ref.ini > '%s.log' 2>&1 || { e=$?; for f in ~/linuxcnc_print.txt ~/linuxcnc_debug.txt; do [ -f $f ] && grep -v '^+' $f | tail -40 >> '%s.log'; done; exit $e; }" % (
+        pre, env_setup, ref, ref, mdi, p, out, out, out)
     if user:
         subprocess.run(["chown", "-R", user, workdir], check=True)
         r = subprocess.run(["su", user, "-s", "/bin/bash", "-c", cmd])
