@@ -17,11 +17,10 @@
   so a stop comes up to ~0.12 s later than the request; C reaches ~288 deg/s, not 360, on the stick (the queued 0.2 s
   must be enough to brake: v <= 2 a 0.2). With X/Z and C together the G94 feed was taken along X, Z and C, so X/Z
   moved ~13x slower: fixed in cnc_gcode.cpp (F along X/Z as LinuxCNC), checked here at full speed.
-  Known, not changed (planner): when X or Z changes direction while C turns fast (a stick moved suddenly), X/Z change
-  speed at the corner faster than their acceleration (1.4-1.9 x measured over 20 ms): the corner speed (Grbl's junction
-  deviation) is computed on the X-Z-C direction with degrees counted as mm, where C hides the X/Z corner. LinuxCNC
-  blends such a corner without a jump in speed but measured 1.4 x the X acceleration there too (lcnc_traj.py).
-  Printed as NOTE in the one-minute run.
+  When X or Z changed direction while C turned fast (a stick moved suddenly), X/Z jumped in speed at the corner (1.8 x
+  their acceleration over 20 ms): Grbl's junction deviation works on the X-Z-C direction with degrees counted as mm.
+  Fixed in cnc_core.cpp (firmware 1.36): at a corner each axis jumps by at most its acceleration x 10 ms (what the
+  step generator changes in one segment), so over 20 ms an axis may show up to 1.5 x its acceleration, never more.
   2. the arrows on the app's screen: /key with hold=1 every 150 ms (wifi.ino handleKey, releaseHeldKey and the fail-safe
      line of the web task): when the repeats stop, the key is released after 500 ms, also when the keypad task is busy.
   Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
@@ -302,14 +301,14 @@ static void checkStop(const Result& r, const float v[3], double extraMs, const c
   check(r.exact && r.underruns == 0 && !r.endedOn && !grblSession, what);
 }
 
-static void checkLimits(const Result& r, const char* name, bool noteOnly = false) {
+// speed within 5 % (+ steps), acceleration over 20 ms within 1.5 x (a corner may add a jump of a x 10 ms) + steps
+static void checkLimits(const Result& r, const char* name) {
   char what[240];
   bool ok = true;
-  for (int i = 0; i < CNC_N_AXIS; i++) ok = ok && r.vSeen[i] <= vmax[i] * 1.05 + 2 / settings.stepsPerUnit[i] / 0.02 && r.aSeen[i] <= amax[i] * 1.1 + 4 / settings.stepsPerUnit[i] / (0.02 * 0.02);
+  for (int i = 0; i < CNC_N_AXIS; i++) ok = ok && r.vSeen[i] <= vmax[i] * 1.05 + 2 / settings.stepsPerUnit[i] / 0.02 && r.aSeen[i] <= amax[i] * 1.5 + 4 / settings.stepsPerUnit[i] / (0.02 * 0.02);
   snprintf(what, sizeof(what), "%s: speed X %.1f Z %.1f C %.0f, accel X %.0f Z %.0f C %.0f within the axis limits", name,
            r.vSeen[0], r.vSeen[1], r.vSeen[2], r.aSeen[0], r.aSeen[1], r.aSeen[2]);
-  if (noteOnly) printf("NOTE: %s%s\n", what, ok ? "" : " - NOT (known, see the top of this file)");
-  else check(ok, what);
+  check(ok, what);
 }
 
 int main() {
@@ -422,7 +421,7 @@ int main() {
       q.push_back({t, {VX * k, VZ * k2, VC * k * k2}});
     }
     Result r = runJog(q, 62000);
-    checkLimits(r, "one minute, stick moved around", true);
+    checkLimits(r, "one minute, stick moved around");
     snprintf(what, sizeof(what), "one minute, stick moved around: position exact, no underrun (%u), OFF at the end", r.underruns);
     check(r.exact && r.underruns == 0 && !isOn, what);
   }

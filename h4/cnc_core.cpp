@@ -264,6 +264,16 @@ static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed,
       float v = (junction_acceleration * settings.junctionDeviation * sin_theta_d2) / (1.0f - sin_theta_d2);
       block->max_junction_speed_sqr = v > CNC_MINIMUM_JUNCTION_SPEED * CNC_MINIMUM_JUNCTION_SPEED ? v : CNC_MINIMUM_JUNCTION_SPEED * CNC_MINIMUM_JUNCTION_SPEED;
     }
+    // At the corner every axis changes its speed at once by v * |change of its share of the direction|. Grbl's
+    // junction deviation works on the direction of all axes together, where C degrees count as mm: a fast C hides a
+    // reversal of X or Z, which then jumped by ~2 mm/s (twice the acceleration over 20 ms). Each axis may jump by at
+    // most what the step generator itself changes in one segment while accelerating (its acceleration x 10 ms).
+    for (int idx = 0; idx < CNC_N_AXIS; idx++) {
+      float du = fabsf(unit_vec[idx] - pl.previous_unit_vec[idx]);
+      if (du <= 0.0f) continue;
+      float vmax = settings.acceleration[idx] * CNC_JUNCTION_AXIS_JUMP_MIN / du;
+      if (vmax * vmax < block->max_junction_speed_sqr) block->max_junction_speed_sqr = vmax * vmax;
+    }
   }
 
   float nominal_speed = plan_compute_profile_nominal_speed(block);

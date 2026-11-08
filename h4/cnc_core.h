@@ -45,6 +45,8 @@
 #define CNC_MINIMUM_FEED_RATE 0.001f
 #define CNC_MINIMUM_JUNCTION_SPEED 0.0f
 #define CNC_SOME_LARGE_VALUE 1.0E+38f
+// largest speed jump of one axis at a corner, as its acceleration x this time (minutes): one step segment (10 ms)
+#define CNC_JUNCTION_AXIS_JUMP_MIN (1.0f / (CNC_ACCELERATION_TICKS_PER_SECOND * 60.0f))
 
 // Block conditions
 #define CNC_COND_RAPID 0x01        // G0: moves at the rapid rate of the axes
