@@ -242,6 +242,8 @@ def run_checks():
     ctl("/spindle", rpm=500)
     s = wait_idle(30)
     check(abs(s["x"] - 2) < 1e-3, "the spindle turns: the move ends at X %.4f" % s["x"])
+    mdi("G0 X6")        # back where the STOP check below starts (6 mm at 2 mm/s: 3 s, STOP comes after 1.2 s)
+    wait_idle(30)
 
     # STOP in the middle of a move: the firmware's position is where the motors are
     mdi("G1 X0 F120")
