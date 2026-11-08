@@ -145,6 +145,10 @@ time came out as distance / speed with the speed at zero: the machine crept for 
 stopped (found by the Pause / Resume stress test, work plan B3: `cnc_sim --holds`, 25 holds at random times in each
 of 60 random programs, each must stop within 2 s and the program must end exactly where it should).
 
+How far the tool goes on after Pause: the motion the step generator had already prepared (0.1 s,
+`CNC_SEGMENT_AHEAD_S` in `cnc_core.h`, as Grbl's segment buffer), then the deceleration v² / 2a - at 2 mm/s and X
+12.5 mm/s² (the defaults) about 0.20 + 0.16 mm (the app test on a PC measures 0.27 - 0.35 mm).
+
 ### Lost connection to the app (firmware 1.26)
 
 A program the app or web page was watching (it asks for the status about every 0.35 s) **pauses** when that connection
@@ -155,7 +159,9 @@ M0 / M1 / M6 wait (nothing moves then; if the app is still away afterwards, the 
 with no app watching (keys of the H4) and a Grbl sender's lines are not affected: a sender that is lost runs the lines it
 has already sent and stops (as Grbl). Test: `link_test.cpp`. Since 1.37 a connection lost while another pause is on
 (the spindle stopped, with *Pause G-code when the spindle stops*) says so: the message was still "Spindle stopped" and
-starting the spindle did nothing until Resume (found with the H4 on a PC, below).
+starting the spindle did nothing until Resume (found with the H4 on a PC, below). Since 1.38 the other order is right
+too: Resume given while the spindle is still stopped shows "Spindle stopped" again (it went on showing the lost
+connection) and the program goes on when the spindle turns.
 
 ### G-code read
 

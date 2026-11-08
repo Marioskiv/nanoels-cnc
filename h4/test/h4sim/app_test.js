@@ -20,12 +20,25 @@ const H4INO = fs.readFileSync(path.resolve(__dirname, '../../h4.ino'), 'utf8');
 const def = n => { const m = H4INO.match(new RegExp('^\\s*(?:long|int|bool|float)\\s+' + n + '\\s*=\\s*([^;]+);', 'm')); return m[1].trim() === 'true' ? 1 : m[1].trim() === 'false' ? 0 : +eval(m[1]); };
 const SPM = { X: def('MOTOR_STEPS_X') / (def('SCREW_X_DU') / 10000), Z: def('MOTOR_STEPS_Z') / (def('SCREW_Z_DU') / 10000) };
 const SIGN = { X: def('INVERT_X') ? -1 : 1, Z: def('INVERT_Z') ? -1 : 1 };
+// the X acceleration (steps/s^2; '10 * MOTOR_STEPS_X' in h4.ino) and how much motion the planner prepares ahead
+const ACC_X = eval(H4INO.match(/^\s*long\s+ACCELERATION_X\s*=\s*([^;]+);/m)[1].replace(/MOTOR_STEPS_X/g, def('MOTOR_STEPS_X'))) / SPM.X;
+const AHEAD_S = +fs.readFileSync(path.join(__dirname, '..', '..', 'cnc_core.h'), 'utf8').match(/#define CNC_SEGMENT_AHEAD_S\s+([\d.]+)/)[1];
 const BL = { X: Math.round(def('BACKLASH_DU_X') / 10000 * SPM.X), Z: Math.round(def('BACKLASH_DU_Z') / 10000 * SPM.Z) };
 
 let n = 0, fails = 0;
-const ok = (c, w) => { n++; if (!c) fails++; console.log((c ? 'ok  : ' : 'FAIL: ') + w); };
+// the last answers of the H4 (time, state, on, running, X, Z, message): printed with a failure
+const hist = [];
+const ok = (c, w) => {
+  n++; if (!c) fails++; console.log((c ? 'ok  : ' : 'FAIL: ') + w);
+  if (!c) console.log('      the H4 answered before:\n' + hist.map(h => '        ' + h).join('\n'));
+};
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const status = async () => (await fetch(B + '/status')).json();
+const status = async () => {
+  const s = await (await fetch(B + '/status')).json();
+  hist.push(new Date().toISOString().slice(11, 23) + ' ' + s.state + ' on ' + s.on + ' running ' + s.running + ' X ' + s.x + ' Z ' + s.z + ' ' + JSON.stringify(s.text));
+  if (hist.length > 25) hist.shift();
+  return s;
+};
 const sim = async () => (await fetch(C + '/state')).json();
 const ctl = (p, q) => fetch(C + p + '?' + new URLSearchParams(q), { method: 'POST' });
 
@@ -130,9 +143,23 @@ async function waitIdle(timeoutMs = 60000) {
     await page.click('#bStart');
     await sleep(1500);
     await page.click('button.pause');
-    await sleep(800);
-    const a = (await sim()).motors.X; await sleep(1000); const b = (await sim()).motors.X;
-    ok((await status()).state == 'Hold' && a == b, 'Pause on the page: the H4 holds, the X motor stands still (' + a + ')');
+    // the click reaches the H4 through the browser (a few tenths of a second, more on a busy PC): from the moment the
+    // H4 says Hold (it slows down on the path then, as Grbl's Hold:1) the tool may only finish its deceleration -
+    // at 2 mm/s a few hundredths of a mm; the simulated step timer may run late on a busy PC, so: wait until the motor
+    // has stopped (at most 3 s), then it must stay still 1 s
+    let hs, th = Date.now() + 5000;
+    do { await sleep(50); hs = await status(); } while (hs.state != 'Hold' && Date.now() < th);
+    const p0 = (await sim()).motors.X;
+    let a = p0, b, tq = Date.now() + 3000;
+    for (;;) { await sleep(200); b = (await sim()).motors.X; if (b == a || Date.now() > tq) break; a = b; }
+    await sleep(1000);
+    const c = (await sim()).motors.X;
+    hs = await status();
+    // the most it may go on: what the planner had prepared (AHEAD_S at 2 mm/s) + the deceleration v^2 / 2a, + 0.1 mm
+    // for the PC (the status asked every 50 ms, a late step timer)
+    const vp = 120 / 60, most = vp * AHEAD_S + vp * vp / (2 * ACC_X) + 0.1;
+    ok(hs.state == 'Hold' && b == a && c == b && Math.abs(b - p0) / SPM.X <= most,
+      'Pause on the page: the H4 holds, the X motor stopped within ' + (Math.abs(b - p0) / SPM.X).toFixed(3) + ' mm (at most ' + most.toFixed(2) + ': ' + (vp * AHEAD_S).toFixed(2) + ' prepared + ' + (vp * vp / (2 * ACC_X)).toFixed(2) + ' deceleration + 0.1) and stands still (state ' + hs.state + ', X motor ' + p0 + ' at Hold, ' + b + ' then ' + c + ', ' + JSON.stringify(hs.text) + ')');
     await page.click('button:text-is("Resume")');
     s = await waitIdle();
     ok(Math.abs(s.x - 9) < 1e-3, 'Resume on the page: the program ends at X ' + s.x);
@@ -150,7 +177,7 @@ async function waitIdle(timeoutMs = 60000) {
     s = await status();
     ok(s.state == 'Hold' && /connection was lost/.test(s.text), 'the H4 paused by itself: "' + s.text.slice(0, 50) + '"');
     await page.unroute('**/status');
-    await sleep(1500);
+    await page.waitForFunction(() => /Hold/i.test(document.querySelector('#cState').textContent), null, { timeout: 5000 }).catch(() => {});
     ok(/Hold/i.test(await page.textContent('#cState')), 'WiFi back: the page shows the pause again');
     await page.click('button:text-is("Resume")');
     s = await waitIdle();
