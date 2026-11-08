@@ -89,6 +89,18 @@ threading (G33 / G76) before it. It assumes Z+ is away from the work (as on a mi
 `runfrom_test.cpp` (from every line of the sample programs and of a program with G55, G10, G91, G92, G20, G93 and
 arcs, the moves after line N equal those of the full run).
 
+After a power cut during a program (app 1.59): the H4 has no memory that survives a power cut while it moves (no
+FRAM / EEPROM on the board; a flash sector erase can take up to ~0.4 s and would stall the motion), so the **app keeps
+the line** on the tablet: the file, its size, the line that runs (asked every 0.35 s) and the H4's boot number, cleared
+when the program ends or stops while the H4 stays on. When the H4 comes back saying it restarted during the program,
+the message also says where it was cut, and **From line…** offers that line (and warns if the file's size changed).
+The tablet's line is never later than the real one, so the restart repeats a little rather than skipping material.
+It needs the app to have been watching (a program started from the H4's keys is not kept). First Home All (X, Z) and
+line C up with the mark on the chuck (C has no home). Since firmware 1.41 a start that would be refused anyway (not
+homed, restarted while moving, an alarm, a jog still braking) says "Not started: ..." at once; before, the check said
+"Started." and the start was then refused with only a beep. Test: `test/h4sim/app_test.js` (the H4 killed in the
+middle of a program and started again with its flash).
+
 ### Check before a program starts (firmware 1.22)
 
 START on the page (or ON on the H4 with a stored program) first sends the whole program through the interpreter and
