@@ -79,9 +79,12 @@ def wait_idle(timeout=30, poll=0.3):
     """As the app: asks for /status every 0.3 s until the machine is idle again (also keeps the link watch fed)."""
     end = time.time() + timeout
     time.sleep(0.5)
+    quiet = 0
     while time.time() < end:
         s = status()
-        if s["state"] == "Idle" and not s["on"]:
+        # idle, not ON and nothing running (the firmware refuses uploads until then), twice in a row
+        quiet = quiet + 1 if s["state"] == "Idle" and not s["on"] and not s.get("running") else 0
+        if quiet >= 2:
             return s
         time.sleep(poll)
     return status()
@@ -91,7 +94,12 @@ def upload(name, text):
     boundary = "----h4simboundary"
     body = ("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: text/plain\r\n\r\n%s\r\n"
             "--%s--\r\n" % (boundary, name, text, boundary)).encode()
-    return http(B + "/upload", "POST", body, "multipart/form-data; boundary=" + boundary)
+    end = time.time() + 2
+    while True:  # just after a move the firmware still sees an axis settling for a few tens of ms: it refuses then
+        code, text = http(B + "/upload", "POST", body, "multipart/form-data; boundary=" + boundary)
+        if code == 200 or "ON or moving" not in text or time.time() > end:
+            return code, text
+        time.sleep(0.1)
 
 
 def default(name):
