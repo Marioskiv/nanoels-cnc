@@ -419,7 +419,16 @@ settings and files are kept in `OUT/data`. Its STEP and DIR pins drive simulated
 the direction DIR has then), so where the tool is is measured from the pins, not taken from the firmware; the home /
 limit / alarm inputs and the spindle encoder are set by the test (its own HTTP port, 8081: `/state`, `/key`,
 `/spindle`, `/input`, `/switch`). The step timer's timing figures on the Diagnostics page mean nothing on a PC.
-The simulated switches act on the motor's position (the backlash between motor and carriage is not simulated).
+It is built for 32 bits (`-m32`, `g++-multilib`), so int, long and pointers have the ESP32's sizes (the firmware
+relies on it). The simulated switches act on the motor's position (the backlash between motor and carriage is not
+simulated). Every millisecond the spindle and the motors are recorded (`/trace`).
+`lathe_test.py` sets and starts the lathe modes through `/lathe` as the app's Lathe screen does, with a simulated
+spindle: the gearbox moves Z exactly the pitch per turn (1.4999 mm for 1.5 over 10 turns, measured standing) and back
+on the same line when the spindle turns back; in a thread every cutting stroke falls in the same groove (Z against the
+spindle angle, within a few steps of one turn), the depth grows, the H4 switches itself off at the end; a 2-start
+thread cuts its starts half a turn apart; turning stays between the stops. The PC interrupts the firmware's loop()
+for milliseconds, so the following is checked at speeds where that does not hide it; `follow_test.cpp` checks the
+firmware's moveAxis() itself in exact simulated time: within 2 steps of the spindle's place up to 6000 steps/s.
 `app_test.js` opens the app's real page (`android/app/src/main/assets/h4/index.html`) in Chromium, connected to it,
 and uses its buttons as the operator does: machine settings saved (the H4 restarts and keeps them), Home All with
 switches, MDI, a program uploaded with the page's form and started with Start, Pause / Resume, the tablet's WiFi lost
