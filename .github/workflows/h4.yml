@@ -26,6 +26,22 @@ jobs:
           name: test-record
           path: h4/test/results/*.txt
 
+  app:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Playwright and its Chromium
+        run: |
+          npm install --no-save --prefix /tmp/pw playwright@1.63.0
+          /tmp/pw/node_modules/.bin/playwright install --with-deps chromium
+      - name: The app's real page in a browser, connected to the whole firmware on the PC (test/h4sim)
+        run: |
+          python3 h4/test/h4sim/build.py /tmp/h4sim
+          NODE_PATH=/tmp/pw/node_modules node h4/test/h4sim/app_test.js /tmp/h4sim 18380
+
   linuxcnc:
     runs-on: ubuntu-24.04
     container: debian:trixie   # Debian packages LinuxCNC (linuxcnc-uspace), Ubuntu does not
@@ -100,7 +116,7 @@ jobs:
   # own machine values (stored in it) through the update.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [tests, linuxcnc, build]
+    needs: [tests, app, linuxcnc, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

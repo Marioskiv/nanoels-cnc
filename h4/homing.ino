@@ -267,12 +267,22 @@ bool homingMoveUntil(Axis* a, int dir, float vel, bool wantActive, float maxMm) 
   }
   a->speedMax = max(1L, lround(fabs(vel) * spm));
   long steps = lround(maxMm * spm);
-  if (!stepToFinal(a, a->pos + dir * steps)) return false;
+  // The search is given in pieces of half the axis's longest move: the H4 stops everything (emergency stop "Requested
+  // position outside machine") when an axis is asked to go further than MAX_TRAVEL_MM at once, and the search is
+  // longer (soft limits' span + 10 mm, or 1.2 x MAX_TRAVEL_MM + 20 mm). Until 1.38 it was one move, so Home All ended
+  // in that emergency stop at once (found with test/h4sim). The target moves on ahead of the axis: no stop between.
+  long piece = max(1L, a->estopSteps / 2);
+  long end = a->pos + dir * steps;
+  long target = dir > 0 ? min(end, a->pos + piece) : max(end, a->pos - piece);
+  if (!stepToFinal(a, target)) return false;
   homingWantActive = wantActive;
   homingWatchAxis = a;
   while (!homingHit) {
     if (homingAbort || emergencyStop != ESTOP_NONE) break;
-    if (a->pendingPos == 0) {
+    if (target != end && (a->pendingPos == 0 || labs(target - a->pos) < piece / 2)) {
+      target = dir > 0 ? min(end, a->pos + piece) : max(end, a->pos - piece);
+      if (!stepToFinal(a, target)) break;
+    } else if (a->pendingPos == 0) {
       vTaskDelay(20); // the last step may be in loop() right now
       break;
     }

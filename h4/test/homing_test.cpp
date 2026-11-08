@@ -29,6 +29,7 @@ struct Axis {
   long machineOffset;
   bool homed;
   bool enabled;
+  long estopSteps;  // h4.ino: a longer move asked at once is an emergency stop ("Requested position outside machine")
 };
 Axis x, z, a1;
 long MAX_TRAVEL_MM_X = 135, MAX_TRAVEL_MM_Z = 600;
@@ -44,6 +45,7 @@ float HOME_CHECK_TOL_MM = 0.05;
 #define MODE_GCODE 9
 #define CNC_THREAD_NONE 0
 #define ESTOP_NONE 0
+#define ESTOP_POS 2
 #define portTICK_PERIOD_MS 1
 #define GPIO_IN_REG 0
 volatile uint8_t inRaw = 0;
@@ -137,6 +139,9 @@ void vTaskDelay(int ms) {        // the homing task waits; meanwhile loop() runs
     if (cncInputsTick((uint32_t)nowUs, programRuns)) isrStopped = true;
     bool programStopped = program && (isrStopped || !isOn);
     if (!cncFaultStop && !programStopped) { stepAxis(&x, stepAcc[0], 50e-6); stepAxis(&z, stepAcc[1], 50e-6); }
+    // h4.ino's main loop: an axis asked to go further than its longest move at once stops everything (until 1.38
+    // the homing search was asked as one move and Home All ended there: found with test/h4sim)
+    if (labs(z.pendingPos) > z.estopSteps || labs(x.pendingPos) > x.estopSteps) emergencyStop = ESTOP_POS;
     if (loopAlive) cncInputsLoop();
     if (cncFaultStop && ++faultUs >= 20) { cncFaultStop = false; faultUs = 0; }  // taskGcode resets (h4.ino:2082)
     if (onTick) onTick();
@@ -165,6 +170,8 @@ static void machine(bool xnc = false, bool znc = false) {
   z.name = 'Z'; z.active = true; z.motorSteps = 400; z.screwPitch = 10000;
   a1.name = 'C'; a1.active = true; a1.motorSteps = 91.733333f * 360; a1.screwPitch = 3600000;
   x.speedMax = z.speedMax = a1.speedMax = LONG_MAX;
+  x.estopSteps = MAX_TRAVEL_MM_X * 1200; z.estopSteps = MAX_TRAVEL_MM_Z * 400; a1.estopSteps = LONG_MAX;
+  emergencyStop = ESTOP_NONE;
   x.speedManualMove = 12 * 1200; z.speedManualMove = 25 * 400;
   HOME_X_USE = HOME_Z_USE = true; HOME_X_NC = xnc; HOME_Z_NC = znc; HOME_X_IS_LIMIT = HOME_Z_IS_LIMIT = true;
   HOME_X_SEARCH_VEL = -3; HOME_X_LATCH_VEL = 0.5; HOME_X_FINAL_VEL = 5; HOME_X_OFFSET = -24.039; HOME_X_HOME = 0;

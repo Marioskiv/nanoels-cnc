@@ -104,6 +104,23 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Home All searches in pieces (firmware 1.38)
+
+The H4 stops everything when an axis is asked to go further than its longest move at once (*MAX_TRAVEL_MM*:
+emergency stop "Requested position outside machine"). The search for a home switch is longer than that (the soft
+limits' span + 10 mm, or 1.2 x the longest move + 20 mm without soft limits) and was asked as one move: Home All ended
+in that emergency stop at once, on every machine (on the author's: Z 607 mm searched, 600 allowed; X 141 / 135). The
+search is now given in pieces of half the longest move, the target moving on ahead of the axis, so it does not stop
+between them; every other move keeps the protection. Found with the H4 on a PC; `homing_test.cpp` now has the main
+loop's check too (41 of its 91 checks fail on 1.37).
+
+### The web page after an emergency stop (firmware 1.38)
+
+After an emergency stop (driver alarm / E-stop contact, a position outside the machine ...) the H4's web server
+stopped answering: the app showed "NO CONNECTION" instead of the emergency stop and why, and the lasting log could not
+be read. It keeps answering now; every request that would move refuses itself ("Emergency stop: restart the
+controller"), Home All and the home check included.
+
 ### Homing against noise (firmware 1.34)
 
 After the search the axis stops past the point where its switch closed, so a real switch is still pressed. If it is
@@ -402,6 +419,11 @@ settings and files are kept in `OUT/data`. Its STEP and DIR pins drive simulated
 the direction DIR has then), so where the tool is is measured from the pins, not taken from the firmware; the home /
 limit / alarm inputs and the spindle encoder are set by the test (its own HTTP port, 8081: `/state`, `/key`,
 `/spindle`, `/input`, `/switch`). The step timer's timing figures on the Diagnostics page mean nothing on a PC.
+The simulated switches act on the motor's position (the backlash between motor and carriage is not simulated).
+`app_test.js` opens the app's real page (`android/app/src/main/assets/h4/index.html`) in Chromium, connected to it,
+and uses its buttons as the operator does: machine settings saved (the H4 restarts and keeps them), Home All with
+switches, MDI, a program uploaded with the page's form and started with Start, Pause / Resume, the tablet's WiFi lost
+during a program, STOP; every position is checked on the motors.
 `scenario_test.py` uses it as the app does (about a minute): MDI moves end with the motors exactly where the
 firmware says the tool is (steps per mm, direction and backlash from `h4.ino`); a program uploaded and started as the
 app does runs to its end; Pause stops on the path and Resume ends exactly; a lost connection pauses after 3 s; STOP
