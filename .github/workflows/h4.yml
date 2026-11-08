@@ -36,6 +36,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Same positions and refused lines as LinuxCNC (1000 random programs), with a record of the results
         run: RS274="$(command -v rs274)" sh h4/test/record.sh
+      - name: Same motion as LinuxCNC's own trajectory planner (lcnc_traj.py, LinuxCNC in G61, real time ~4 min)
+        run: |
+          apt-get install -y --no-install-recommends python3-numpy
+          id lcnc || useradd -m lcnc
+          W=/home/lcnc/w
+          mkdir -p $W
+          g++ -O2 -std=c++17 -o $W/cnc_sim h4/test/cnc_sim.cpp h4/cnc_core.cpp h4/cnc_gcode.cpp
+          cp h4/test/g611_sample.ngc h4/test/g93_hard.ngc h4/test/modes_sample.ngc h4/test/polar_sample.ngc $W/
+          chown -R lcnc $W
+          python3 h4/test/lcnc_traj.py --linuxcnc installed --sim $W/cnc_sim --user lcnc --keep $W/out --mdi G61 \
+            $W/g611_sample.ngc $W/g93_hard.ngc $W/modes_sample.ngc $W/polar_sample.ngc
       - uses: actions/upload-artifact@v4
         if: always()
         with:

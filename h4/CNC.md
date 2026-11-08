@@ -421,6 +421,17 @@ spindle stops* off (the chuck is turned by the C motor, the spindle encoder must
   interpreter, 1000 random programs and the samples) and `modes_compare.py` (M48 / M49 / M50, G61 / G61.1 /
   G64, spindle, coolant and tool in force for the same moves as in LinuxCNC, 500 random programs). GitHub Actions run all of it on every
   change.
+- `lcnc_traj.py` with `lcnc_ref/`: the whole of LinuxCNC 2.9 (interpreter, task, motion controller, trajectory
+  planner; no hardware, no screen) runs a program on the author's machine values, the joint positions are sampled every
+  millisecond, and the H4's motion core runs the same program (`cnc_sim --samples`). Compared: the path on the part
+  (x = X cos C, y = X sin C, z = Z) in feed moves and in rapids, the end point, the time, each axis' speed and
+  acceleration. GitHub Actions run it on four sample programs with LinuxCNC in G61. Found with it (2026-11-08):
+  in LinuxCNC 2.9.10 the `G64 P` of `RS274NGC_STARTUP_CODE` does not reach the motion controller (corners blended
+  with no limit until a program or MDI gives `G64 P`); with `G64 P0.025` LinuxCNC still rounds corners where C turns by
+  up to 0.44 mm on the part (its tolerance counts X/Z only) and drove X at 17.8 mm/s with a limit of 12 in a blend of
+  rapids; with G61 it keeps to 0.009 mm and 12 mm/s. The H4 does not blend: it went within 0.011 mm of every programmed
+  point of the polar sample. Run it: `python3 lcnc_traj.py --linuxcnc <built tree or installed> --sim <cnc_sim>
+  --user <non-root user> --mdi G61 programs.ngc` (LinuxCNC refuses to run its realtime part as root).
 
 `sh h4/test/record.sh [--lathe]` runs the same tests (with `--lathe` also the H4 screen tests of `test/lathe/run.sh`)
 and keeps a record in `h4/test/results/<UTC date>-<commit>.txt`: commit, firmware and app versions, tools, whether
