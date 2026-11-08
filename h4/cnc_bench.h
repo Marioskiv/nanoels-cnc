@@ -27,6 +27,13 @@ typedef struct {
   uint32_t neededAtLine;     // where that is
   uint32_t stopLine;         // 0, or the line where the test stopped (error, threading)
   char stopReason[96];
+  // what the operator should know before the start (the interpreter's notes, which it gives again when it gets there):
+  uint32_t waits;            // times the program waits for the operator (M0 / M1 / M6, M3 switching the router on)
+  uint32_t waitLine;         // the first one, and why
+  char waitReason[96];
+  uint32_t notes;            // lines with a note that do not wait (G43 H, G96, M7 / M8, the spindle not switched)
+  uint32_t noteLine;         // the first one, a G43 H before any other (tool lengths are not stored: touch off Z)
+  char note[96];
 } cnc_bench_t;
 
 // nowUs: a clock in microseconds; yield: called now and then (the firmware lets other tasks run), not timed.

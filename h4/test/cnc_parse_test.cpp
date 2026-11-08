@@ -356,6 +356,19 @@ int main() {
     if (msg[0]) { printf("FAIL second spindle request noted again: %s\n", msg); failures++; }
   }
   expectState(3, 9000, false, false, 0, "M3 S9000");
+  {
+    // the check before the start (h4.ino cncBenchCheck) reads the program with the same interpreter and then puts the
+    // modes back: the one-time notes must come back too, or the running program would no longer say them (1.40)
+    cnc_modes_t before = modes();
+    char msg[128];
+    run("M8", msg);                       // the check gives the note ...
+    cnc_gc_set_modes(&before);            // ... and restores
+    run("M9", msg);
+    run("M8", msg);                       // the program itself reaches M8: the note again
+    checks++;
+    if (!strstr(msg, "no coolant output")) { printf("FAIL the coolant note after a check before the start: \"%s\"\n", msg); failures++; }
+    cnc_gc_set_modes(&before);
+  }
   expect("M8", CNC_OK, "no coolant output");
   expect("M7", CNC_OK);
   expectState(3, 9000, true, true, 0, "M7 and M8");

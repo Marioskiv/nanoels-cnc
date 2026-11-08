@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.39"
+#define FW_VERSION "1.40"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1878,7 +1878,7 @@ volatile bool cncBenchRequest = false;
 const char* volatile cncBenchData = NULL;
 volatile size_t cncBenchSize = 0;
 char cncBenchName[64] = "";
-char cncBenchText[300] = "";
+char cncBenchText[480] = "";
 volatile uint32_t cncBenchCount = 0;  // changes when a new result is there
 
 uint64_t cncBenchNowUs() {
@@ -1946,9 +1946,15 @@ void cncRunPreflight() {
     } else if (gcodeProgramData != cncPreflightData || isOn || cncBusy()) {
       snprintf(cncBenchText, sizeof(cncBenchText), "Not started: the program or the machine changed during the check");
     } else {
-      snprintf(cncBenchText, sizeof(cncBenchText), "Checked %s: %lu lines%s. Started.", cncPreflightName,
+      // what the operator should know now, not first when the program gets there: where it will wait for them (tool
+      // change, router on, M0) and the first note (a G43 H first: the H4 stores no tool lengths)
+      String extra = "";
+      if (r.waits) extra += " It will wait for you " + String((unsigned long)r.waits) + (r.waits == 1 ? " time" : " times") +
+          ", first at line " + String((unsigned long)r.waitLine) + ": " + r.waitReason + ".";
+      if (r.notes) extra += " Note, line " + String((unsigned long)r.noteLine) + ": " + r.note + ".";
+      snprintf(cncBenchText, sizeof(cncBenchText), "Checked %s: %lu lines%s. Started.%s", cncPreflightName,
           (unsigned long)r.lines, r.stopLine ? (", up to the threading at line " + String((unsigned long)r.stopLine) +
-          " (threading is not checked)").c_str() : ", all can run");
+          " (threading is not checked)").c_str() : ", all can run", extra.c_str());
       gcodeProgramCharIndex = 0;
       cncUserHold = false;
       cncRunFrom = from;

@@ -85,6 +85,7 @@ typedef struct {
   int tool;                          // tool in the spindle (M6 / M61), 0 = none
   int toolSelected;                  // last T
   double feed, tloZ;
+  bool notedSpindle, notedCoolant;    // the one-time spindle / coolant notes were given (a check before the start restores them)
 } cnc_modes_t;
 void cnc_gc_get_modes(cnc_modes_t* m);
 void cnc_gc_set_modes(const cnc_modes_t* m);
