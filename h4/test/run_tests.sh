@@ -39,6 +39,21 @@ for i in $(seq 201 260); do
   run "$OUT/r.ngc" --machine $m --backlash $bl $d --holds 25:$i --ovr 1.3:60:50 --ovr 3.9:150:100
 done
 run polar_sample.ngc --delayed --backlash 120,240,5 --holds 60:7 --ovr 5:60:50
+# planner stress (work plan B4): 100 000 small G93 blocks of a spiral and 100 000 tiny G1 / G93 moves (no stop between
+# them, no underrun), G93 feeds far beyond what the axes allow, thousands of small arcs; three machines, both interrupt orders
+python3 gen_stress.py spiral 100000 > "$OUT/b4s.ngc"
+python3 gen_stress.py tiny 100000 > "$OUT/b4t.ngc"
+python3 gen_stress.py g93edge 3000 > "$OUT/b4g.ngc"
+python3 gen_stress.py arcs 3000 > "$OUT/b4a.ngc"
+run "$OUT/b4s.ngc" --stops none
+run "$OUT/b4s.ngc" --delayed --stops none
+run "$OUT/b4s.ngc" --machine fast --delayed --stops none
+run "$OUT/b4t.ngc" --stops none
+run "$OUT/b4t.ngc" --machine h4default --stops none
+run "$OUT/b4g.ngc"
+run "$OUT/b4g.ngc" --delayed --backlash 40,80,3
+run "$OUT/b4a.ngc" --stops none
+run "$OUT/b4a.ngc" --machine h4default --stops none
 # the H4 step interrupt order (step put out by the next interrupt), with holds and overrides
 run polar_sample.ngc --delayed --backlash 120,240,5 --hold-at 3 --ovr 5:60:50
 run lathecode_sample.ngc --machine h4default --delayed --hold-at 1.5
