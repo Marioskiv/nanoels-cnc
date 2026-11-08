@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.40"
+#define FW_VERSION "1.41"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1929,8 +1929,14 @@ void cncRequestPreflight(const char* data, size_t size, const char* name) {
 void cncRunPreflight() {
   uint32_t from = cncRunFromRequest;  // start from this line (the page), 0: from the beginning
   cncRunFromRequest = 0;
+  // what would refuse the start anyway (not homed, restarted while moving, alarm, a jog still braking): said now, not
+  // "Started." after the check (the start was then refused with only a beep and the status line, 1.41)
+  const char* refusal = cncStartRefusal();
+  if (refusal == NULL) refusal = cncAxisMovingRefusal();
   if (isOn || cncBusy() || homingActive || mode != MODE_GCODE) {
     snprintf(cncBenchText, sizeof(cncBenchText), "Not started: the machine is busy");
+  } else if (refusal != NULL) {
+    snprintf(cncBenchText, sizeof(cncBenchText), "Not started: %s", refusal);
   } else {
     cncStatusText = "Checking the program";
     cnc_bench_t r;

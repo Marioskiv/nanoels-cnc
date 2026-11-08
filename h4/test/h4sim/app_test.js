@@ -42,8 +42,8 @@ const status = async () => {
 const sim = async () => (await fetch(C + '/state')).json();
 const ctl = (p, q) => fetch(C + p + '?' + new URLSearchParams(q), { method: 'POST' });
 
-async function startSim() {
-  fs.rmSync(path.join(BUILD, 'data'), { recursive: true, force: true });
+async function startSim(keepData) {
+  if (!keepData) fs.rmSync(path.join(BUILD, 'data'), { recursive: true, force: true });
   const p = spawn('sh', [path.join(__dirname, 'run.sh'), BUILD, String(PORT)], { detached: true, stdio: 'ignore' });
   for (let i = 0; i < 100; i++) { try { await status(); break; } catch (e) { await sleep(100); } }
   return p;
@@ -61,7 +61,7 @@ async function waitIdle(timeoutMs = 60000) {
 }
 
 (async () => {
-  const proc = await startSim();
+  let proc = await startSim();
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -134,6 +134,8 @@ async function waitIdle(timeoutMs = 60000) {
     await page.click('#bStart');
     s = await waitIdle();
     ok(Math.abs(s.x - 3) < 1e-3 && Math.abs(s.z) < 1e-3, 'upload + Start from the page: the program ended at X ' + s.x + ' Z ' + s.z);
+    await sleep(800);
+    ok(await page.evaluate(() => resumeRec === null), 'the program ended normally: the tablet keeps no line (no false "cut" later)');
 
     // 5. Pause / Resume buttons
     await page.setInputFiles('#file', { name: 'slow.ngc', mimeType: 'text/plain', buffer: Buffer.from('G21 G90\nG1 X9 F120\nM2\n') });
@@ -210,6 +212,38 @@ async function waitIdle(timeoutMs = 60000) {
     ok(/^(59|60|61)(rpm|σ\.α\.λ\.)$/.test(sp), 'a tap on the tile: it shows the speed "' + sp + '" (60 rpm)');
     await ctl('/spindle', { rpm: 0 });
     await page.click('#ltChk');
+
+    // 9. a power cut in the middle of a program (the whole H4 killed at once, then on again with its flash as it was):
+    //    the tablet kept the line that ran; the restart message says it, "From line..." offers it
+    await page.evaluate(() => tab('program'));
+    await page.setInputFiles('#file', { name: 'cut.ngc', mimeType: 'text/plain', buffer: Buffer.from('G21 G90\nG1 X1 F60\nG1 X2\nG1 X3\nG1 X4\nG1 X5\nG1 X6\nM2\n') });
+    await page.evaluate(() => document.querySelector('#up input[type=submit]').click());
+    await page.waitForFunction(() => [...document.querySelectorAll('#files input[name=sel]')].some(i => i.value == 'cut.ngc'), null, { timeout: 10000 });
+    await page.check('#files input[value="cut.ngc"]');
+    await page.click('#bStart');
+    await sleep(3500);
+    const live = await status(), rec = await page.evaluate(() => resumeRec);
+    process.kill(-proc.pid, 'SIGKILL');
+    await sleep(500);
+    proc = await startSim(true);
+    await sleep(3000);
+    const after = await status(), body = (await page.textContent('#shBody')) || '';
+    ok(rec && rec.program == 'cut.ngc' && rec.line >= 2 && rec.line <= live.lineNo && rec.boot != after.boot,
+      'power cut: the tablet kept ' + JSON.stringify(rec) + ' (the H4 ran line ' + live.lineNo + ', boot now ' + after.boot + ')');
+    ok(!!after.restart && /was cut|κόπηκε/.test(body) && body.includes(String(rec && rec.line)),
+      'after the restart the page says where it was cut: "' + body.replace(/\s+/g, ' ').slice(0, 160) + '"');
+    await page.evaluate(() => sheetClose());
+    let offered = null;
+    const grab = d => { if (d.type() == 'prompt') offered = d.defaultValue(); };
+    page.on('dialog', grab);
+    await page.check('#files input[value="cut.ngc"]');
+    await page.click('button:text-is("From line…")');
+    await sleep(1500);
+    page.off('dialog', grab);
+    ok(offered == String(rec && rec.line), '"From line..." offers line ' + offered + ' (kept ' + (rec && rec.line) + ')');
+    const st9 = await status(), said = ((await page.textContent('#msg')) || '').trim();
+    ok(!st9.running && !st9.on && /Home All|zeros|μηδέν/i.test(said),
+      'nothing starts before Home All / the zeros were confirmed: "' + said.slice(0, 120) + '"');
 
     ok(errs.length == 0, 'no error in the page' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
   } catch (e) {
