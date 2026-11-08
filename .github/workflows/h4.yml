@@ -18,13 +18,33 @@ jobs:
       - uses: actions/checkout@v4
       - name: PC tests (parser, motion simulation, overrides, step order, self-test), with a record of the results
         run: sh h4/test/record.sh
-      - name: The whole firmware on the PC, used through its web API as the app uses it (test/h4sim, about 2 min)
-        run: python3 h4/test/h4sim/scenario_test.py /tmp/h4sim 18180
+      - name: The whole firmware on the PC (test/h4sim, 32 bits as the ESP32), through its web API, and its lathe modes
+        run: |
+          sudo apt-get install -y --no-install-recommends g++-multilib
+          python3 h4/test/h4sim/scenario_test.py /tmp/h4sim 18180
+          python3 h4/test/h4sim/lathe_test.py /tmp/h4sim 18680
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-record
           path: h4/test/results/*.txt
+
+  app:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Playwright and its Chromium, a 32-bit compiler
+        run: |
+          sudo apt-get install -y --no-install-recommends g++-multilib
+          npm install --no-save --prefix /tmp/pw playwright@1.63.0
+          /tmp/pw/node_modules/.bin/playwright install --with-deps chromium
+      - name: The app's real page in a browser, connected to the whole firmware on the PC (test/h4sim)
+        run: |
+          python3 h4/test/h4sim/build.py /tmp/h4sim
+          NODE_PATH=/tmp/pw/node_modules node h4/test/h4sim/app_test.js /tmp/h4sim 18380
 
   linuxcnc:
     runs-on: ubuntu-24.04
@@ -100,7 +120,7 @@ jobs:
   # own machine values (stored in it) through the update.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [tests, linuxcnc, build]
+    needs: [tests, app, linuxcnc, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

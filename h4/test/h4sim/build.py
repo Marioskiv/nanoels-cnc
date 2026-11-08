@@ -7,6 +7,7 @@ order, joined into one C++ file, with a declaration of every top-level function 
 changed: the ESP32, Arduino and library parts it uses are stand-ins in shim/ (sim.cpp runs them on the PC).
 
   python3 build.py OUT_DIR [--machine my_machine.h] [--cxx g++]   -> OUT_DIR/h4sim
+Built for 32 bits (-m32, needs g++-multilib on a 64-bit PC) so that int, long and pointers have the ESP32's sizes.
 
 Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
 Copyright (c) 2026 Marioskiv
@@ -178,7 +179,9 @@ def main():
         return 0
     cpps = [sketch] + [os.path.join(src, os.path.basename(f)) for f in glob.glob(os.path.join(H4, "*.cpp"))] \
         + [os.path.join(HERE, "shim", "sim.cpp")]
-    cmd = [a.cxx, "-std=gnu++17", "-O1", "-g", "-pthread", "-DARDUINO=10819", "-DH4SIM",
+    # -m32: int, long and pointers of 32 bits as on the ESP32 (the firmware relies on it: e.g. a stop "not set" is
+    # LONG_MAX kept in a 32-bit setting; with a 64-bit long it read back as -1 and locked the Z axis)
+    cmd = [a.cxx, "-std=gnu++17", "-O1", "-g", "-m32", "-pthread", "-DARDUINO=10819", "-DH4SIM",
            "-I" + os.path.join(HERE, "shim"), "-I" + src, "-w", "-o", os.path.join(a.out, "h4sim")] + cpps
     r = subprocess.run(cmd)
     return r.returncode

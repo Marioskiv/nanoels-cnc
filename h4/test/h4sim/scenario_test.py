@@ -226,6 +226,23 @@ def run_checks():
     s = wait_idle(30)
     check(abs(s["x"] - 6) < 1e-3, "Resume: the move ends at X %.4f" % s["x"])
 
+    # the other order: Resume while the spindle is still stopped - the message goes back to the spindle, and the
+    # program goes on when the spindle turns
+    ctl("/spindle", rpm=0)
+    mdi("G0 X2")
+    time.sleep(0.5)
+    time.sleep(4.5)
+    st = status()
+    check(st["state"] == "Hold" and "connection was lost" in st["text"], "spindle stopped, then the app away: \"%s\"" % st["text"][:60])
+    post("/cmd", **{"do": "resume"})
+    time.sleep(1)
+    st = status()
+    check(st["state"] == "Hold" and st["text"] == "Spindle stopped",
+          "Resume with the spindle still stopped: waits for the spindle, \"%s\"" % st["text"][:60])
+    ctl("/spindle", rpm=500)
+    s = wait_idle(30)
+    check(abs(s["x"] - 2) < 1e-3, "the spindle turns: the move ends at X %.4f" % s["x"])
+
     # STOP in the middle of a move: the firmware's position is where the motors are
     mdi("G1 X0 F120")
     time.sleep(1.2)

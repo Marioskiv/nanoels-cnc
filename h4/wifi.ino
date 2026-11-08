@@ -520,6 +520,10 @@ void handleCommand() {
     cncOverrideCommand(code);
     server.send(200, "text/plain", "Feed " + String(cncFeedOverrideWanted) + " %, rapids " + String(cncRapidOverrideWanted) + " %");
   } else if (what == "home") {
+    if (emergencyStop != ESTOP_NONE) { // nothing moves after an emergency stop (the web server keeps answering since 1.38)
+      server.send(409, "text/plain", "Emergency stop: restart the controller.");
+      return;
+    }
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");
       return;
@@ -528,6 +532,10 @@ void handleCommand() {
     homingRequest = true;
     server.send(200, "text/plain", "Home All");
   } else if (what == "homecheck") {
+    if (emergencyStop != ESTOP_NONE) {
+      server.send(409, "text/plain", "Emergency stop: restart the controller.");
+      return;
+    }
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");
       return;
@@ -1067,7 +1075,11 @@ void taskWifi(void* param) {
   server.on("/events", HTTP_GET, []() { server.send(200, "text/plain; charset=utf-8", eventsText()); }); // lasting log (safety.ino)
   server.on("/lathe", HTTP_POST, handleLathe);
   server.begin();
-  while (emergencyStop == ESTOP_NONE) {
+  // Also after an emergency stop: the page must still show it and why (/status "estop"), the lasting log must be
+  // readable and the settings / firmware pages usable. Every motion request refuses itself then ("Emergency stop:
+  // restart the controller"), setEmergencyStop() holds the axes and stops the GCODE steps. Until 1.38 this loop ended
+  // there and the H4 answered nothing: the app showed "NO CONNECTION" (found with test/h4sim).
+  for (;;) {
     server.handleClient();
     grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
@@ -1082,5 +1094,4 @@ void taskWifi(void* param) {
     }
     vTaskDelay(2);
   }
-  vTaskDelete(NULL);
 }

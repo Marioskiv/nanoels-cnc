@@ -104,6 +104,23 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Home All searches in pieces (firmware 1.38)
+
+The H4 stops everything when an axis is asked to go further than its longest move at once (*MAX_TRAVEL_MM*:
+emergency stop "Requested position outside machine"). The search for a home switch is longer than that (the soft
+limits' span + 10 mm, or 1.2 x the longest move + 20 mm without soft limits) and was asked as one move: Home All ended
+in that emergency stop at once, on every machine (on the author's: Z 607 mm searched, 600 allowed; X 141 / 135). The
+search is now given in pieces of half the longest move, the target moving on ahead of the axis, so it does not stop
+between them; every other move keeps the protection. Found with the H4 on a PC; `homing_test.cpp` now has the main
+loop's check too (41 of its 91 checks fail on 1.37).
+
+### The web page after an emergency stop (firmware 1.38)
+
+After an emergency stop (driver alarm / E-stop contact, a position outside the machine ...) the H4's web server
+stopped answering: the app showed "NO CONNECTION" instead of the emergency stop and why, and the lasting log could not
+be read. It keeps answering now; every request that would move refuses itself ("Emergency stop: restart the
+controller"), Home All and the home check included.
+
 ### Homing against noise (firmware 1.34)
 
 After the search the axis stops past the point where its switch closed, so a real switch is still pressed. If it is
@@ -128,6 +145,10 @@ time came out as distance / speed with the speed at zero: the machine crept for 
 stopped (found by the Pause / Resume stress test, work plan B3: `cnc_sim --holds`, 25 holds at random times in each
 of 60 random programs, each must stop within 2 s and the program must end exactly where it should).
 
+How far the tool goes on after Pause: the motion the step generator had already prepared (0.1 s,
+`CNC_SEGMENT_AHEAD_S` in `cnc_core.h`, as Grbl's segment buffer), then the deceleration v² / 2a - at 2 mm/s and X
+12.5 mm/s² (the defaults) about 0.20 + 0.16 mm (the app test on a PC measures 0.27 - 0.35 mm).
+
 ### Lost connection to the app (firmware 1.26)
 
 A program the app or web page was watching (it asks for the status about every 0.35 s) **pauses** when that connection
@@ -138,7 +159,9 @@ M0 / M1 / M6 wait (nothing moves then; if the app is still away afterwards, the 
 with no app watching (keys of the H4) and a Grbl sender's lines are not affected: a sender that is lost runs the lines it
 has already sent and stops (as Grbl). Test: `link_test.cpp`. Since 1.37 a connection lost while another pause is on
 (the spindle stopped, with *Pause G-code when the spindle stops*) says so: the message was still "Spindle stopped" and
-starting the spindle did nothing until Resume (found with the H4 on a PC, below).
+starting the spindle did nothing until Resume (found with the H4 on a PC, below). Since 1.38 the other order is right
+too: Resume given while the spindle is still stopped shows "Spindle stopped" again (it went on showing the lost
+connection) and the program goes on when the spindle turns.
 
 ### G-code read
 
@@ -402,6 +425,20 @@ settings and files are kept in `OUT/data`. Its STEP and DIR pins drive simulated
 the direction DIR has then), so where the tool is is measured from the pins, not taken from the firmware; the home /
 limit / alarm inputs and the spindle encoder are set by the test (its own HTTP port, 8081: `/state`, `/key`,
 `/spindle`, `/input`, `/switch`). The step timer's timing figures on the Diagnostics page mean nothing on a PC.
+It is built for 32 bits (`-m32`, `g++-multilib`), so int, long and pointers have the ESP32's sizes (the firmware
+relies on it). The simulated switches act on the motor's position (the backlash between motor and carriage is not
+simulated). Every millisecond the spindle and the motors are recorded (`/trace`).
+`lathe_test.py` sets and starts the lathe modes through `/lathe` as the app's Lathe screen does, with a simulated
+spindle: the gearbox moves Z exactly the pitch per turn (1.4999 mm for 1.5 over 10 turns, measured standing) and back
+on the same line when the spindle turns back; in a thread every cutting stroke falls in the same groove (Z against the
+spindle angle, within a few steps of one turn), the depth grows, the H4 switches itself off at the end; a 2-start
+thread cuts its starts half a turn apart; turning stays between the stops. The PC interrupts the firmware's loop()
+for milliseconds, so the following is checked at speeds where that does not hide it; `follow_test.cpp` checks the
+firmware's moveAxis() itself in exact simulated time: within 2 steps of the spindle's place up to 6000 steps/s.
+`app_test.js` opens the app's real page (`android/app/src/main/assets/h4/index.html`) in Chromium, connected to it,
+and uses its buttons as the operator does: machine settings saved (the H4 restarts and keeps them), Home All with
+switches, MDI, a program uploaded with the page's form and started with Start, Pause / Resume, the tablet's WiFi lost
+during a program, STOP; every position is checked on the motors.
 `scenario_test.py` uses it as the app does (about a minute): MDI moves end with the motors exactly where the
 firmware says the tool is (steps per mm, direction and backlash from `h4.ino`); a program uploaded and started as the
 app does runs to its end; Pause stops on the path and Resume ends exactly; a lost connection pauses after 3 s; STOP

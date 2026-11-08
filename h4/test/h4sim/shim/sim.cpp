@@ -22,6 +22,7 @@
     POST /switch?pin=P&motor=X|Z|A1&op=le|ge&steps=S&pressed=0|1
                                          a switch closed while the motor's steps are <= / >= S (pressed = its level)
     GET  /serial                         what the firmware wrote to its serial port
+    GET  /trace?from=MS                  every millisecond since MS: time, spindle (encoder counts), Z, X, A1 steps
   ESP.restart() ends the program with exit code 3 (the runner starts it again; RTC memory is not kept).
 
   Part of the NanoEls H4 CNC fork: https://github.com/Marioskiv/nanoels-cnc
@@ -191,6 +192,7 @@ static Motor motors[3] = {{"Z", 18, 17, {0}}, {"X", 20, 19, {0}}, {"A1", 11, 10,
 struct Switch { int pin; int motor; bool le; int64_t steps; int pressedLevel; };
 static std::vector<Switch> switches;
 static std::atomic<long> beeps{0};
+static std::atomic<uint64_t> loopCalls{0};  // how often the sketch's loop() ran (the lathe modes step in it)
 
 static void onOutput(int pin, int oldLevel, int level) {
   if (oldLevel == 1 && level == 0) {
@@ -269,6 +271,24 @@ esp_err_t pcnt_get_counter_value(pcnt_unit_t, int16_t* count) {
   return ESP_OK;
 }
 
+// a record of the machine every millisecond (the last 3 minutes): GET /trace?from=MS
+struct TraceRow { uint32_t ms; int64_t spindle; int64_t z, x, a1; };
+static std::mutex traceLock;
+static std::vector<TraceRow> traceRing(180000);
+static size_t traceHead = 0, traceCount = 0;
+static void traceThread() {
+  int64_t next = nowNs();
+  for (;;) {
+    next += 1000000;
+    std::this_thread::sleep_until(t0 + std::chrono::nanoseconds(next));
+    TraceRow r = {(uint32_t)(next / 1000000), spindleNow(), motors[0].steps.load(), motors[1].steps.load(), motors[2].steps.load()};
+    std::lock_guard<std::mutex> g(traceLock);
+    traceRing[traceHead] = r;
+    traceHead = (traceHead + 1) % traceRing.size();
+    if (traceCount < traceRing.size()) traceCount++;
+  }
+}
+
 // ------------------------------------------------------------------ LCD and keypad
 static std::mutex lcdLock;
 static char lcdText[4][21];
@@ -309,7 +329,7 @@ static void timerThread(SimGptimer* t) {
     uint64_t a = t->alarm;
     int64_t at = t->nsAt(a);
     int64_t wait = at - nowNs();
-    if (wait > 300000) { std::this_thread::sleep_for(std::chrono::nanoseconds(wait - 200000)); continue; }
+    if (wait > 150000) { std::this_thread::sleep_for(std::chrono::nanoseconds(wait - 100000)); continue; }  // spin only the last ~0.1 ms
     while (nowNs() < at) {}
     if (!t->running || !t->alarmOn || t->alarm != a) continue;
     if (!t->autoReload) t->alarmOn = false;  // the hardware switches the alarm off when it fires
@@ -388,7 +408,7 @@ static void hwTimerThread(SimHwTimer* t) {
     int64_t period = (int64_t)((double)t->alarm * 1e9 / t->frequency);
     if (next == 0) next = std::max<int64_t>(t->startNs, nowNs()) + period;
     int64_t wait = next - nowNs();
-    if (wait > 300000) { std::this_thread::sleep_for(std::chrono::nanoseconds(wait - 200000)); continue; }
+    if (wait > 150000) { std::this_thread::sleep_for(std::chrono::nanoseconds(wait - 100000)); continue; }  // spin only the last ~0.1 ms
     while (nowNs() < next) {}
     {
       std::lock_guard<std::recursive_mutex> g(irqLock);
@@ -897,7 +917,7 @@ static std::string stateJson() {
   j += "],\"inputs\":{";
   int pins[] = {12, 13, 14};
   for (int i = 0; i < 3; i++) j += (i ? "," : "") + jsonStr(std::to_string(pins[i])) + ":" + std::to_string(inputLevel(pins[i]));
-  j += "},\"spindleRpm\":" + std::to_string(spindleRpm.load()) + ",\"beeps\":" + std::to_string(beeps.load()) + "}";
+  j += "},\"spindleCounts\":" + std::to_string(spindleNow()) + ",\"spindleRpm\":" + std::to_string(spindleRpm.load()) + ",\"beeps\":" + std::to_string(beeps.load()) + ",\"loops\":" + std::to_string(loopCalls.load()) + "}";
   return j;
 }
 static void controlServer() {
@@ -914,6 +934,21 @@ static void controlServer() {
     if (readRequest(fd, r)) {
       std::string q = r.query;
       if (r.path == "/state") { body = stateJson(); type = "application/json"; }
+      else if (r.path == "/trace") {
+        // "ms spindle z x a1" per line, from the given millisecond on (the spindle in encoder counts since the start)
+        uint32_t from = (uint32_t)atol(qarg(q, "from").c_str());
+        std::string o;
+        std::lock_guard<std::mutex> g(traceLock);
+        size_t start = (traceHead + traceRing.size() - traceCount) % traceRing.size();
+        for (size_t i = 0; i < traceCount; i++) {
+          const TraceRow& t = traceRing[(start + i) % traceRing.size()];
+          if (t.ms < from) continue;
+          char line[96];
+          snprintf(line, sizeof(line), "%u %lld %lld %lld %lld\n", t.ms, (long long)t.spindle, (long long)t.z, (long long)t.x, (long long)t.a1);
+          o += line;
+        }
+        body = o;
+      }
       else if (r.path == "/serial") { std::lock_guard<std::mutex> g(serialLock); body = serialOut; }
       else if (r.path == "/key") {
         int code7 = atoi(qarg(q, "code").c_str()) & 127;
@@ -956,6 +991,10 @@ int main() {
   for (auto& r : lcdText) { memset(r, ' ', 20); r[20] = 0; }
   mkdirs(dataDir());
   std::thread(controlServer).detach();
+  std::thread(traceThread).detach();
   setup();
-  for (;;) loop();
+  for (;;) {
+    loop();
+    loopCalls++;
+  }
 }

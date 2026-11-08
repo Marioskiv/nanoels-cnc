@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.37"
+#define FW_VERSION "1.38"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -2332,6 +2332,7 @@ bool cncThread() {
 // last second), those requests stopping for CNC_LINK_LOSS_PAUSE_S seconds pause the program as Pause does (decelerate on
 // the path, wait): the place is kept and Resume goes on from there. Not during an M0 / M1 / M6 wait (nothing moves then)
 // or a Grbl sender's session (the sender drives the program). Called from cncService().
+static const char CNC_LINK_LOST_TEXT[] = "Paused: the app's connection was lost. Resume on the page when it is back, or ON on the H4";
 void cncLinkWatch() {
   if (!isOn || mode != MODE_GCODE || grblSession || CNC_LINK_LOSS_PAUSE_S <= 0) {
     cncLinkArmed = false;
@@ -2492,14 +2493,16 @@ void cncService() {
   cncLinkWatch();
   if (cncUserHold && !cnc_hold_active()) {
     cnc_hold_start();
-    cncStatusText = cncLinkHold ? "Paused: the app's connection was lost. Resume on the page when it is back, or ON on the H4"
+    cncStatusText = cncLinkHold ? CNC_LINK_LOST_TEXT
                                 : "Paused from the web";
     cncLinkHold = false;
   } else if (cncUserHold && cncLinkHold) {
     // the connection was lost while another pause was on (the spindle stopped): it goes on only after Resume now, so
     // the message says so - "Spindle stopped" stayed and starting the spindle did nothing (found with test/h4sim)
-    cncStatusText = "Paused: the app's connection was lost. Resume on the page when it is back, or ON on the H4";
+    cncStatusText = CNC_LINK_LOST_TEXT;
     cncLinkHold = false;
+  } else if (!cncUserHold && cncSpindleHold && cncStatusText == CNC_LINK_LOST_TEXT) {
+    cncStatusText = "Spindle stopped";  // Resume given, the spindle still stopped: it goes on when the spindle turns
   } else if (!cncUserHold && cnc_hold_active() && !cncSpindleHold && cnc_hold_complete()) {
     cnc_hold_resume();
     cncStatusText = "";

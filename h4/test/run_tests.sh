@@ -121,6 +121,9 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/homing_test" homing_test.cpp
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/move_pulse_test" move_pulse_test.cpp
 "$OUT/move_pulse_test" > "$OUT/mp.txt" || { cat "$OUT/mp.txt"; fail=$((fail + 1)); }
 tail -1 "$OUT/mp.txt"
+# the lathe modes' axis following the spindle (gearbox, threads): moveAxis() unchanged, exact simulated time
+g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/follow_test" follow_test.cpp
+"$OUT/follow_test" || fail=$((fail + 1))
 # the line shown while a program runs: the one whose motion runs now, numbered as in the file (h4.ino, unchanged)
 sh lathe/extract.sh ../h4.ino "void cncRingRecord" "uint32_t gcodeFileLineNo" "void cncExecLine" > "$OUT/exec_funcs.inc"
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/exec_line_test" exec_line_test.cpp
