@@ -612,6 +612,21 @@ bool sendKeyEvent(int event) {
 
 // ------------------------------------------------------------------ Lathe screen
 
+// A number from the page (1.42): the whole text must be a finite number between lo and hi. Arduino's toFloat() reads
+// "abc" as 0 (a stop at 0, a move to 0) and lets "nan" / "inf" / "1e40" through, which lround() turned into the
+// smallest long (labs() of it is negative, so a pitch range check passed). Found by fuzzing the API (test/h4sim).
+bool webNumber(const String& text, double lo, double hi, double* out) {
+  String t = text;
+  t.trim();
+  if (t.length() == 0) return false;
+  char* end;
+  double v = strtod(t.c_str(), &end);
+  if (*end != '\0' || !isfinite(v) || v < lo || v > hi) return false;
+  *out = v;
+  return true;
+}
+#define WEB_POS_MAX 10000.0  // mm (or inch): far beyond any lathe travel, still well inside a long in steps
+
 // A value as the H4 displays it (mm, or inch in the inch modes) -> the axis position in steps.
 long latheDisplayToPos(Axis* a, float v) {
   double du = v * (measure == MEASURE_METRIC ? 10000.0 : 254000.0);
@@ -653,8 +668,8 @@ void handleLathe() {
     if (what == "z0") markAxis0(&z);
     else if (what == "x0") markAxis0(&x);
     else {
-      float d = server.arg("d").toFloat();
-      if (!(d > 0 && d < 10000)) {
+      double d = 0;
+      if (!webNumber(server.arg("d"), 1e-6, 9999.999, &d)) {
         server.send(400, "text/plain", "Bad diameter");
         return;
       }
@@ -679,7 +694,12 @@ void handleLathe() {
       server.send(400, "text/plain", "axis x or z and v");
       return;
     }
-    long target = latheDisplayToPos(a, server.arg("v").toFloat());
+    double v = 0;
+    if (!webNumber(server.arg("v"), -WEB_POS_MAX, WEB_POS_MAX, &v)) {
+      server.send(400, "text/plain", "Bad position");
+      return;
+    }
+    long target = latheDisplayToPos(a, v);
     long lo, hi;
     if (softLimitSteps(a, &lo, &hi) && (target < lo || target > hi)) { // homing.ino
       server.send(409, "text/plain", "Outside the machine's limits.");
@@ -718,6 +738,24 @@ void handleLathe() {
     return;
   }
   if (refuseWhileRunning()) return;
+  // every number checked before anything is applied: a bad one changes nothing (400)
+  double pitchIn = 0, coneIn = 0, stopIn[4] = {0, 0, 0, 0};
+  const char* stopKeys[4] = {"zl", "zr", "xl", "xr"};
+  if (server.hasArg("pitch") && !webNumber(server.arg("pitch"), -1000, 1000, &pitchIn)) {  // then lround fits a long; DUPR_MAX below
+    server.send(400, "text/plain", "Pitch out of range");
+    return;
+  }
+  if (server.hasArg("cone") && !webNumber(server.arg("cone"), -1e6, 1e6, &coneIn)) {
+    server.send(400, "text/plain", "Bad cone ratio");
+    return;
+  }
+  for (int i = 0; i < 4; i++) {
+    if (server.hasArg(stopKeys[i]) && server.arg(stopKeys[i]).length() > 0 &&
+        !webNumber(server.arg(stopKeys[i]), -WEB_POS_MAX, WEB_POS_MAX, &stopIn[i])) {
+      server.send(400, "text/plain", String("Bad stop ") + stopKeys[i]);
+      return;
+    }
+  }
   if (server.hasArg("mode")) {
     int m = server.arg("mode").toInt();
     if (m != MODE_NORMAL && (m < MODE_ASYNC || m > MODE_ELLIPSE)) {
@@ -727,7 +765,7 @@ void handleLathe() {
     setModeFromTask(m);
   }
   if (server.hasArg("pitch")) {
-    long du = lround(server.arg("pitch").toFloat() * (measure == MEASURE_METRIC ? 10000.0 : 254000.0));
+    long du = lround(pitchIn * (measure == MEASURE_METRIC ? 10000.0 : 254000.0));
     if (labs(du) > DUPR_MAX) {
       server.send(400, "text/plain", "Pitch out of range");
       return;
@@ -738,7 +776,7 @@ void handleLathe() {
   if (server.hasArg("starts")) setStarts(constrain(server.arg("starts").toInt(), 1, (int)STARTS_MAX));
   if (server.hasArg("passes")) setTurnPasses(constrain(server.arg("passes").toInt(), 1, (int)PASSES_MAX));
   if (server.hasArg("cone")) {
-    float c = server.arg("cone").toFloat();
+    float c = coneIn;
     if (!(c > 0 && c < 100)) {
       server.send(400, "text/plain", "Bad cone ratio");
       return;
@@ -756,11 +794,12 @@ void handleLathe() {
   }
   // stops: a value in displayed units, or empty to clear the stop
   struct { const char* k; Axis* a; bool left; } stops[] = {{"zl", &z, true}, {"zr", &z, false}, {"xl", &x, true}, {"xr", &x, false}};
-  for (auto& st : stops) {
+  for (int i = 0; i < 4; i++) {
+    auto& st = stops[i];
     if (!server.hasArg(st.k)) continue;
-    String v = server.arg(st.k);
-    if (st.left) setLeftStop(st.a, v.length() == 0 ? LONG_MAX : latheDisplayToPos(st.a, v.toFloat()));
-    else setRightStop(st.a, v.length() == 0 ? LONG_MIN : latheDisplayToPos(st.a, v.toFloat()));
+    bool clear = server.arg(st.k).length() == 0;
+    if (st.left) setLeftStop(st.a, clear ? LONG_MAX : latheDisplayToPos(st.a, stopIn[i]));
+    else setRightStop(st.a, clear ? LONG_MIN : latheDisplayToPos(st.a, stopIn[i]));
   }
   server.send(200, "text/plain", "ok");
 }

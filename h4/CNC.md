@@ -122,6 +122,15 @@ the keys or a handwheel is still moving or braking ("X is still moving: start ag
 program would be planned from a position the axis then leaves, and the end of that jog switches the driver off.
 Test: `homing_test.cpp`.
 
+### Numbers from the app are checked whole (firmware 1.42)
+
+The Lathe screen's numbers (pitch, cone, stops, the safe approach's position, the measured diameter) must be a whole
+finite number in range, or the request is refused (400) and nothing changes - all values are checked before any is
+applied. Before, the text "abc" was read as 0 (a stop at 0, a move to 0) and "nan", "inf" or "1e40" became the
+smallest long, whose absolute value is negative, so an absurd pitch passed the range check. Found by sending the
+simulated H4 thousands of odd requests with the address and undefined-behaviour sanitizers on (`test/h4sim`); test:
+`lathe_test.py`. The app itself always sent proper numbers.
+
 ### Home All searches in pieces (firmware 1.38)
 
 The H4 stops everything when an axis is asked to go further than its longest move at once (*MAX_TRAVEL_MM*:
@@ -198,7 +207,12 @@ with X, Z and C. Every line is checked as a whole before any of it runs; what ca
 with the line and the reason. It is checked against LinuxCNC's own interpreter: 10 000 random programs (over 600 000
 moves, 9 000 arcs, drilling cycles and G76 threading cycles, with G7, G20, G90.1, G10, G92, G28, G53, G43.1
 mixed in) and the author's real programs give the same positions and refuse the same lines as LinuxCNC 2.9
-(`RS274=/path/to/rs274 sh h4/test/run_tests.sh`).
+(`RS274=/path/to/rs274 sh h4/test/run_tests.sh`). A larger run (2026-11-08, firmware 1.42) of 10 000 more random
+programs found two lines the H4 took and LinuxCNC refuses, now refused alike: an arc code alone (`G2`, no R, I or K)
+and a drilling cycle code without an axis word (`G81 F100`). One difference stays on purpose: a drilling cycle after a
+plane and unit change (`G17` cycle, then `G20 G19` cycle without `G80`, in `G91`) keeps the first cycle's initial
+level; LinuxCNC keeps its number without converting mm to inch, the H4 converts it. Moves of no length (a cycle
+already at R) are not compared (`lcnc_compare.py`).
 
 | Group | Codes |
 |---|---|
@@ -473,6 +487,12 @@ app does runs to its end; Pause stops on the path and Resume ends exactly; a los
 leaves the firmware's position equal to the motors'. GitHub Actions run it on every change.
 
 ## Tests (on a PC)
+
+The app's page is checked too: `node h4/test/app_syntax.js` (it must parse as ECMAScript 2017: Android 7 tablets may
+have an old WebView, where newer syntax such as `??` leaves the screen blank) and `node h4/test/app_crawl.js` (every
+button of every screen pressed in demo mode, English and Greek, three screen sizes; any JavaScript error fails). All
+tests also run clean with `-fsanitize=address,undefined` (2026-11-08); the only report is the original firmware's
+LCD redraw hash (`h4.ino`, a sum of stop positions that wraps, harmless and left as it is).
 
 `sh h4/test/run_tests.sh [programs.ngc]` compiles the motion core with g++ and runs:
 

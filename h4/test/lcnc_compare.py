@@ -198,6 +198,12 @@ def main():
             tol = TOL + 3 * 0.00005 * 25.4  # offsets may have been printed in inches earlier
             if mv[0] == "L":
                 p = ps[j]
+                # a move of no length on the H4's side (a canned cycle already at R: the H4 writes the move to R,
+                # LinuxCNC leaves it out) is no motion: skipped once, then the same LinuxCNC move is compared
+                if (max(abs(p[0] - mv[1]), abs(p[1] - mv[2]), abs(p[2] - mv[3])) > tol and j + 1 < len(ps)
+                        and max(abs(p[0] - prev[0]), abs(p[1] - prev[1]), abs(p[2] - prev[2])) < 1e-9):
+                    j += 1
+                    p = ps[j]
                 if max(abs(p[0] - mv[1]), abs(p[1] - mv[2]), abs(p[2] - mv[3])) > tol:
                     problems.append("line %d: H4 %s, LinuxCNC %s" % (ln, p, mv[1:]))
                     break
