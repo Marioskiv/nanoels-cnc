@@ -125,6 +125,11 @@ tail -1 "$OUT/mp.txt"
 sh lathe/extract.sh ../h4.ino "void cncRingRecord" "uint32_t gcodeFileLineNo" "void cncExecLine" > "$OUT/exec_funcs.inc"
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/exec_line_test" exec_line_test.cpp
 "$OUT/exec_line_test" || fail=$((fail + 1))
+# the chuck encoder against C (work plan B7, for C8): a simulated 600 PPR encoder with noise, bounce, backlash, stretch
+# and slips, decoded as the ESP32 pulse counter; cnc_encwatch.cpp reports a skipped tooth / stall / slip, nothing else
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/encoder_test" encoder_test.cpp ../cnc_encwatch.cpp
+"$OUT/encoder_test" > "$OUT/enc.txt" || { cat "$OUT/enc.txt"; fail=$((fail + 1)); }
+tail -1 "$OUT/enc.txt"
 # a program the app was watching pauses when the app's connection is lost (h4.ino cncLinkWatch, compiled unchanged)
 sh lathe/extract.sh ../h4.ino "void cncLinkWatch" > "$OUT/link_funcs.inc"
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/link_test" link_test.cpp
