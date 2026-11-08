@@ -558,7 +558,8 @@ bool webJogService() {
     return false;
   }
   float dx = vx / 60 * WEB_JOG_PIECE_S, dz = vz / 60 * WEB_JOG_PIECE_S, dc = vc / 60 * WEB_JOG_PIECE_S;
-  // the feed as LinuxCNC and Grbl read it: along X/Z when they move (C follows in the same time), else C alone
+  // the feed as LinuxCNC (and cnc_gcode.cpp since 1.35) reads it: along X/Z when they move (C follows in the same
+  // time), else C alone
   float linear = sqrtf(dx * dx + dz * dz);
   float feed = (linear > 0 ? linear : fabsf(dc)) / WEB_JOG_PIECE_S * 60;
   char words[120];

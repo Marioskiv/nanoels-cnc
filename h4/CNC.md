@@ -26,6 +26,11 @@ threads, ellipse, async, A1, cut-off) is the original code and works as before.
   still takes its 1/F: its time is added to the next G93 move that makes a step (a G0 or G94 move in between
   drops it), and slow moves are not sped up (lowest planned speed 0.001 units/min, Grbl used 1). Over many
   moves the time does not drift (`test/g93_timing.py`, the case of FluidNC issue 1372).
+- **G94 / G95 with C** (firmware 1.35), as LinuxCNC: when X or Z moves, F is the speed along X and Z and C turns
+  in the same time (`G1 X10 C90 F100` takes 6 s); C alone moves at F degrees per minute (`G1 C90 F100`: 54 s); an
+  axis that would have to go faster than its maximum slows the whole move. Before 1.35 F was taken along X, Z and C
+  together, degrees counted as mm (Grbl's way), so that move took 54 s and the gamepad moved X/Z about 13 times
+  slower while C turned. G93 programs (the polar converter) did not change. Test: `cnc_parse_test.cpp`, `jog_test.cpp`.
 - Accelerations and top speeds per axis are the `ACCELERATION_*` and `SPEED_MANUAL_MOVE_*` values of the
   sketch, so no new settings are needed. Backlash (`BACKLASH_DU_*`) is taken up before a reversal, with
   the motor stopping before the carriage is driven. A STOP in the middle of a take-up is remembered: the next
@@ -142,7 +147,7 @@ mixed in) and the author's real programs give the same positions and refuse the 
 | cycles | G81, G82, G83, G73, G85, G89 with R, Q, P, L, G98 / G99 (G17: drill along Z, e.g. centre drilling at X0; G19: along X); G76 threading cycle (P I J K, Q compound angle, H spring passes, R degression; every pass synchronised to the spindle) |
 | plane | G18 (start); G17 / G19 accepted, but arcs there need a Y axis and are refused |
 | distance | G90, G91; arc centres G91.1 (start), G90.1 |
-| feed | G94 (start), G93 inverse time (F on every move), G95 per spindle turn (speed from the encoder) |
+| feed | G94 (start), G93 inverse time (F on every move), G95 per spindle turn (speed from the encoder); with X/Z and C together F is along X/Z, as LinuxCNC |
 | units, diameter | G21 (start), G20; G8 (start), G7: X words are diameters |
 | coordinates | G54 (= the H4's own zero, X0 / Z0 keys), G55, G56, G57, G58, G59, G59.1, G59.2, G59.3 |
 | offsets | G10 L2 P, G10 L20 P, G92, G92.1, G92.2, G92.3, G28 / G28.1, G30 / G30.1, G53 (machine coordinates) |

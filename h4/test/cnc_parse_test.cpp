@@ -264,6 +264,39 @@ int main() {
     checks++;
     if (fabsf(m - o.want) > 0.0005f) { printf("FAIL %s: %.4f min, want %.4f\n", o.what, m, o.want); failures++; }
   }
+  // G94 with a rotary axis, as LinuxCNC: when X or Z moves, F is the speed along X and Z and C turns in the same
+  // time; C alone: F in degrees per minute; never faster than an axis allows (C 21600 deg/min here)
+  struct { const char* move; float want; const char* what; } rot[] = {
+    {"G1 X10 C90 F100", 0.1f, "G94 X with C: time = X length / F"},
+    {"G1 X10 Z10 C90 F100", 0.141421f, "G94 X Z with C: time = X-Z length / F"},
+    {"G1 C90 F100", 0.9f, "G94 C alone: degrees per minute"},
+    {"G1 X10 F100", 0.1f, "G94 X alone: unchanged"},
+    {"G1 X1 C3600 F600", 3600.0f / 21600, "G94 X with a long C: limited by the C speed"},
+    {"G1 X0.0004 C90 F100", 90.0f / 21600, "G94 X less than a step with C: the X time, limited by the C speed"},
+  };
+  for (auto& o : rot) {
+    float m = blockMinutes("M49 G21 G90 G94", o.move);
+    checks++;
+    if (fabsf(m - o.want) > 0.0005f * o.want + 1e-6f) { printf("FAIL %s: %.6f min, want %.6f\n", o.what, m, o.want); failures++; }
+  }
+  {
+    // an arc with C (helix about the X-Z plane): its time is the arc length / F, all pieces together
+    setup(true, 0);
+    char msg[128];
+    run("M49 G21 G90 G94 G18", msg);
+    float minutes[64], dwell = 0;
+    int all = 0, r;
+    double sum = 0;
+    do {  // a long arc fills the planner: the same line again (CNC_WAIT), as the firmware does
+      r = cnc_gc_line("G2 X10 Z0 I5 K0 C90 F100", 9000, msg, sizeof(msg), &dwell);
+      int n = cnc_plan_take_all(minutes, 64);
+      for (int i = 0; i < n && i < 64; i++) sum += minutes[i];
+      all += n;
+    } while (r == CNC_WAIT);
+    checks++;
+    double want = M_PI * 5 / 100;
+    if (fabs(sum - want) > 0.002 * want) { printf("FAIL G94 arc with C: %d blocks, %.5f min, want %.5f\n", all, sum, want); failures++; }
+  }
   // G93 inverse time (LinuxCNC): a move takes 1/F even when it is shorter than one motor step. Such a move makes no
   // block (the planner needs steps), so its time goes to the next G93 move that steps; a G0 / G94 move drops it.
   // A move slower than 1 unit/min keeps its time too (Grbl's minimum feed rate made it faster than 1/F).
