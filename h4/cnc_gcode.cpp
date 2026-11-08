@@ -271,6 +271,25 @@ static void planLine(const double target[CNC_N_AXIS], float feed, uint8_t condit
     feed = (float)(1.0 / (1.0 / feed + g93Carry));
     g93Carry = 0;
   }
+  if (!(condition & (CNC_COND_INVERSE_TIME | CNC_COND_RAPID)) && feed > 0) {
+    // G94 / G95 as LinuxCNC: when X or Z moves, F is the speed along X and Z and a rotary axis turns in the same
+    // time; C alone moves at F degrees per minute. The planner takes its speed along all axes (degrees counted as
+    // mm), so when a rotary axis moves together with X or Z the feed becomes (planner length / X-Z length) * F.
+    // The X-Z length is the programmed one (a move of less than a step in X still sets the time, as in LinuxCNC).
+    double lin2 = 0, all2 = 0;
+    bool rotaryMoves = false;
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      double d = target[i] - absPos[i];
+      if (machine.rotary[i]) {
+        if (d != 0) rotaryMoves = true;
+      } else {
+        lin2 += d * d;
+      }
+      double s = (toSteps(i, target[i]) - pl[i]) / spu(i);
+      all2 += s * s;
+    }
+    if (rotaryMoves && lin2 > 1e-18) feed = (float)(feed * sqrt(all2 / lin2));
+  }
   for (int i = 0; i < CNC_N_AXIS; i++) {
     t[i] = toSteps(i, target[i]);
     int32_t d = t[i] - pl[i];
