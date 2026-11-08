@@ -137,6 +137,16 @@ The spindle / chuck encoder input ignores pulses shorter than 5 us (ESP32 pulse 
 lost (2.4 deg in the test); 5 us removes them and still follows the encoder up to about 5000 rpm (600 PPR). Test:
 `encoder_test.cpp` (a simulated encoder with noise, bounce, backlash and slips).
 
+### The chuck in the app's Lathe screen (firmware 1.39, app 1.57)
+
+The tile **Chuck** shows the chuck's angle, 0 ... 360°, from the spindle encoder, also while it turns; a tap on it
+shows its speed (rpm) instead, and back. The button **0° here** next to it makes the angle 0 where the chuck stands now
+(kept as the H4 keeps its positions). Both are for the display only: the lathe operations (threads, gearbox, ...) sync
+to the spindle as before and do not use this 0. The speed is now measured while the app is watching, in every mode:
+before, in the lathe modes the app showed 0 rpm unless the H4's own screen showed the tacho. The encoder has no index:
+after the H4 was off, the angle is right only if the chuck was not turned meanwhile. In GCODE mode the chuck is the C
+axis: its 0 is the **ZERO** button of C on the Control screen (G10 L20 P0 C0). Tests: `lathe_test.py`, `app_test.js`.
+
 ### Pause right after Resume (firmware 1.32)
 
 Pause (feed hold) decelerates along the path and stops, as Grbl and LinuxCNC do; a Pause given while the tool stands
