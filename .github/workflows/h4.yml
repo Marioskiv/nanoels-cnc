@@ -42,6 +42,10 @@ jobs:
           id lcnc || useradd -m lcnc
           # the steps before ran as root and may have left LinuxCNC's shared memory: the user lcnc could not open it
           for id in $(ipcs -m | awk '/^0x/ {print $2}'); do ipcrm -m "$id" || true; done
+          # no realtime here (no hardware): the setuid rtapi_app makes its shared memory as root and gives it to the
+          # user only afterwards, and in this container lcnc's halcmd got there first ("shmget: Permission denied").
+          # Without the setuid bit everything runs as lcnc (POSIX non-realtime, as the local runs of lcnc_traj.py)
+          chmod u-s "$(command -v rtapi_app)"
           W=/home/lcnc/w
           mkdir -p $W
           g++ -O2 -std=c++17 -o $W/cnc_sim h4/test/cnc_sim.cpp h4/cnc_core.cpp h4/cnc_gcode.cpp
