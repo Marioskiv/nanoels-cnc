@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.36"
+#define FW_VERSION "1.37"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -2494,6 +2494,11 @@ void cncService() {
     cnc_hold_start();
     cncStatusText = cncLinkHold ? "Paused: the app's connection was lost. Resume on the page when it is back, or ON on the H4"
                                 : "Paused from the web";
+    cncLinkHold = false;
+  } else if (cncUserHold && cncLinkHold) {
+    // the connection was lost while another pause was on (the spindle stopped): it goes on only after Resume now, so
+    // the message says so - "Spindle stopped" stayed and starting the spindle did nothing (found with test/h4sim)
+    cncStatusText = "Paused: the app's connection was lost. Resume on the page when it is back, or ON on the H4";
     cncLinkHold = false;
   } else if (!cncUserHold && cnc_hold_active() && !cncSpindleHold && cnc_hold_complete()) {
     cnc_hold_resume();

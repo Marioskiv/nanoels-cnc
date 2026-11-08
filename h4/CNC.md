@@ -136,7 +136,9 @@ switched off, app closed or put in the background. It decelerates on the path, a
 the app is back, **Resume** on the page goes on from there; **ON on the H4** does the same without the app. Not during an
 M0 / M1 / M6 wait (nothing moves then; if the app is still away afterwards, the program pauses then). A program started
 with no app watching (keys of the H4) and a Grbl sender's lines are not affected: a sender that is lost runs the lines it
-has already sent and stops (as Grbl). Test: `link_test.cpp`.
+has already sent and stops (as Grbl). Test: `link_test.cpp`. Since 1.37 a connection lost while another pause is on
+(the spindle stopped, with *Pause G-code when the spindle stops*) says so: the message was still "Spindle stopped" and
+starting the spindle did nothing until Resume (found with the H4 on a PC, below).
 
 ### G-code read
 
@@ -389,6 +391,21 @@ On the web page (*Machine settings*) or in `h4.ino`: steps, travel per turn, spe
 direction and backlash of X, Z and A1 for the machine; A1 *Connected* and *Rotary* (the C motor on terminal
 A1: enable 9, direction 10, step 11, letter `NAME_A1 = 'C'` in `h4.ino`); *Pause the program when the
 spindle stops* off (the chuck is turned by the C motor, the spindle encoder must not pause the program).
+
+## The H4 on a PC (`test/h4sim`)
+
+The whole firmware, unchanged, runs on a PC: `python3 h4/test/h4sim/build.py OUT` joins the `.ino` files as the
+Arduino builder does and compiles them with stand-ins for the ESP32, Arduino and library parts (`test/h4sim/shim`);
+`sh h4/test/h4sim/run.sh OUT 8080` starts it. Its tasks are threads, its timers call their handlers on threads of
+their own in real time, its web server is a real HTTP server (port 8080; the app's page can talk to it as to the H4),
+settings and files are kept in `OUT/data`. Its STEP and DIR pins drive simulated motors (a step when STEP goes low, in
+the direction DIR has then), so where the tool is is measured from the pins, not taken from the firmware; the home /
+limit / alarm inputs and the spindle encoder are set by the test (its own HTTP port, 8081: `/state`, `/key`,
+`/spindle`, `/input`, `/switch`). The step timer's timing figures on the Diagnostics page mean nothing on a PC.
+`scenario_test.py` uses it as the app does (about a minute): MDI moves end with the motors exactly where the
+firmware says the tool is (steps per mm, direction and backlash from `h4.ino`); a program uploaded and started as the
+app does runs to its end; Pause stops on the path and Resume ends exactly; a lost connection pauses after 3 s; STOP
+leaves the firmware's position equal to the motors'. GitHub Actions run it on every change.
 
 ## Tests (on a PC)
 
