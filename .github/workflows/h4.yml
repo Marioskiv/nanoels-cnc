@@ -155,7 +155,7 @@ jobs:
           # first installation over USB from a browser: bootloader, partition table and firmware in one file
           # (Arduino's merged image without its padding to 16 MB, so the stored G-code files are not erased)
           end=$((0x10000 + $(stat -c %s out/h4.ino.bin)))
-          head -c $end out/h4.ino.merged.bin > "h4-firmware-$v-usb.img"
+          head -c $end out/h4.ino.merged.bin > "h4-firmware-$v-usb.bin"
           cmp -n $(stat -c %s out/h4.ino.bin) -i 65536:0 out/h4.ino.merged.bin out/h4.ino.bin
           echo "version=$v" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
@@ -165,15 +165,16 @@ jobs:
           body: |
             Firmware of the H4 CNC fork, with the general default values (your machine's values are set on the H4's
             page, or put in my_machine.h when you build it yourself; see h4/GUIDE.md section 4).
-            - **h4-firmware-${{ steps.fw.outputs.version }}.bin**: update over WiFi. The H4 CNC Android app offers it by
+            - **h4-firmware-${{ steps.fw.outputs.version }}.bin** (no "usb"): update over WiFi, never at 0x0 over USB. The H4 CNC Android app offers it by
               itself, or the H4 page (Settings, WiFi and firmware, Update firmware) takes it. The H4 keeps its settings.
-            - **h4-firmware-${{ steps.fw.outputs.version }}-usb.img**: first installation over USB, from Chrome or Edge on a
+            - **h4-firmware-${{ steps.fw.outputs.version }}-usb.bin**: first installation over USB, from Chrome or Edge on a
               computer, no Arduino IDE needed: https://espressif.github.io/esptool-js/ , Connect, Flash Address 0x0,
-              this file, Program. It clears the H4's stored settings (not its G-code files).
+              this file, Program. It clears the H4's stored settings (not its G-code files). The whole flash (bootloader,
+              partition table, firmware): only at address 0x0. (esptool-js takes only .bin files.)
             Only the newest firmware is kept here; the source is the h4 folder of this repository.
           files: |
             h4-firmware-${{ steps.fw.outputs.version }}.bin
-            h4-firmware-${{ steps.fw.outputs.version }}-usb.img
+            h4-firmware-${{ steps.fw.outputs.version }}-usb.bin
           make_latest: false   # "latest" stays the app, so its fixed download link keeps working
       - name: Keep only the newest firmware release
         env:

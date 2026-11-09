@@ -127,11 +127,13 @@ G95; a polar milling machine (chuck turned by the C motor) does not need it.
 ## 4 Flashing the firmware
 
 **Without the Arduino IDE** (general default values; your machine's values are then set on the page, section 5):
-on a computer with Chrome or Edge, download `h4-firmware-<version>-usb.img` from the
+on a computer with Chrome or Edge, download `h4-firmware-<version>-usb.bin` (the one with **usb** in its name: the whole flash) from the
 [Releases](https://github.com/Marioskiv/nanoels-cnc/releases) entry *H4 CNC firmware*, plug the H4 in by USB, open
 [esptool-js](https://espressif.github.io/esptool-js/), *Connect* (choose the H4's port), *Flash Address* `0x0`,
 choose the file, *Program*, then unplug and replug the H4. This clears the H4's stored settings (not its G-code
-files). If it does not connect, try another USB cable (some carry only power).
+files). Never write the plain `h4-firmware-<version>.bin` at `0x0`: it is only the firmware, for updates over WiFi,
+and the H4 would not start (writing the `-usb.bin` mends it). If it does not connect, try another USB cable (some carry
+only power).
 
 **With the Arduino IDE** (needed for your own `my_machine.h`):
 

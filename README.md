@@ -8,7 +8,7 @@
 > | What | Where |
 > |---|---|
 > | Android app | [H4CNC.apk](https://github.com/Marioskiv/nanoels-cnc/releases/latest/download/H4CNC.apk), open it on the phone ([android/README.md](android/README.md)) |
-> | Firmware, ready to install | [Releases](https://github.com/Marioskiv/nanoels-cnc/releases), entry **H4 CNC firmware**: `...-usb.img` for the first installation over USB from the browser, `.bin` for updates over WiFi (the app offers them by itself) |
+> | Firmware, ready to install | [Releases](https://github.com/Marioskiv/nanoels-cnc/releases), entry **H4 CNC firmware**: `...-usb.bin` for the first installation over USB from the browser (address 0x0), the `.bin` without "usb" for updates over WiFi (the app offers them by itself) |
 > | Firmware source (Arduino IDE) | the [h4](h4) folder; your machine's values go in `my_machine.h` ([GUIDE section 4-5](h4/GUIDE.md#4-flashing-the-firmware)) |
 >
 > The released firmware has general default values; set your machine's on the H4's page (*Settings*) or in `my_machine.h`.
