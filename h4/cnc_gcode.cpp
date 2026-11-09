@@ -785,6 +785,16 @@ int cnc_gc_line(const char* line, uint32_t lineNo, char* msg, int msgLen, float*
   bool isG76 = moving && motion == 760;
   if (isCycle && (forceIncr[AX_X] || forceIncr[AX_Z])) return fail(msg, msgLen, "U / W in a canned cycle: use X / Z with G91");
   if (explicitMotion == 760 && !moving) return fail(msg, msgLen, "G76 needs Z");
+  // As LinuxCNC (rs274), which refuses these where the H4 used to keep the code silently as the modal motion (found
+  // comparing 5000 random programs with rs274, firmware 1.42): an arc code alone, and a canned cycle code without an
+  // axis word ("R i j k words all missing for arc", "All axes missing with motion code").
+  if ((explicitMotion == 20 || explicitMotion == 30) && !anyAxis && !HAS('R') && !HAS('I') && !HAS('K')) {
+    return fail(msg, msgLen, "G2 / G3 alone: R, I and K all missing for the arc");
+  }
+  if ((explicitMotion == 730 || explicitMotion == 810 || explicitMotion == 820 || explicitMotion == 830 || explicitMotion == 850 ||
+       explicitMotion == 890) && !anyAxis) {
+    return fail(msg, msgLen, "canned cycle code without an axis word (all axes missing)");
+  }
   if ((HAS('J') || HAS('E')) && motion != 760) {
     return fail(msg, msgLen, HAS('J') ? "J word: arcs are in the X-Z plane (G18), use I and K" : "E word only with G76");
   }

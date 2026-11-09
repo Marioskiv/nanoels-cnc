@@ -44,6 +44,18 @@ def lathe(**args):
     return T.http(T.B + "/lathe?" + urllib.parse.urlencode(args), "POST", b"")
 
 
+def setup(**args):
+    """Sets a lathe operation as the app does, once the H4 is OFF again (a STOP takes a moment); the values must be
+    taken (200), or the next start would run the previous operation."""
+    end = time.time() + 5
+    while T.status()["on"] and time.time() < end:
+        time.sleep(0.1)
+    code, text = lathe(**args)
+    if code != 200:
+        check(False, "the H4 takes the operation's values (%d %s)" % (code, text))
+    return code
+
+
 def trace(since):
     return [list(map(int, line.split())) for line in T.http(T.C + "/trace?from=%d" % since)[1].splitlines()]
 
@@ -129,10 +141,11 @@ def main():
 def run_checks():
     spm_z = T.SPM["Z"]
     chuck_checks()
+    bad_value_checks()
     # 1. gearbox: pitch 1.5 mm, 10 turns forward, then 4 turns back
     pitch = 1.5
     a = pitch * spm_z / COUNTS
-    lathe(mode=0, pitch=pitch)
+    setup(mode=0, pitch=pitch)
     T.ctl("/spindle", rpm=0)
     since = T.sim()["ms"]
     # measured with the spindle standing (on the PC the firmware follows it a few ms late, by how busy the PC is)
@@ -172,7 +185,7 @@ def run_checks():
     thread_case(pitch=2.0, starts=2, passes=2, rpm=40)
 
     # 4. turning: Z from 0 to -8, X from 0 to -1 (radius), 3 passes, feed 0.2 mm per turn
-    lathe(mode=4, pitch=0.2, passes=3, starts=1, zl=0, zr=-8, xl=0, xr=-1)
+    setup(mode=4, pitch=0.2, passes=3, starts=1, zl=0, zr=-8, xl=0, xr=-1)
     T.ctl("/spindle", rpm=300)
     time.sleep(0.5)
     st0, m0 = T.status(), T.sim()["motors"]   # where Z is (work mm) and its motor: the stops on the motor
@@ -190,6 +203,39 @@ def run_checks():
     bl = T.BACKLASH["Z"] / spm_z
     check(zmin >= -8 - bl - 0.01 and zmax <= 0 + bl + 0.01,
           "turning: Z stayed between the stops 0 and -8 (%.3f .. %.3f mm, backlash %.2f)" % (zmin, zmax, bl))
+
+
+def bad_value_checks():
+    """The Lathe screen's numbers are checked whole (1.42): "abc", "nan", "inf", "1e40" are refused with 400 and change
+    nothing (before, "abc" set a stop at 0 and "nan" / "1e40" an absurd pitch that passed the range check)."""
+    lathe(mode=0, pitch=1.25, zl="", zr="", xl="", xr="")
+    before = T.status()["lathe"]
+    refused = []
+    for args in ({"pitch": "nan"}, {"pitch": "inf"}, {"pitch": "1e40"}, {"pitch": "abc"}, {"zl": "abc"}, {"zr": "1e30"},
+                 {"xl": "nan"}, {"cone": "inf"}, {"pitch": "1.5", "xr": "x"}):
+        code, text = lathe(**args)
+        refused.append(code == 400)
+    code_goto, _ = T.post("/lathe", **{"do": "goto", "axis": "z", "v": "abc"})
+    code_dia, _ = T.post("/lathe", **{"do": "dia", "d": "nan"})
+    after = T.status()["lathe"]
+    same = all(after[k] == before[k] for k in ("pitch", "zl", "zr", "xl", "xr", "cone"))
+    check(all(refused) and code_goto == 400 and code_dia == 400 and same,
+          "bad numbers refused (%s, goto %d, dia %d), nothing changed (pitch %s, stops %s %s %s %s)"
+          % (refused, code_goto, code_dia, after["pitch"], after["zl"], after["zr"], after["xl"], after["xr"]))
+    code, _ = lathe(pitch="1.5", zl="0", zr="-6.5")
+    for _ in range(20):                    # the H4's loop() applies new stops a moment later (as from its keys)
+        after = T.status()["lathe"]
+        if after["zl"] is not None and after["zr"] is not None:
+            break
+        time.sleep(0.05)
+    check(code == 200 and abs(after["pitch"] - 1.5) < 1e-6 and after["zl"] == 0 and abs(after["zr"] + 6.5) < 1e-3,
+          "good numbers still taken: pitch %s, zl %s, zr %s" % (after["pitch"], after["zl"], after["zr"]))
+    lathe(zl="", zr="", xl="", xr="")   # the checks below set their own stops
+    for _ in range(20):
+        l = T.status()["lathe"]
+        if l["zl"] is None and l["zr"] is None:
+            break
+        time.sleep(0.05)
 
 
 def chuck_checks():
@@ -219,7 +265,7 @@ def chuck_checks():
 def thread_case(pitch, starts, passes, rpm=100):
     spm_z = T.SPM["Z"]
     lead_steps_per_count = pitch * starts * spm_z / COUNTS  # the lead: the tool advances pitch x starts per turn
-    lathe(mode=7, pitch=pitch, passes=passes, starts=starts, zl=0, zr=-6, xl=0, xr=-1)
+    setup(mode=7, pitch=pitch, passes=passes, starts=starts, zl=0, zr=-6, xl=0, xr=-1)
     T.ctl("/spindle", rpm=rpm)
     time.sleep(0.5)
     since = T.sim()["ms"]

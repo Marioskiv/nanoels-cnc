@@ -102,6 +102,12 @@ int main() {
   expect("G17 G83 X1 Z-1 R1 F100", CNC_ERROR, "Q missing");
   expect("G17 G81 X1 Z-1 R1 P1 F100", CNC_ERROR, "P word without");
   expect("G17 G81 X1 Z3 R1 F100", CNC_ERROR, "R is below");
+  // refused as LinuxCNC refuses them (firmware 1.42; found comparing 5000 random programs with rs274)
+  expect("G2", CNC_ERROR, "R, I and K all missing");
+  expect("G3 F100", CNC_ERROR, "R, I and K all missing");
+  expect("G17 G81 F100", CNC_ERROR, "all axes missing");
+  expect("G19 G82 F100", CNC_ERROR, "all axes missing");
+  expect("G18", CNC_OK);
   expect("G38.2 Z-1", CNC_ERROR, "probing");
   expect("G41 D1", CNC_ERROR, "in computer");
   expect("O100 sub", CNC_ERROR, "O-word");
