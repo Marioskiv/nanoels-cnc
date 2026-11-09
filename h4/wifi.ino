@@ -29,6 +29,7 @@ String wifiPassword = "";
 String wifiStatusText = "WiFi off";
 String wifiIp = "";
 bool wifiSetupAp = false;
+bool wifiOwnNetwork = false; // stored in the WiFi settings ("own"): start the H4's own network, do not look for the router
 bool wifiRestartPending = false;
 unsigned long wifiRestartAt = 0;
 
@@ -877,20 +878,27 @@ void handleWifiSave() {
   String ssid = server.arg("ssid");
   ssid.trim();
   String password = server.arg("password");
-  if (ssid.length() == 0 || ssid.length() > 32 || password.length() > 63 || (password.length() > 0 && password.length() < 8)) {
-    server.send(400, "text/plain", "Network name 1-32 characters, password empty or 8-63 characters.");
+  // An empty network name = "own network only": the stored WiFi is forgotten and the H4 starts its own network
+  // (wifiSetupAccessPoint) at every start, without waiting 20 s for a router.
+  bool ownNetwork = ssid.length() == 0;
+  if (ssid.length() > 32 || password.length() > 63 || (!ownNetwork && password.length() > 0 && password.length() < 8)) {
+    server.send(400, "text/plain", "Network name 1-32 characters (empty = the H4's own network), password empty or 8-63 characters.");
     return;
   }
   wifiFsBusy = true;
   Preferences cfg;
   cfg.begin(WIFI_CONFIG_NAMESPACE);
-  cfg.putString("ssid", ssid);
-  if (password.length() > 0 || server.arg("clear") == "1") cfg.putString("password", password);
+  cfg.putBool("own", ownNetwork); // an empty name = the H4's own network; the stored router stays for the SETTINGS key
+  if (!ownNetwork) {
+    cfg.putString("ssid", ssid);
+    if (password.length() > 0 || server.arg("clear") == "1") cfg.putString("password", password);
+  }
   cfg.end();
   wifiFsBusy = false;
   wifiRestartPending = true;
   wifiRestartAt = millis() + 1500;
-  server.send(200, "text/plain", "Saved. The controller restarts and joins " + ssid + ".");
+  if (ownNetwork) server.send(200, "text/plain", String("Saved. The controller restarts with its own network ") + WIFI_SETUP_AP_SSID + " (password " + WIFI_SETUP_AP_PASSWORD + "), page http://192.168.4.1");
+  else server.send(200, "text/plain", "Saved. The controller restarts and joins " + ssid + ".");
 }
 
 void handleFirmwareData() {
@@ -1043,14 +1051,51 @@ void handleConfigSave() {
 
 // ------------------------------------------------------------------ WiFi
 
+// Four characters for the LCD (h4.ino, line 2, right side): "W 62" joined to a router with signal quality 62 %,
+// "AP1" its own network with 1 device connected, "W.." joining, "W--" no connection. Refreshed every 2 s, the
+// quality in steps of 5 so the number does not flicker.
+const char* wifiLcdTag() {
+  static char tag[5] = "";
+  static unsigned long lastMs = 0;
+  if (!WIFI_ENABLED) return "";
+  if (tag[0] != 0 && millis() - lastMs < 2000) return tag;
+  lastMs = millis();
+  wifi_mode_t m = WiFi.getMode();
+  if (m == WIFI_AP || m == WIFI_AP_STA) {
+    snprintf(tag, sizeof(tag), "AP%d", constrain((int)WiFi.softAPgetStationNum(), 0, 9));
+  } else if (WiFi.status() == WL_CONNECTED) {
+    int q = constrain(2 * (WiFi.RSSI() + 100), 0, 100); // -50 dBm and better = 100 %, -100 dBm = 0 %
+    q = (q + 2) / 5 * 5;
+    snprintf(tag, sizeof(tag), "W%3d", q);
+  } else if (m == WIFI_STA) {
+    snprintf(tag, sizeof(tag), "W..");
+  } else {
+    snprintf(tag, sizeof(tag), "W--");
+  }
+  return tag;
+}
+
 bool wifiJoin() {
-  if (wifiSsid.length() == 0) return false;
+  if (wifiSsid.length() == 0 || wifiOwnNetwork) return false; // no router stored, or the H4's own network is chosen (SETTINGS key)
   WiFi.persistent(false); // no flash writes by the WiFi driver
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);   // steady answers to the page
+  // DIAG: what the board sees and why a join fails (no password is printed)
+  Serial.printf("[wifi-diag] saved SSID=\"%s\" (len %d), password len %d\n", wifiSsid.c_str(), (int)wifiSsid.length(), (int)wifiPassword.length());
+  WiFi.onEvent([](arduino_event_id_t ev, arduino_event_info_t info) {
+    if (ev == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) Serial.printf("[wifi-diag] disconnected, reason=%d (%s)\n", info.wifi_sta_disconnected.reason, WiFi.disconnectReasonName((wifi_err_reason_t)info.wifi_sta_disconnected.reason));
+    else if (ev == ARDUINO_EVENT_WIFI_STA_CONNECTED) Serial.println("[wifi-diag] associated with the access point");
+    else if (ev == ARDUINO_EVENT_WIFI_STA_GOT_IP) Serial.println("[wifi-diag] got IP");
+  });
+  int found = WiFi.scanNetworks();
+  Serial.printf("[wifi-diag] scan: %d networks\n", found);
+  for (int i = 0; i < found; i++) {
+    Serial.printf("[wifi-diag]  %2d \"%s\" rssi=%d ch=%d auth=%d%s\n", i, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i), (int)WiFi.encryptionType(i), WiFi.SSID(i) == wifiSsid ? "  <== saved" : "");
+  }
   WiFi.begin(wifiSsid.c_str(), wifiPassword.c_str());
   wifiStatusText = "Joining " + wifiSsid;
   for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) vTaskDelay(500 / portTICK_PERIOD_MS);
+  Serial.printf("[wifi-diag] join end, WiFi.status()=%d\n", (int)WiFi.status());
   if (WiFi.status() != WL_CONNECTED) return false;
   wifiIp = WiFi.localIP().toString();
   wifiStatusText = "http://" + wifiIp;
@@ -1090,6 +1135,7 @@ void taskWifi(void* param) {
   cfg.begin(WIFI_CONFIG_NAMESPACE, true);
   wifiSsid = cfg.getString("ssid", "");
   wifiPassword = cfg.getString("password", "");
+  wifiOwnNetwork = cfg.getBool("own", false);
   cfg.end();
   if (!LittleFS.begin(true)) {
     Serial.println("error: LittleFS not available - check the partition scheme (partitions.csv, Flash Size 16MB)");
@@ -1129,6 +1175,26 @@ void taskWifi(void* param) {
     server.handleClient();
     grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
+    if (wifiToggleRequest) { // the SETTINGS key on the H4: own network <-> router
+      wifiToggleRequest = false;
+      if (!motionActive() && !wifiRestartPending) {
+        bool own = !wifiOwnNetwork;
+        if (!own && wifiSsid.length() == 0) { // no router stored yet: nothing to switch to
+          wifiShow("No router stored", "Use the web page", "http://192.168.4.1", 4000);
+        } else {
+          wifiFsBusy = true;
+          Preferences cfg;
+          cfg.begin(WIFI_CONFIG_NAMESPACE);
+          cfg.putBool("own", own);
+          cfg.end();
+          wifiFsBusy = false;
+          wifiOwnNetwork = own;
+          wifiShow(own ? "WiFi: own network" : "WiFi: router", "Restarting...", NULL, 3000);
+          wifiRestartPending = true;
+          wifiRestartAt = millis() + 1500;
+        }
+      }
+    }
     if (wifiRestartPending && (long)(millis() - wifiRestartAt) >= 0 && !motionActive()) ESP.restart();
     bool lost = !wifiSetupAp && WiFi.status() != WL_CONNECTED;
     if (lost && wifiStatusText != "WiFi lost") {
