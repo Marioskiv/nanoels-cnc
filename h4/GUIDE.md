@@ -174,9 +174,18 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
 
 ## 6 WiFi and the web page
 
+0. **Antenna:** the H4's ESP32-S3-WROOM-**1U** has no antenna of its own, only a small U.FL (IPEX) socket. Fit a
+   2.4 GHz WiFi antenna (U.FL, or a U.FL to SMA lead with a router antenna) with the H4 switched off. Without it
+   the signal is about -90 dBm: the tablet may still see the H4 right next to it, but the H4 cannot stay on a router.
+   The first start after a USB installation can take a minute or more before the WiFi appears (the H4 prepares
+   its 9.9 MB file storage once).
 1. At the first start the H4 opens its own network **`NanoEls-H4-Setup`**, password **`nanoels-h4`**. Join it
    with a phone and open `http://192.168.4.1`. The H4 display shows the name, password and address in turn.
 2. On that page, *WiFi*: enter your network and password. The H4 restarts and joins it.
+   Saving an **empty network name** keeps the H4 on its own network at every start (the stored router is kept).
+   The **SETTINGS key** on the H4 (while not ON) switches between its own network and the stored router; the H4
+   restarts when no axis moves. The top right of the display shows the WiFi state: `W 62` on the router (signal
+   quality %), `AP1` own network with 1 device connected, `W..` joining, `W--` no WiFi.
 3. The H4 display now shows **`IP 192.168.x.y`** (bottom line, for 30 s after start, and always in the GCODE mode
    while idle). Give the H4 a fixed address in your router (DHCP reservation), so it does not change.
 4. **The screen is in the [H4 CNC app](../android/README.md)** (Android, app 1.18 and newer): type that address in

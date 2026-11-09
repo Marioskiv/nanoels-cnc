@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.42"
+#define FW_VERSION "1.43"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -796,6 +796,7 @@ bool cncStartKeepModes = false; // a Grbl session starts: keep G90 / G21 / F ...
 char cncLastError[100] = "";
 // The WiFi address on the H4's own display (wifi.ino fills it): in the GCODE mode while nothing runs, and in
 // every mode for the first seconds after WiFi has started. Several texts are shown in turn.
+volatile bool wifiToggleRequest = false; // the SETTINGS key: switch between the H4's own network and the router (wifi.ino)
 char wifiDisplayText[3][21];
 volatile int wifiDisplayCount = 0;
 volatile unsigned long wifiDisplayUntil = 0;
@@ -1081,7 +1082,9 @@ void updateDisplay() {
     lcdHashLine3 = LCD_HASH_INITIAL;
   }
 
+  const char* wifiTag = wifiLcdTag(); // WiFi state and quality (wifi.ino), 4 characters at the top right
   long newHashLine0 = isOn + (z.leftStop - z.rightStop) + (x.leftStop - x.rightStop) + spindlePosSync + moveStep + mode + measure + setupIndex * 10 + latheXView * 7919;
+  for (int i = 0; wifiTag[i]; i++) newHashLine0 += wifiTag[i] * (i + 3) * 131;
   if (lcdHashLine0 != newHashLine0) {
     lcdHashLine0 = newHashLine0;
     charIndex = 0;
@@ -1124,6 +1127,12 @@ void updateDisplay() {
       }
       charIndex += lcd.write(customCharLimUpDownCode);
       charIndex += printAxisStopDiff(&x, false);
+    }
+    if (wifiTag[0] && charIndex <= 16) { // only where the text of this line leaves room
+      while (charIndex < 16) charIndex += lcd.print(" ");
+      char padded[5] = "    ";
+      memcpy(padded, wifiTag, strlen(wifiTag) < 4 ? strlen(wifiTag) : 4);
+      charIndex += lcd.print(padded);
     }
     printLcdSpaces(charIndex);
   }
@@ -4102,7 +4111,11 @@ void processKeypadEvent() {
   } else if (keyCode == B_STEP) {
     buttonMoveStepPress();
   } else if (keyCode == B_SETTINGS) {
-    // TODO.
+    // The H4's own network <-> the router (wifi.ino does it: the flash write and the restart wait for a stopped machine).
+    if (WIFI_ENABLED && !isOn) {
+      wifiToggleRequest = true;
+      beep();
+    }
   } else if (keyCode == B_REVERSE) {
     buttonReversePress();
   } else if (keyCode == B_MEASURE) {
