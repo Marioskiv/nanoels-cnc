@@ -626,6 +626,11 @@ class IPAddress {
 typedef enum { WL_IDLE_STATUS = 0, WL_NO_SSID_AVAIL = 1, WL_CONNECTED = 3, WL_CONNECT_FAILED = 4, WL_DISCONNECTED = 6 } wl_status_t;
 typedef enum { WIFI_OFF = 0, WIFI_STA = 1, WIFI_AP = 2, WIFI_AP_STA = 3 } wifi_mode_t;
 typedef enum { WIFI_POWER_19_5dBm = 78 } wifi_power_t;
+// Events and scan results as arduino-esp32 3.x names them (wifi.ino prints them while joining)
+typedef enum { ARDUINO_EVENT_WIFI_STA_CONNECTED = 4, ARDUINO_EVENT_WIFI_STA_DISCONNECTED = 5, ARDUINO_EVENT_WIFI_STA_GOT_IP = 7 } arduino_event_id_t;
+typedef int wifi_err_reason_t;
+typedef int wifi_auth_mode_t;
+struct arduino_event_info_t { struct { int reason; } wifi_sta_disconnected; };
 class WiFiClass {
  public:
   bool mode(wifi_mode_t m) { mode_ = m; return true; }
@@ -644,6 +649,15 @@ class WiFiClass {
   bool setHostname(const char*) { return true; }
   int8_t RSSI() { return -50; }
   String SSID() { return String(ssid_.c_str()); }
+  wifi_mode_t getMode() { return mode_; }
+  uint8_t softAPgetStationNum() { return 0; }
+  int onEvent(std::function<void(arduino_event_id_t, arduino_event_info_t)>) { return 0; }
+  int16_t scanNetworks() { return 0; } // no networks around the PC
+  String SSID(uint8_t) { return String(""); }
+  int32_t RSSI(uint8_t) { return 0; }
+  int32_t channel(uint8_t) { return 0; }
+  wifi_auth_mode_t encryptionType(uint8_t) { return 0; }
+  const char* disconnectReasonName(wifi_err_reason_t) { return "h4sim"; }
   String macAddress() { return String("02:00:00:00:00:01"); }
  private:
   wifi_mode_t mode_ = WIFI_OFF;
