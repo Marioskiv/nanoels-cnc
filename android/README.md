@@ -15,16 +15,19 @@ With an older firmware the screen still works and asks once for a firmware updat
    newest app; in the browser, not the GitHub app). If the browser warns about an APK file, choose *Download anyway*.
 2. Open the downloaded file. Android asks to allow *install unknown apps* for the browser or the file manager:
    allow it (only for this install if you like). Play Protect may warn that the app is unknown: *Install anyway*.
-3. Open **H4 CNC** and type the address shown on the H4 display (e.g. `192.168.1.50`). The phone must be on the
-   same WiFi as the H4. Wrong address later: the *H4 address* button in the page's Gamepad box.
+3. Open **H4 CNC**. Everything about the connection is in the app (app 1.61, firmware 1.44): while it finds no
+   H4 it shows a panel - **Find the H4** (it searches the WiFi by itself), **Direct with the H4** (the tablet
+   joins the H4's own network `H4`, password `12345678`; from Android 10 Android asks once), **Connection
+   settings** (Settings, Connection: direct, or through the router chosen from the networks the H4 sees),
+   **Address by hand** and **Demo**.
 
 Updating: see *Signing* below (without the signing secret, uninstall the old app first).
 
 ## Demo (no H4 needed)
 
-In the first dialog (or *H4 address* later) press **Demo (no H4)**: the app shows the H4 page with a simulated
+On the "no connection" panel press **Demo (no H4)**: the app shows the H4 page with a simulated
 machine. Everything can be tried - files, Draw, Start / Pause / STOP, feed override, Test, Diagnostics, settings,
-the gamepad - and nothing moves. *H4 address* → *Open* goes back to the real machine.
+the gamepad - and nothing moves. *Settings, Connection*, **Back to the H4** goes back to the real machine.
 
 ## Updates
 

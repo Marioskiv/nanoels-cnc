@@ -143,8 +143,9 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, int code, String description, String failingUrl) {
                 AppLog.add(MainActivity.this, "PAGE", "could not open " + failingUrl + " (" + description + ")", "δεν άνοιξε το " + failingUrl + " (" + description + ")");
-                if (demo) return;
-                askAddress(Tr.t(MainActivity.this, "Could not open ", "Δεν άνοιξε το ") + failingUrl + " (" + description + ").");
+                // the screen itself is the app's (appPage): an H4 that does not answer is shown on the screen, which
+                // offers the search and the connection settings; nothing to ask here
+
             }
         });
         web.setWebChromeClient(new WebChromeClient() {  // also shows the page's confirm() questions
@@ -174,8 +175,10 @@ public class MainActivity extends Activity {
         });
         pad = new GamepadJog(this);
         address = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_ADDRESS, null);
-        if (address == null) askAddress(null);
-        else open();
+        // No address yet: the H4's own network's address. The screen opens anyway (it is the app's own) and, while
+        // it finds no H4, offers to search for it or to join the H4's network (Settings, Connection).
+        if (address == null) address = H4Link.AP_ADDRESS;
+        open();
         watchWifi();
         watchScreenAndPad();
         ExitWatch.start(this);         // why the app closed last time, and the watch of this run
@@ -609,6 +612,56 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> askAddress(null));
         }
 
+        // Connection (Settings, Connection; the screen's "no H4" panel). Answers come back to the page as
+        // h4Found(ip, info), h4FindDone(count) and h4Joined(ok, text).
+        @JavascriptInterface
+        public void find(int seconds) {
+            runOnUiThread(() -> H4Link.find(MainActivity.this, Math.max(2, Math.min(seconds, 90)), new H4Link.Found() {
+                @Override
+                public void found(String ip, JSONObject info) {
+                    web.evaluateJavascript("window.h4Found&&h4Found(" + JSONObject.quote(ip) + "," + info + ")", null);
+                }
+
+                @Override
+                public void done(int count) {
+                    web.evaluateJavascript("window.h4FindDone&&h4FindDone(" + count + ")", null);
+                }
+            }));
+        }
+        @JavascriptInterface
+        public void stopFind() {
+            H4Link.stopFind();
+        }
+        // the H4 to use from now on (kept), and the screen opened for it
+        @JavascriptInterface
+        public void useAddress(String ip) {
+            if (ip == null) return;
+            final String a = ip.trim().replaceFirst("^https?://", "").replaceAll("/+$", "");
+            if (a.isEmpty() || !a.matches("[0-9A-Za-z.:-]+")) return;
+            runOnUiThread(() -> {
+                address = a;
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_ADDRESS, a).apply();
+                AppLog.add(MainActivity.this, "LINK", "H4 address " + a, "διεύθυνση H4 " + a);
+                open();
+            });
+        }
+        @JavascriptInterface
+        public void joinH4(String ssid, String password) {
+            runOnUiThread(() -> H4Link.joinH4(MainActivity.this, ssid, password, (ok, text) ->
+                    web.evaluateJavascript("window.h4Joined&&h4Joined(" + ok + "," + JSONObject.quote(text) + ")", null)));
+        }
+        @JavascriptInterface
+        public void leaveH4(String ssid) {
+            H4Link.leaveH4(MainActivity.this, ssid);
+        }
+        @JavascriptInterface
+        public void demo() {
+            runOnUiThread(MainActivity.this::startDemo);
+        }
+        @JavascriptInterface
+        public void live() {  // from the demo back to the H4
+            runOnUiThread(MainActivity.this::open);
+        }
         @JavascriptInterface
         public void checkFirmware() {
             runOnUiThread(() -> {

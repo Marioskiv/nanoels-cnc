@@ -267,6 +267,70 @@ def run_checks():
     s = wait_idle(30)
     check(abs(s["x"] - 1) < 1e-3, "Resume: the program ends at X %.4f" % s["x"])
 
+    connection_checks()
+
+
+def discover():
+    """The app's search (H4Link.find): "H4CNC?" by UDP to the H4's port 4210 (H4SIM_PORT on the PC)."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(2)
+    try:
+        s.sendto(b"H4CNC?", ("127.0.0.1", PORT))
+        data, addr = s.recvfrom(2000)
+        return data.decode("utf-8", "replace"), addr
+    except OSError:
+        return "", None
+    finally:
+        s.close()
+
+
+def wait_back(timeout=20):
+    end = time.time() + timeout
+    time.sleep(2.5)  # the H4 restarts 1.5 s after the answer
+    while time.time() < end:
+        try:
+            return status()
+        except Exception:
+            time.sleep(0.2)
+    return None
+
+
+def connection_checks():
+    # the connection set up from the app (Settings, Connection): direct = the H4's own network "H4", or the router
+    text, addr = discover()
+    info = json.loads(text[6:]) if text.startswith("H4CNC ") else {}
+    check(info.get("apName") == "H4" and info.get("apPassword") == "12345678" and info.get("mode") == "direct" and addr is not None,
+          "the app finds the H4 by UDP: %s from %s" % (text[:90], addr))
+    code, text = http(B + "/wifi")
+    w = json.loads(text) if code == 200 else {}
+    check(w.get("setupAp") == 1 and w.get("ip") == "192.168.4.1", "/wifi: its own network at 192.168.4.1 (%s)" % text[:90])
+    code, text = http(B + "/wifi/scan")
+    check(code == 200 and text.startswith("["), "/wifi/scan answers a list (%d %s)" % (code, text[:40]))
+    bad = [("mode=router", "router's network"), ("mode=router&ssid=Home&password=short", "8-63"),
+           ("mode=direct&appw=1234567", "8-63"), ("mode=other", "direct or router")]
+    for body, why in bad:
+        code, text = http(B + "/wifi", "POST", body.encode())
+        check(code == 400 and why in text, "refused, nothing saved: %s -> %d %s" % (body, code, text.strip()))
+    code, text = http(B + "/wifi", "POST", b"mode=direct&appw=abcd1234")
+    check(code == 200 and "abcd1234" in text, "direct with a new password for the H4 network: %s" % text.strip())
+    st = wait_back()
+    text, addr = discover()
+    info = json.loads(text[6:]) if text.startswith("H4CNC ") else {}
+    check(st is not None and info.get("apPassword") == "abcd1234", "after its restart the H4 network has the new password (%s)" % text[:90])
+    code, text = http(B + "/wifi", "POST", b"mode=router&ssid=Home%20WiFi&password=homepass1")
+    check(code == 200 and "Home WiFi" in text, "through the router: %s" % text.strip())
+    st = wait_back()
+    code, text = http(B + "/wifi")
+    w = json.loads(text) if code == 200 else {}
+    check(st is not None and w.get("mode") == "router" and w.get("ssid") == "Home WiFi" and w.get("passwordSet") == 1,
+          "after its restart the H4 is on the router (%s)" % text[:100])
+    text, addr = discover()
+    check(text.startswith("H4CNC ") and '"mode":"router"' in text, "and the app still finds it: %s" % text[:80])
+    # back to direct for the next tests (the router's name stays stored)
+    http(B + "/wifi", "POST", b"mode=direct")
+    wait_back()
+
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -26,8 +26,7 @@ button,input{font:inherit;padding:9px 12px;border-radius:8px;border:1px solid va
 <button id="stop" onclick="cmd('stop')">STOP</button>
 <div class="card"><h2>Status</h2><div id="st" class="pos">-</div><div id="info" class="dim"></div>
 <div id="rs" class="bad" hidden></div><button id="rsb" hidden onclick="cmd('confirmRestart')">Zeros checked</button></div>
-<div class="card"><h2>WiFi</h2><input id="ssid" placeholder="Network name"><input id="pw" type="password" placeholder="Password">
-<button onclick="wifi()">Save and restart</button></div>
+<div class="card"><h2>WiFi</h2><div class="dim">The connection (direct with the H4, or through the router) is set in the H4 CNC app: Settings, Connection. The SETTINGS key on the H4 switches between the two. / Η σύνδεση ρυθμίζεται στο app H4 CNC: Ρυθμίσεις, Σύνδεση.</div></div>
 <div class="card"><h2>Firmware</h2><input id="fw" type="file" accept=".bin"><button onclick="fw()">Update</button><div id="fwm" class="dim"></div>
 <div class="dim">Do not switch the H4 off in the first 20 s after an update.</div></div>
 <div class="card"><h2>Lasting log</h2><a href="/events">Open the log</a></div>
@@ -36,7 +35,6 @@ button,input{font:inherit;padding:9px 12px;border-radius:8px;border:1px solid va
 const $=i=>document.getElementById(i),msg=t=>$('msg').textContent=t;
 async function post(u,b){const r=await fetch(u,{method:'POST',body:b});const t=await r.text();if(!r.ok)throw new Error(t);return t}
 async function cmd(d){try{msg(await post('/cmd?do='+d))}catch(e){msg(e.message)}}
-async function wifi(){try{msg(await post('/wifi',new URLSearchParams({ssid:$('ssid').value,password:$('pw').value})))}catch(e){msg(e.message)}}
 function fw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmware with '+f.name+'?'))return;const d=new FormData();d.append('fw',f,f.name);
  const x=new XMLHttpRequest();x.open('POST','/firmware');x.upload.onprogress=e=>{$('fwm').textContent=Math.round(e.loaded/e.total*100)+' %'};
  x.onload=()=>{$('fwm').textContent=x.responseText};x.send(d)}
@@ -44,5 +42,5 @@ async function poll(){try{const s=await (await fetch('/status')).json(),u=s.inch
  $('st').textContent='X '+s.x.toFixed(3)+'  Z '+s.z.toFixed(3)+(s.cActive?'  C '+s.c.toFixed(2)+'°':'');
  $('info').textContent=s.state+' · mode '+s.mode+' · firmware '+s.fw+(s.estop?' · EMERGENCY STOP':'')+(s.text?' · '+s.text:'');
  $('rs').hidden=$('rsb').hidden=!s.restart;$('rs').textContent=s.restart||''}catch(e){$('info').textContent='No connection'}}
-setInterval(poll,1000);poll();fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{});
+setInterval(poll,1000);poll();
 </script></body></html>)rawpage";

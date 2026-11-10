@@ -179,19 +179,23 @@ Keep the numbers in steps exact: for a rotary axis pick the smallest "screw" tha
    the signal is about -90 dBm: the tablet may still see the H4 right next to it, but the H4 cannot stay on a router.
    The first start after a USB installation can take a minute or more before the WiFi appears (the H4 prepares
    its 9.9 MB file storage once).
-1. At the first start the H4 opens its own network **`NanoEls-H4-Setup`**, password **`nanoels-h4`**. Join it
-   with a phone and open `http://192.168.4.1`. The H4 display shows the name, password and address in turn.
-2. On that page, *WiFi*: enter your network and password. The H4 restarts and joins it.
-   Saving an **empty network name** keeps the H4 on its own network at every start (the stored router is kept).
-   The **SETTINGS key** on the H4 (while not ON) switches between its own network and the stored router; the H4
+1. **Everything is set in the [H4 CNC app](../android/README.md)** (Android), *Settings, Connection*. Two ways:
+   - **Direct with the H4**: the tablet joins the H4's own network **`H4`**, password **`12345678`** (the password
+     can be changed there), address `192.168.4.1`, no router. The steadiest beside the machine; the tablet has no
+     internet meanwhile. The app joins that network by itself (from Android 10 Android asks once: allow it).
+   - **Through the router**: the app lists the networks the H4 sees (2.4 GHz, with their signal), you tap yours and
+     write its password; the H4 restarts and joins it, the tablet goes back to its own WiFi and the app **finds the
+     H4's new address by itself** (a search on the WiFi, UDP port 4210). A router that is not found at the start
+     (wrong password, 5 GHz, out of reach): the H4 opens its own network `H4` again.
+2. At the first start, and whenever no router is set, the H4 is on its own network: the display shows
+   `WiFi H4`, `Password 12345678`, `Address 192.168.4.1` in turn. Open the app: while it finds no H4 it shows a
+   panel with **Find the H4**, **Direct with the H4**, **Connection settings**, **Address by hand** and **Demo**.
+3. The **SETTINGS key** on the H4 (while not ON) switches between its own network and the stored router; the H4
    restarts when no axis moves. The top right of the display shows the WiFi state: `W 62` on the router (signal
-   quality %), `AP1` own network with 1 device connected, `W..` joining, `W--` no WiFi.
-3. The H4 display now shows **`IP 192.168.x.y`** (bottom line, for 30 s after start, and always in the GCODE mode
-   while idle). Give the H4 a fixed address in your router (DHCP reservation), so it does not change.
-4. **The screen is in the [H4 CNC app](../android/README.md)** (Android, app 1.18 and newer): type that address in
-   the app. It shows the full screen described below and reads a PS4 / PS5 gamepad. A browser on any phone, tablet
-   or computer opening `http://192.168.x.y` gets the H4's small **emergency page** (status, STOP, *Zeros checked*,
-   WiFi, firmware update, lasting log) - since firmware 1.16 the full screen is no longer stored in the H4.
+   quality %), `AP1` own network with 1 device connected, `W..` joining, `W--` no WiFi. When the router is lost the
+   display says `WiFi lost` and that the SETTINGS key gives the own network.
+4. A browser on any phone, tablet or computer opening the H4's address gets only its small **emergency page**
+   (status, STOP, *Zeros checked*, firmware update, lasting log); the connection is set in the app only.
 
 The page **never scrolls** (but *Settings*, whose pages scroll with the finger): every screen fits the phone or tablet, upright or turned. Screens are chosen with the
 **button at the top left** that names the screen you are on: a tap rolls the list of screens down under it, a choice

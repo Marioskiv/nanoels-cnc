@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- the app joins the H4's own WiFi network by itself (Settings, Connection, direct) -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <!-- app updates: the app hands the downloaded APK to Android's installer (the user confirms) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />

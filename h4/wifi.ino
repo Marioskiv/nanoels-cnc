@@ -17,10 +17,19 @@
 // Copyright (c) 2026 Marioskiv - SPDX-License-Identifier: GPL-3.0-or-later (this fork)
 
 #include "webpage.h"
+#include <WiFiUdp.h>
 
 #define WIFI_CONFIG_NAMESPACE "h4wifi"
-const char* WIFI_SETUP_AP_SSID = "NanoEls-H4-Setup";
-const char* WIFI_SETUP_AP_PASSWORD = "nanoels-h4";
+// The H4's own network ("direct" connection: the tablet joins it, no router). Short and easy to type; the password
+// can be changed from the app (Settings, Connection), it is kept as "appw" in the WiFi settings.
+const char* WIFI_SETUP_AP_SSID = "H4";
+const char* WIFI_AP_DEFAULT_PASSWORD = "12345678";
+String wifiApPassword = WIFI_AP_DEFAULT_PASSWORD;
+// The app finds the H4 by itself: it sends "H4CNC?" by UDP broadcast to this port, the H4 answers to the sender
+// "H4CNC {json}" with its address, firmware and connection (discoveryLoop). Works on the router and on its own network.
+const uint16_t WIFI_DISCOVERY_PORT = 4210;
+WiFiUDP discoveryUdp;
+bool discoveryStarted = false;
 const size_t PROGRAM_MAX_RAM_NO_PSRAM = 120000; // without PSRAM a program must fit in the normal RAM
 
 WebServer server(80);
@@ -867,38 +876,91 @@ void handleJog() {
   server.send(200, "text/plain", "ok");
 }
 
+// The connection as stored and as it is now. "mode" is the stored choice (direct = the H4's own network, router);
+// "setupAp" says the own network is on now (direct chosen, or the router was not found at the start). The own
+// network's password is given to the app (it is on the local network only and shown on the H4 display anyway), so
+// the app can join that network by itself.
+String wifiInfoJson() {
+  bool sta = !wifiSetupAp && WiFi.status() == WL_CONNECTED;
+  return String("{\"mode\":\"") + (wifiOwnNetwork || wifiSsid.length() == 0 ? "direct" : "router") + "\",\"ssid\":\"" + jsonEscape(wifiSsid) +
+      "\",\"passwordSet\":" + String(wifiPassword.length() ? 1 : 0) + ",\"setupAp\":" + String(wifiSetupAp ? 1 : 0) +
+      ",\"ip\":\"" + wifiIp + "\",\"apName\":\"" + WIFI_SETUP_AP_SSID + "\",\"apPassword\":\"" + jsonEscape(wifiApPassword) +
+      "\",\"rssi\":" + String(sta ? (int)WiFi.RSSI() : 0) + ",\"fw\":\"" + FW_VERSION + "\"}";
+}
+
 void handleWifiGet() {
-  String json = "{\"ssid\":\"" + jsonEscape(wifiSsid) + "\",\"passwordSet\":" + String(wifiPassword.length() ? 1 : 0) +
-      ",\"setupAp\":" + String(wifiSetupAp ? 1 : 0) + ",\"ip\":\"" + wifiIp + "\",\"apName\":\"" + WIFI_SETUP_AP_SSID + "\"}";
+  server.send(200, "application/json", wifiInfoJson());
+}
+
+// The networks the H4 sees (for choosing the router in the app), strongest first, each name once. Takes 2-4 s.
+void handleWifiScan() {
+  if (refuseWhileRunning()) return;
+  int n = WiFi.scanNetworks();
+  if (n < 0) n = 0;
+  String json = "[";
+  int shown = 0;
+  bool used[64] = {false};
+  if (n > 64) n = 64;
+  for (int k = 0; k < n && shown < 30; k++) {
+    int best = -1;
+    for (int i = 0; i < n; i++) if (!used[i] && (best < 0 || WiFi.RSSI(i) > WiFi.RSSI(best))) best = i;
+    if (best < 0) break;
+    used[best] = true;
+    String name = WiFi.SSID(best);
+    if (name.length() == 0 || name == WIFI_SETUP_AP_SSID) continue;
+    bool seen = false;
+    for (int i = 0; i < n; i++) if (used[i] && i != best && WiFi.SSID(i) == name) seen = true; // a stronger one was listed
+    if (seen) continue;
+    if (shown++) json += ",";
+    json += "{\"ssid\":\"" + jsonEscape(name) + "\",\"rssi\":" + String((int)WiFi.RSSI(best)) + ",\"lock\":" + String(WiFi.encryptionType(best) != 0 ? 1 : 0) + "}";
+  }
+  json += "]";
+  WiFi.scanDelete();
   server.send(200, "application/json", json);
 }
 
 void handleWifiSave() {
   if (refuseWhileRunning()) return;
+  // mode=direct: the H4's own network at every start (the stored router is kept, for the SETTINGS key and the app);
+  // mode=router: join ssid / password. Without mode (older pages): an empty network name = direct.
+  String mode = server.arg("mode");
   String ssid = server.arg("ssid");
   ssid.trim();
   String password = server.arg("password");
-  // An empty network name = "own network only": the stored WiFi is forgotten and the H4 starts its own network
-  // (wifiSetupAccessPoint) at every start, without waiting 20 s for a router.
-  bool ownNetwork = ssid.length() == 0;
+  String apPassword = server.arg("appw"); // a new password for the own network (empty = keep)
+  bool ownNetwork = mode.length() ? mode == "direct" : ssid.length() == 0;
+  if (mode.length() && mode != "direct" && mode != "router") {
+    server.send(400, "text/plain", "mode: direct or router.");
+    return;
+  }
+  if (!ownNetwork && ssid.length() == 0) {
+    server.send(400, "text/plain", "Choose the router's network.");
+    return;
+  }
   if (ssid.length() > 32 || password.length() > 63 || (!ownNetwork && password.length() > 0 && password.length() < 8)) {
-    server.send(400, "text/plain", "Network name 1-32 characters (empty = the H4's own network), password empty or 8-63 characters.");
+    server.send(400, "text/plain", "Network name 1-32 characters, password empty or 8-63 characters.");
+    return;
+  }
+  if (apPassword.length() > 0 && (apPassword.length() < 8 || apPassword.length() > 63)) {
+    server.send(400, "text/plain", "The H4 network's password: 8-63 characters.");
     return;
   }
   wifiFsBusy = true;
   Preferences cfg;
   cfg.begin(WIFI_CONFIG_NAMESPACE);
-  cfg.putBool("own", ownNetwork); // an empty name = the H4's own network; the stored router stays for the SETTINGS key
+  cfg.putBool("own", ownNetwork);
   if (!ownNetwork) {
     cfg.putString("ssid", ssid);
     if (password.length() > 0 || server.arg("clear") == "1") cfg.putString("password", password);
   }
+  if (apPassword.length() > 0) cfg.putString("appw", apPassword);
   cfg.end();
   wifiFsBusy = false;
   wifiRestartPending = true;
   wifiRestartAt = millis() + 1500;
-  if (ownNetwork) server.send(200, "text/plain", String("Saved. The controller restarts with its own network ") + WIFI_SETUP_AP_SSID + " (password " + WIFI_SETUP_AP_PASSWORD + "), page http://192.168.4.1");
-  else server.send(200, "text/plain", "Saved. The controller restarts and joins " + ssid + ".");
+  if (apPassword.length() > 0) wifiApPassword = apPassword;
+  if (ownNetwork) server.send(200, "text/plain", String("Saved. The H4 restarts with its own network ") + WIFI_SETUP_AP_SSID + " (password " + wifiApPassword + "), address 192.168.4.1.");
+  else server.send(200, "text/plain", "Saved. The H4 restarts and joins " + ssid + ".");
 }
 
 void handleFirmwareData() {
@@ -1078,6 +1140,7 @@ const char* wifiLcdTag() {
 bool wifiJoin() {
   if (wifiSsid.length() == 0 || wifiOwnNetwork) return false; // no router stored, or the H4's own network is chosen (SETTINGS key)
   WiFi.persistent(false); // no flash writes by the WiFi driver
+  WiFi.setHostname("h4"); // its name in the router's list of devices
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);   // steady answers to the page
   // DIAG: what the board sees and why a join fails (no password is printed)
@@ -1108,16 +1171,32 @@ bool wifiSetupAccessPoint() {
   WiFi.persistent(false);
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP);
-  wifiSetupAp = WiFi.softAP(WIFI_SETUP_AP_SSID, WIFI_SETUP_AP_PASSWORD);
+  wifiSetupAp = WiFi.softAP(WIFI_SETUP_AP_SSID, wifiApPassword.c_str());
   if (!wifiSetupAp) {
     wifiStatusText = "WiFi failed";
     return false;
   }
   wifiIp = WiFi.softAPIP().toString();
   wifiStatusText = String("Setup: ") + WIFI_SETUP_AP_SSID + " http://" + wifiIp;
-  wifiShow("WiFi NanoEls-H4-Setup", "Password nanoels-h4", ("Open " + wifiIp).c_str(), 60000);
+  wifiShow((String("WiFi ") + WIFI_SETUP_AP_SSID).c_str(), ("Password " + wifiApPassword).c_str(), ("Address " + wifiIp).c_str(), 60000);
   Serial.println(wifiStatusText);
   return true;
+}
+
+// An "H4CNC?" from the app (UDP broadcast) is answered to its sender with "H4CNC " and the connection (wifiInfoJson).
+void discoveryLoop() {
+  if (!discoveryStarted) return;
+  int n = discoveryUdp.parsePacket();
+  if (n <= 0) return;
+  char b[16];
+  int len = discoveryUdp.read((uint8_t*)b, sizeof(b) - 1);
+  if (len < 0) len = 0;
+  b[len] = 0;
+  if (strncmp(b, "H4CNC?", 6) != 0) return;
+  String answer = "H4CNC " + wifiInfoJson();
+  discoveryUdp.beginPacket(discoveryUdp.remoteIP(), discoveryUdp.remotePort());
+  discoveryUdp.write((const uint8_t*)answer.c_str(), answer.length());
+  discoveryUdp.endPacket();
 }
 
 // Texts for the H4 display (h4.ino shows them in turn, 3 s each).
@@ -1136,6 +1215,8 @@ void taskWifi(void* param) {
   wifiSsid = cfg.getString("ssid", "");
   wifiPassword = cfg.getString("password", "");
   wifiOwnNetwork = cfg.getBool("own", false);
+  wifiApPassword = cfg.getString("appw", WIFI_AP_DEFAULT_PASSWORD);
+  if (wifiApPassword.length() < 8 || wifiApPassword.length() > 63) wifiApPassword = WIFI_AP_DEFAULT_PASSWORD;
   cfg.end();
   if (!LittleFS.begin(true)) {
     Serial.println("error: LittleFS not available - check the partition scheme (partitions.csv, Flash Size 16MB)");
@@ -1159,6 +1240,7 @@ void taskWifi(void* param) {
   server.on("/jog", HTTP_POST, handleJog);
   server.on("/wifi", HTTP_GET, handleWifiGet);
   server.on("/wifi", HTTP_POST, handleWifiSave);
+  server.on("/wifi/scan", HTTP_GET, handleWifiScan);
   server.on("/firmware", HTTP_POST, handleFirmwareDone, handleFirmwareData);
   server.on("/config", HTTP_GET, handleConfigGet);
   server.on("/config", HTTP_POST, handleConfigSave);
@@ -1167,6 +1249,7 @@ void taskWifi(void* param) {
   server.on("/events", HTTP_GET, []() { server.send(200, "text/plain; charset=utf-8", eventsText()); }); // lasting log (safety.ino)
   server.on("/lathe", HTTP_POST, handleLathe);
   server.begin();
+  discoveryStarted = discoveryUdp.begin(WIFI_DISCOVERY_PORT);
   // Also after an emergency stop: the page must still show it and why (/status "estop"), the lasting log must be
   // readable and the settings / firmware pages usable. Every motion request refuses itself then ("Emergency stop:
   // restart the controller"), setEmergencyStop() holds the axes and stops the GCODE steps. Until 1.38 this loop ended
@@ -1174,13 +1257,14 @@ void taskWifi(void* param) {
   for (;;) {
     server.handleClient();
     grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
+    discoveryLoop(); // the app looking for the H4
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
     if (wifiToggleRequest) { // the SETTINGS key on the H4: own network <-> router
       wifiToggleRequest = false;
       if (!motionActive() && !wifiRestartPending) {
         bool own = !wifiOwnNetwork;
         if (!own && wifiSsid.length() == 0) { // no router stored yet: nothing to switch to
-          wifiShow("No router stored", "Use the web page", "http://192.168.4.1", 4000);
+          wifiShow("No router stored", "Choose it in the app", "Settings, Connection", 4000);
         } else {
           wifiFsBusy = true;
           Preferences cfg;
@@ -1199,7 +1283,7 @@ void taskWifi(void* param) {
     bool lost = !wifiSetupAp && WiFi.status() != WL_CONNECTED;
     if (lost && wifiStatusText != "WiFi lost") {
       wifiStatusText = "WiFi lost";
-      wifiShow("WiFi lost", NULL, NULL, 0);
+      wifiShow("WiFi lost", "SETTINGS key:", (String("own network ") + WIFI_SETUP_AP_SSID).c_str(), 0);
     } else if (!lost && !wifiSetupAp && wifiStatusText != "http://" + wifiIp) {
       wifiStatusText = "http://" + wifiIp;
       wifiShow(("IP " + wifiIp).c_str(), NULL, NULL, 0);

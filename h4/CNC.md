@@ -317,8 +317,10 @@ first: the sign of STEP_SCALE does not translate reliably (the DIR signal differ
 ## WiFi: files, status and controls on a phone or tablet
 
 `WIFI_ENABLED = true` in `h4.ino` (as on the H5). The H4 joins your network; without a saved network, or if
-it cannot connect, it opens its own access point **`NanoEls-H4-Setup`**, password **`nanoels-h4`**, page
-`http://192.168.4.1`. The address it got on your network is shown **on the H4's own display**, bottom line
+it cannot connect, it opens its own network **`H4`**, password **`12345678`** (firmware 1.44; changeable in the app),
+address `192.168.4.1`. The connection (direct with the H4, or through the router) is set in the app only:
+*Settings, Connection*; the app finds the H4 by itself (UDP "H4CNC?" to port 4210, the H4 answers with its
+address) and joins the H4's network by itself. The address it got on your network is shown **on the H4's own display**, bottom line
 (for 30 s after start-up in every mode, and always in the GCODE mode while no program runs; the setup access
 point shows its name, password and address in turn), printed on USB and shown on the page. Type it into the
 browser of a phone, tablet (Android or iPhone) or computer on the same network, e.g. `http://192.168.1.50`.
