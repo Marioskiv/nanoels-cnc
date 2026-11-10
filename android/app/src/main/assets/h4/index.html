@@ -123,6 +123,8 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 /* pop-up */
 .sheet{position:fixed;inset:0;z-index:8;background:#0009;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.conn{position:fixed;left:50%;top:58px;transform:translateX(-50%);z-index:7;width:min(560px,calc(100vw - 24px));background:var(--card);color:var(--fg);border:2px solid #e0a020;border-radius:10px;padding:10px;box-shadow:0 6px 24px #0008}
+.conn .sgrid button{padding:12px 4px}.cnmsg{margin:6px 0;min-height:1.2em}.cnmsg button{display:block;width:100%;margin:4px 0;text-align:left}.cn2{grid-template-columns:repeat(2,1fr)}#cnNets button{display:block;width:100%;margin:3px 0;text-align:left}
 .shead{display:flex;justify-content:space-between;align-items:center;font-weight:700}.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.sgrid button{padding:12px 4px}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:9;background:#222;color:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;box-shadow:0 6px 20px #0008;transition:opacity .3s;max-width:560px;margin:auto}
 @media (orientation:landscape){.toast{bottom:12px;left:88px}}
@@ -235,6 +237,8 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div id="app">
 <header><button type="button" class="navb" id="navBtn" aria-haspopup="true"></button><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
 <span class="demo" id="demoTag" hidden>DEMO</span><span class="grow"></span><span class="hdev" id="hDev"></span><button class="hstop" onclick="cmd('stop')">STOP</button></header>
+<div class="conn" id="conn" hidden><b id="connHead">No connection to the H4</b><div id="connMsg" class="cnmsg"></div>
+<div class="sgrid" id="connBtns"><button onclick="cnSearch(8)">Find the H4</button><button onclick="cnJoin()">Direct with the H4</button><button onclick="cnGo()">Connection settings</button><button onclick="cnManual()">Address by hand</button><button onclick="H4App.demo()">Demo (no H4)</button><button onclick="cnHide()">Hide</button></div></div>
 <main>
 <section class="scr ctl" data-tab="control" id="ctl">
 <div class="axes" id="axes"></div>
@@ -339,8 +343,16 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="small">Jog lock: the jog buttons and the wheel work only after the lock button &#x1F512; is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with <b>Cont</b> the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.</div></div><div class="pgc"></div></div>
 <div id="cfg"></div>
 <div class="spage" data-sp="wifi"><div class="pg">
+<div id="cnNow"></div>
+<div class="sgrid cn2"><button onclick="cnDirect()">Direct with the H4</button><button onclick="cnScan()">Through the router</button></div>
+<div id="cnRouter" hidden><div class="small">Networks the H4 sees (2.4 GHz), strongest first: tap one, write its password.</div><div id="cnNets"></div>
 <input type="text" id="ssid" placeholder="WiFi network name"><input type="password" id="pw" placeholder="password (empty = keep)">
-<button onclick="saveWifi()">Save WiFi and restart</button><div class="small" id="wifi"></div></div></div>
+<button onclick="cnRouterSave()">Connect through this router</button></div>
+<div class="fr"><label for="cnApPw">Password of the H4 network</label><input type="text" id="cnApPw" placeholder="8 or more characters"></div>
+<div class="sgrid cn2"><button onclick="cnSearch(8)">Find the H4</button><button onclick="cnManual()">Address by hand</button></div>
+<div id="cnMsg" class="cnmsg"></div>
+<div class="small">Direct: the tablet joins the H4's own network (its name and password are on the H4 display), no router: the steadiest beside the machine; the tablet has no internet meanwhile. Through the router: the H4 and the tablet on your WiFi (2.4 GHz); the app finds the H4's address by itself. The H4 needs its WiFi antenna. The SETTINGS key on the H4 also switches between the two.</div>
+<div class="small" id="wifi"></div></div></div>
 <div class="spage" data-sp="app"><div class="pg">
 <div>H4 CNC app <b id="appVer">-</b>. It looks for a newer version by itself each time it opens.</div>
 <button onclick="H4App.checkAppUpdate()">Check for an app update</button>
@@ -433,7 +445,8 @@ if(DEMO)(function(){
   if(p=='/files')return ok(S.files);
   if(p=='/file')return text[arg('name')]!==undefined?ok(text[arg('name')]):[404,'File not found'];
   if(p=='/config')return opt&&opt.method=='POST'?ok('Demo: settings are not saved.'):ok({items:cfgItems});
-  if(p=='/wifi')return opt&&opt.method=='POST'?ok('Demo: not saved.'):ok({ssid:'demo',passwordSet:0,setupAp:0,ip:'demo',apName:'NanoEls-H4-Setup'});
+  if(p=='/wifi')return opt&&opt.method=='POST'?ok('Demo: not saved.'):ok({mode:'router',ssid:'demo',passwordSet:0,setupAp:0,ip:'demo',apName:'H4',apPassword:'12345678',rssi:-60,fw:'demo'});
+  if(p=='/wifi/scan')return ok([{ssid:'Home WiFi',rssi:-48,lock:1},{ssid:'Neighbour',rssi:-81,lock:1}]);
   if(p=='/jog'){S.jog={x:+arg('x')||0,z:+arg('z')||0,c:+arg('c')||0,t:Date.now()};return ok('ok')}
   if(p=='/key')return ok('ok');
   if(p=='/lathe'&&arg('do')=='view'){S.lzv=+arg('z');S.lxv=+arg('x');return ok('View set')}
@@ -479,7 +492,8 @@ addEventListener('unhandledrejection',e=>alog('JS','ERROR '+(e.reason&&e.reason.
 let toastT=0;function msg(t){$('msg').textContent=t||'';if(!t)return;alog('MSG',t);const e=$('toast');e.textContent=t;e.classList.remove('off');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('off'),4000)}
 // every command to the H4 goes to the app log (not the jog's repeats), with its answer when it fails or is slow
 async function post(url,body){const quiet=/^\/(jog|key\?.*hold=1)/.test(url),t0=Date.now();if(!quiet)alog('CMD',url);let r,t;
- try{r=await fetch(url,{method:'POST',body});t=await r.text()}catch(e){if(!quiet)alog('CMD',url+' → no answer: '+e.message,url+' → καμία απάντηση: '+e.message);throw e}
+ const ms0=/^\/(cmd\?do=start|upload|firmware|wifi\/scan)/.test(url)?180000:20000;
+ try{r=await withT(fetch(url,{method:'POST',body}),ms0);t=await withT(r.text(),ms0)}catch(e){if(!quiet)alog('CMD',url+' → no answer: '+e.message,url+' → καμία απάντηση: '+e.message);throw e}
  const ms=Date.now()-t0;if(!r.ok){if(!quiet)alog('CMD',url+' → refused: '+t,url+' → το αρνήθηκε: '+t);throw new Error(t)}
  if(ms>1500&&!quiet)alog('CMD',url+' → slow answer '+ms+' ms',url+' → αργή απάντηση '+ms+' ms');return t}
 async function cmd(c,extra){try{msg(await post('/cmd?do='+c+(extra||'')))}catch(e){msg(e.message)}}
@@ -495,7 +509,7 @@ function startFrom(){if(!selected){msg('Select a file first (G-code, Files).');r
 function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
  if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
 // the link to the H4: lost / back (with how long) and slow answers go to the app log
-let polls=0,linkLost=0,slowLog=0;async function poll(){const t0=Date.now();try{const r=await fetch('/status');st=await r.json();polls++;
+let polls=0,linkLost=0,slowLog=0;async function poll(){const t0=Date.now();try{const r=await withT(fetch('/status'),5000);st=await withT(r.json(),5000);polls++;
   const ms=Date.now()-t0;if(linkLost){alog('H4','link back after '+((Date.now()-linkLost)/1000).toFixed(1)+' s','η σύνδεση ξαναβρέθηκε μετά από '+((Date.now()-linkLost)/1000).toFixed(1)+' s');linkLost=0}
   else if(ms>1500&&Date.now()-slowLog>10000){slowLog=Date.now();alog('H4','slow answer '+ms+' ms','αργή απάντηση '+ms+' ms')}show()}
  catch(e){if(!linkLost){linkLost=t0;alog('H4','LINK LOST: '+e.message,'ΧΑΘΗΚΕ Η ΣΥΝΔΕΣΗ: '+e.message)}$('cState').textContent='NO CONNECTION'}
@@ -625,7 +639,70 @@ async function saveCfg(){if(!cfg)return;const q=new URLSearchParams();
 async function resetCfg(){if(!confirm('Go back to the values written in the firmware? The controller restarts.'))return;
  try{msg(await post('/config?reset=1'))}catch(e){msg(e.message)}}
 async function key(c){try{await post('/key?code='+c)}catch(e){msg(e.message)}}
-async function saveWifi(){const fd=new URLSearchParams({ssid:$('ssid').value,password:$('pw').value});try{msg(await post('/wifi',fd))}catch(e){msg(e.message)}}
+// ---- Connection (Settings, Connection, and the "no connection" panel). Everything is done in the app: it finds the H4
+// by itself (H4App.find: UDP search on the WiFi), joins the H4's own network (H4App.joinH4) and moves to the H4's
+// address (H4App.useAddress). Two ways: direct (the tablet on the H4's network "H4", 192.168.4.1) or through the router.
+let cn={mode:'',apName:'H4',apPassword:'12345678',ssid:'',setupAp:0,ip:'',rssi:0},cnWant='',cnList=[],cnHidden=0,cnAuto=0;
+try{Object.assign(cn,JSON.parse(localStorage.getItem('h4link')||'{}'))}catch(e){}
+function cnT(en,el){let g=false;try{g=look.lang=='el'}catch(e){}return g?el:en}
+function cnEsc(t){return String(t==null?'':t).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';')}
+function cnKeep(){try{localStorage.setItem('h4link',JSON.stringify(cn))}catch(e){}}
+function cnQ(rssi){return Math.max(0,Math.min(100,2*(rssi+100)))}
+function cnSay(t,html){for(const id of ['cnMsg','connMsg']){const e=$(id);if(!e)continue;e.textContent=t||'';if(html)e.insertAdjacentHTML('beforeend',html)}if(t)alog('LINK',t)}
+function cnRead(){withT(fetch('/wifi'),4000).then(r=>withT(r.json(),4000)).then(w=>{cn.mode=w.mode||(w.setupAp?'direct':'router');cn.apName=w.apName||cn.apName;if(w.apPassword)cn.apPassword=w.apPassword;
+  cn.ssid=w.ssid||'';cn.setupAp=w.setupAp;cn.ip=w.ip;cn.rssi=w.rssi||0;cnKeep();if(!$('ssid').value)$('ssid').value=cn.ssid;if(!$('cnApPw').value)$('cnApPw').value=cn.apPassword;cnShow()}).catch(()=>{})}
+function cnShow(){const e=$('cnNow');if(!e)return;
+ if(DEMO){e.innerHTML=cnEsc(cnT('Demo: no H4 is connected.','Demo: δεν είναι συνδεδεμένο H4.'))+(isApp&&H4App.live?' <button onclick="H4App.live()">'+cnEsc(cnT('Back to the H4','Πίσω στο H4'))+'</button>':'');return}
+ const mode=cn.setupAp?cnT('Direct: the tablet on the H4 network ','Απευθείας: το tablet στο δίκτυο του H4 ')+'«'+cn.apName+'»'+(cn.mode=='router'?cnT(' (the router «'+cn.ssid+'» was not found at the start)',' (ο router «'+cn.ssid+'» δεν βρέθηκε στην εκκίνηση)'):'')
+  :cnT('Through the router ','Μέσω router ')+'«'+cn.ssid+'»'+(cn.rssi?cnT(' · H4 signal ',' · σήμα H4 ')+cnQ(cn.rssi)+' %':'');
+ e.innerHTML='<b>'+cnEsc(mode)+'</b><div class="small">'+cnEsc(cnT('H4 address ','Διεύθυνση H4 ')+location.host)+'</div>'}
+async function cnScan(){$('cnRouter').hidden=false;$('cnNets').textContent=cnT('The H4 looks for networks (a few seconds)…','Το H4 ψάχνει δίκτυα (λίγα δευτερόλεπτα)…');
+ try{const r=await withT(fetch('/wifi/scan'),15000),t=await withT(r.text(),15000);if(!r.ok)throw new Error(t);const L=JSON.parse(t);
+  $('cnNets').innerHTML=L.length?L.map(n=>`<button data-s="${cnEsc(n.ssid)}">${cnEsc(n.ssid)} · ${cnQ(n.rssi)} %${n.lock?' &#x1F512;':''}</button>`).join('')
+   :cnEsc(cnT('The H4 sees no network: is its antenna on? Is the router 2.4 GHz?','Το H4 δεν βλέπει κανένα δίκτυο: έχει μπει η κεραία; Είναι ο router 2,4 GHz;'));
+  $('cnNets').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('ssid').value=b.dataset.s;$('pw').value='';$('pw').focus()})}
+ catch(e){$('cnNets').textContent=e.message}}
+async function cnRouterSave(){const s=$('ssid').value.trim();if(!s){msg(cnT("Choose the router's network.",'Διάλεξε το δίκτυο του router.'));return}
+ if(!confirm(cnT('The H4 restarts and joins «'+s+'». The tablet goes back to its own WiFi (it must know «'+s+'») and the app finds the H4 there. Go on?',
+  'Το H4 θα ξεκινήσει ξανά και θα μπει στο «'+s+'». Το tablet γυρίζει στο δικό του WiFi (πρέπει να ξέρει το «'+s+'») και το app βρίσκει εκεί το H4. Συνέχεια;')))return;
+ try{msg(await post('/wifi',new URLSearchParams({mode:'router',ssid:s,password:$('pw').value})))}catch(e){msg(e.message);return}
+ cn.mode='router';cn.ssid=s;cnKeep();if(!isApp||!H4App.find){cnSay(cnT('Put this computer on «'+s+'» and open the address shown on the H4 display.','Βάλε αυτή τη συσκευή στο «'+s+'» και άνοιξε τη διεύθυνση που δείχνει η οθόνη του H4.'));return}
+ if(H4App.leaveH4)H4App.leaveH4(cn.apName);cnSay(cnT('The H4 restarts and joins «'+s+'» (up to 30 s); looking for it there…','Το H4 ξεκινά και μπαίνει στο «'+s+'» (έως 30 s)· το ψάχνω εκεί…'));setTimeout(()=>cnSearch(60,s),6000)}
+async function cnDirect(){const pw=$('cnApPw').value.trim();if(pw&&(pw.length<8||pw.length>63)){msg(cnT('The H4 network password: 8 or more characters.','Ο κωδικός του δικτύου H4: 8 χαρακτήρες ή περισσότεροι.'));return}
+ if(!confirm(cnT('The H4 restarts with its own network «'+cn.apName+'» (password '+(pw||cn.apPassword)+') and the tablet joins it. Go on?',
+  'Το H4 θα ξεκινήσει ξανά με το δικό του δίκτυο «'+cn.apName+'» (κωδικός '+(pw||cn.apPassword)+') και το tablet θα μπει σε αυτό. Συνέχεια;')))return;
+ const p={mode:'direct'};if(pw&&pw!=cn.apPassword)p.appw=pw;
+ try{msg(await post('/wifi',new URLSearchParams(p)))}catch(e){msg(e.message);return}
+ cn.mode='direct';if(pw)cn.apPassword=pw;cnKeep();cnSay(cnT('The H4 restarts with its own network…','Το H4 ξεκινά με το δικό του δίκτυο…'));setTimeout(cnJoin,6000)}
+// the tablet joins the H4's own network (the H4 is in direct mode, or the router was not found at its start)
+function cnJoin(){if(!isApp||!H4App.joinH4){cnSay(cnT('Join the WiFi network «'+cn.apName+'» (password '+cn.apPassword+') in the settings of this device, then open http://192.168.4.1',
+  'Μπες στο WiFi «'+cn.apName+'» (κωδικός '+cn.apPassword+') από τις ρυθμίσεις της συσκευής και άνοιξε το http://192.168.4.1'));return}
+ cnSay(cnT('Joining the H4 network «'+cn.apName+'»… (Android may ask: allow it)','Σύνδεση στο δίκτυο του H4 «'+cn.apName+'»… (το Android ίσως ρωτήσει: επίτρεψέ το)'));H4App.joinH4(cn.apName,cn.apPassword)}
+window.h4Joined=(ok,t)=>{if(ok){cnSay(cnT('On the H4 network: opening the H4…','Στο δίκτυο του H4: ανοίγω το H4…'));H4App.useAddress('192.168.4.1')}
+ else cnSay(cnT('The tablet could not join «'+cn.apName+'» ('+t+'). Is the H4 on, with its antenna, on its own network (its display shows "WiFi '+cn.apName+'")? The password is on the H4 display.',
+  'Το tablet δεν μπήκε στο «'+cn.apName+'» ('+t+'). Είναι αναμμένο το H4, με κεραία, στο δικό του δίκτυο (η οθόνη του γράφει «WiFi '+cn.apName+'»); Ο κωδικός φαίνεται στην οθόνη του H4.'))};
+function cnSearch(sec,want){if(!isApp||!H4App.find){cnSay(cnT('The search works in the H4 CNC app; here open the address shown on the H4 display.','Η αναζήτηση γίνεται μέσα στο app H4 CNC· εδώ άνοιξε τη διεύθυνση που δείχνει η οθόνη του H4.'));return}
+ cnWant=want||'';cnList=[];cnSay(cnT('Looking for the H4…','Ψάχνω το H4…'));H4App.find(sec||8)}
+function cnListShow(head){cnSay(head,cnList.map(f=>`<button onclick="H4App.useAddress('${cnEsc(f.ip)}')">H4 · ${cnEsc(f.ip)} · ${cnEsc(f.info.setupAp?cnT('its own network','δικό του δίκτυο'):(f.info.ssid||''))}${f.info.fw?' · firmware '+cnEsc(f.info.fw):''}</button>`).join(''))}
+window.h4Found=(ip,info)=>{info=info||{};cnList.push({ip,info});
+ if(cnWant&&info.ssid==cnWant&&!info.setupAp){H4App.stopFind();cnSay(cnT('Found the H4 at ','Βρέθηκε το H4 στο ')+ip);H4App.useAddress(ip);return}
+ cnListShow(cnT('Found (tap to use):','Βρέθηκαν (πάτα για χρήση):'))};
+window.h4FindDone=n=>{if(n==1&&!cnWant&&linkLost&&cnList[0].ip!=location.host){H4App.useAddress(cnList[0].ip);return}
+ if(n)cnListShow(cnT('Found (tap to use):','Βρέθηκαν (πάτα για χρήση):'));
+ else cnSay(cnWant?cnT('The H4 was not found on «'+cnWant+'». A wrong password or a 5 GHz network? Then the H4 opens its own network «'+cn.apName+'» again: Direct with the H4.',
+  'Το H4 δεν βρέθηκε στο «'+cnWant+'». Λάθος κωδικός ή δίκτυο 5 GHz; Τότε το H4 ανοίγει πάλι το δικό του δίκτυο «'+cn.apName+'»: Απευθείας με το H4.')
+  :cnT('No H4 found. Is it on, with its antenna? Is the tablet on the same WiFi? Or: Direct with the H4.','Δεν βρέθηκε H4. Είναι αναμμένο, με κεραία; Είναι το tablet στο ίδιο WiFi; Ή: Απευθείας με το H4.'))};
+function cnManual(){if(isApp&&H4App.changeAddress)H4App.changeAddress();else msg(cnT('Open the address shown on the H4 display.','Άνοιξε τη διεύθυνση που δείχνει η οθόνη του H4.'))}
+function cnGo(){tab('settings');setShow('wifi')}
+function cnHide(){cnHidden=Date.now();$('conn').hidden=true}
+// the panel: after 4 s without an answer (not in the demo); in the app a search starts by itself once per loss
+function cnPanel(){const lost=!DEMO&&(linkLost?Date.now()-linkLost>4000:polls==0&&performance.now()>6000);
+ const show=lost&&!(cnHidden&&Date.now()-cnHidden<60000);if($('conn').hidden==show)$('conn').hidden=!show;
+ if(!lost){cnAuto=0;return}if(show&&isApp&&H4App.find&&!cnAuto){cnAuto=1;cnSearch(8)}
+ if(!isApp||!H4App.find){$('connBtns').hidden=true;$('connMsg').textContent=cnT('Open the address shown on the H4 display; is the H4 on, with its antenna?','Άνοιξε τη διεύθυνση που δείχνει η οθόνη του H4· είναι αναμμένο, με κεραία;')}}
+setInterval(cnPanel,1000);
+// a fetch, or reading its answer, that does not finish in ms is given up (a stuck WiFi link must show as lost)
+function withT(p,ms){return new Promise((ok,no)=>{const t=setTimeout(()=>no(new Error(cnT('no answer in ','καμία απάντηση σε ')+Math.round(ms/1000)+' s')),ms);p.then(v=>{clearTimeout(t);ok(v)},e=>{clearTimeout(t);no(e)})})}
 function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmware with '+f.name+'?'))return;const fd=new FormData();fd.append('fw',f,f.name);
  const x=new XMLHttpRequest();x.open('POST','/firmware');x.upload.onprogress=ev=>{$('fwmsg').textContent=Math.round(ev.loaded/ev.total*100)+' %'};
  x.onload=()=>{$('fwmsg').textContent=x.responseText};x.send(fd)}
@@ -664,7 +741,10 @@ const I18N={
  'Jog with':'Jog με','Buttons':'Κουμπιά','Wheel':'Τροχό','Off':'Όχι','On':'Ναι','Screen orientation':'Προσανατολισμός οθόνης','Automatic':'Αυτόματα','Landscape':'Οριζόντια','Portrait':'Κάθετα',
  'Jog lock: the jog buttons and the wheel work only after the lock button 🔒 is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with':'Κλείδωμα jog: τα κουμπιά jog και ο τροχός δουλεύουν μόνο αφού πατηθεί η κλειδαριά 🔒, και κλειδώνουν ξανά 15 s μετά την τελευταία κίνηση. Με τα κουμπιά, ένα πάτημα κινεί ένα βήμα· με',
  'the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.':'ο άξονας κινείται όσο κρατάς το κουμπί, με την ταχύτητα jog του χειριστηρίου, και σταματά μόλις το αφήσεις.',
- 'Save and restart':'Αποθήκευση και επανεκκίνηση','Defaults':'Αρχικές τιμές','Save WiFi and restart':'Αποθήκευση WiFi και επανεκκίνηση','WiFi network name':'Όνομα δικτύου WiFi','password (empty = keep)':'κωδικός (κενό = μένει ο ίδιος)',
+ 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Through the router':'Μέσω router','Networks the H4 sees (2.4 GHz), strongest first: tap one, write its password.':'Δίκτυα που βλέπει το H4 (2,4 GHz), το ισχυρότερο πρώτο: πάτα ένα, γράψε τον κωδικό του.',
+ 'Connect through this router':'Σύνδεση μέσω αυτού του router','Password of the H4 network':'Κωδικός του δικτύου H4','8 or more characters':'8 χαρακτήρες ή περισσότεροι','Find the H4':'Βρες το H4','Address by hand':'Διεύθυνση με το χέρι',
+ "Direct: the tablet joins the H4's own network (its name and password are on the H4 display), no router: the steadiest beside the machine; the tablet has no internet meanwhile. Through the router: the H4 and the tablet on your WiFi (2.4 GHz); the app finds the H4's address by itself. The H4 needs its WiFi antenna. The SETTINGS key on the H4 also switches between the two.":'Απευθείας: το tablet μπαίνει στο δικό δίκτυο του H4 (όνομα και κωδικός στην οθόνη του H4), χωρίς router: το πιο σταθερό δίπλα στο μηχάνημα· στο μεταξύ το tablet δεν έχει internet. Μέσω router: το H4 και το tablet στο WiFi σου (2,4 GHz)· το app βρίσκει μόνο του τη διεύθυνση του H4. Το H4 θέλει την κεραία WiFi. Το πλήκτρο SETTINGS του H4 αλλάζει επίσης ανάμεσα στα δύο.',
+ 'No connection to the H4':'Χωρίς σύνδεση με το H4','Connection settings':'Ρυθμίσεις σύνδεσης','Demo (no H4)':'Demo (χωρίς H4)','Hide':'Απόκρυψη','Defaults':'Αρχικές τιμές','Save WiFi and restart':'Αποθήκευση WiFi και επανεκκίνηση','WiFi network name':'Όνομα δικτύου WiFi','password (empty = keep)':'κωδικός (κενό = μένει ο ίδιος)',
  'DEMO - no H4 connected, nothing moves':'ΔΟΚΙΜΗ - δεν είναι συνδεδεμένο H4, τίποτα δεν κινείται','H4 CNC app':'Εφαρμογή H4 CNC','. It looks for a newer version by itself each time it opens.':'. Ψάχνει μόνη της νεότερη έκδοση κάθε φορά που ανοίγει.',
  'Check for an app update':'Έλεγχος για νέα έκδοση του app','A newer version is offered for download; Android installs it over this one and keeps the settings.':'Η νεότερη έκδοση κατεβαίνει· το Android την εγκαθιστά πάνω από αυτή και κρατά τις ρυθμίσεις.',
  '. The settings of the machine stay through an update.':'. Οι ρυθμίσεις του μηχανήματος μένουν μετά την ενημέρωση.','Check for a firmware update (GitHub)':'Έλεγχος για νέο firmware (GitHub)','Update firmware (.bin)':'Ενημέρωση firmware (.bin)',
@@ -822,8 +902,8 @@ let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null
 function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
 function gpRumble(){try{gpPad&&gpPad.vibrationActuator&&gpPad.vibrationActuator.playEffect('dual-rumble',{duration:200,strongMagnitude:.5,weakMagnitude:.5})}catch(e){}}
 async function gpSend(x,z,c){gpLast=performance.now();gpBusy=true;
- try{const r=await fetch('/jog?x='+x.toFixed(1)+'&z='+z.toFixed(1)+'&c='+c.toFixed(1),{method:'POST'});
-  if(!r.ok){const t=await r.text();if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}catch(e){}
+ try{const r=await withT(fetch('/jog?x='+x.toFixed(1)+'&z='+z.toFixed(1)+'&c='+c.toFixed(1),{method:'POST'}),1500);
+  if(!r.ok){const t=await withT(r.text(),1500);if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}catch(e){}
  gpBusy=false}
 function gpMdi(l){post('/mdi',new URLSearchParams({line:l})).then(msg,e=>{msg(e.message);gpRumble()})}
 // a pressed action (the same in GamepadJog.java)
@@ -851,7 +931,7 @@ function gpLoop(){let pads=[];
  $('gpstate').textContent=(g.mapping=='standard'?'':T('(unknown button layout) '))+g.id+T(want?' · moving':en?' · safety held':' · hold the safety button to move')+(gpErr?' · '+gpErr:'')}
 if(!gpApp)setInterval(gpLoop,20);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&(gpMoving||gpStops))gpSend(0,0,0)});
-fetch('/wifi').then(r=>r.json()).then(w=>{$('ssid').value=w.ssid}).catch(()=>{});
+cnRead();setInterval(()=>{if(setOpen=='wifi')cnRead()},5000);
 // Pop-up: overrides, macros, MDI and the longer explanations (instead of making the screens longer).
 function sheet(title,html){$('shTitle').textContent=title;$('shBody').innerHTML=html;$('sheet').hidden=false}
 function sheetClose(){$('sheet').hidden=true;$('shBody').innerHTML=''}
@@ -1013,7 +1093,7 @@ function sub(t,p,quiet){const bar=document.querySelector(`.subtabs[data-s="${t}"
 document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.parentElement.dataset.s,b.dataset.p));
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
 // The list follows the chosen language (the pages themselves are bilingual or English).
-function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο':'Gamepad']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+tr(g)])).concat([['wifi','WiFi'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]).concat(isApp&&H4App.exitLog?[['applog',el?'Ημερολόγιο app':'App log']]:[]);
+function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο':'Gamepad']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+tr(g)])).concat([['wifi',el?'Σύνδεση (WiFi)':'Connection (WiFi)'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]).concat(isApp&&H4App.exitLog?[['applog',el?'Ημερολόγιο app':'App log']]:[]);
  $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setTap('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('')+'<div class="small" id="verLine"></div>';verShow();setShow(setOpen,true)}
 // the versions, always in view in Settings: this app (the screen) and the H4's firmware
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}

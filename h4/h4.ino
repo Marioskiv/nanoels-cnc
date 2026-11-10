@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.43"
+#define FW_VERSION "1.44"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -3052,7 +3052,6 @@ void startPulseCounter(pcnt_unit_t unit, int gpioA, int gpioB) {
 
 // Attaching interrupt on core 0 to have more time on core 1 where axes are moved.
 void taskAttachInterrupts(void *param) {
-  startPulseCounter(PCNT_UNIT_0, ENC_A, ENC_B);
   if (PULSE_1_USE) attachInterrupt(digitalPinToInterrupt(A12), pulse1Enc, CHANGE);
   if (PULSE_2_USE) attachInterrupt(digitalPinToInterrupt(A22), pulse2Enc, CHANGE);
   vTaskDelete(NULL);
@@ -3221,12 +3220,19 @@ void setup() {
     keypad.flush();
   }
 
+  // The spindle encoder's counter is set up before any task reads it (until 1.43 it was set up by a task of its own
+  // and the first reads came a few ms too early: "_pcnt_get_counter_value ... driver error" on the serial port).
+  startPulseCounter(PCNT_UNIT_0, ENC_A, ENC_B);
+
   // Non-time-sensitive tasks on core 0.
   xTaskCreatePinnedToCore(taskDisplay, "taskDisplay", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
 
   delay(100);
   if (keypad.available()) {
     setEmergencyStop(ESTOP_KEY);
+    // Nothing moves (as in the original H4), but the WiFi still starts so the app shows the emergency stop and why,
+    // instead of finding no H4 at all. Every motion request of the app refuses itself during an emergency stop.
+    if (WIFI_ENABLED) xTaskCreatePinnedToCore(taskWifi, "taskWifi", 12000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);
     return;
   } else {
     xTaskCreatePinnedToCore(taskKeypad, "taskKeypad", 10000 /* stack size */, NULL, 0 /* priority */, NULL, 0 /* core */);

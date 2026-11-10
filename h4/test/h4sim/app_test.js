@@ -245,6 +245,25 @@ async function waitIdle(timeoutMs = 60000) {
     ok(!st9.running && !st9.on && /Home All|zeros|μηδέν/i.test(said),
       'nothing starts before Home All / the zeros were confirmed: "' + said.slice(0, 120) + '"');
 
+    // 10. the connection (Settings, Connection; the "no connection" panel)
+    await page.evaluate(() => sheetClose());
+    await page.evaluate(() => cnGo());
+    await sleep(1500);
+    const now = ((await page.textContent('#cnNow')) || '').replace(/\s+/g, ' ');
+    ok(/Direct|Απευθείας/.test(now) && now.includes('«H4»'), 'Settings, Connection shows the way it is connected: "' + now.slice(0, 120) + '"');
+    await page.evaluate(() => cnScan());
+    await sleep(1500);
+    const nets = ((await page.textContent('#cnNets')) || '').trim();
+    ok(/no network|κανένα δίκτυο/.test(nets), 'the H4\'s networks are listed in the app (none on the PC): "' + nets.slice(0, 80) + '"');
+    ok(await page.evaluate(() => $('conn').hidden), 'no "no connection" panel while the H4 answers');
+    process.kill(-proc.pid, 'SIGKILL');
+    await sleep(7000);
+    const panel = await page.evaluate(() => !$('conn').hidden && $('conn').textContent);
+    ok(!!panel && /No connection|Χωρίς σύνδεση/.test(panel), 'H4 away for 7 s: the panel says so: "' + String(panel).replace(/\s+/g, ' ').slice(0, 120) + '"');
+    proc = await startSim(true);
+    await sleep(3000);
+    ok(await page.evaluate(() => $('conn').hidden), 'H4 back: the panel is gone');
+
     ok(errs.length == 0, 'no error in the page' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
   } catch (e) {
     ok(false, 'exception: ' + e.stack);

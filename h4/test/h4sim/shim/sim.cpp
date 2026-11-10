@@ -754,6 +754,48 @@ static int listenOn(int port) {
   return s;
 }
 
+// ------------------------------------------------------------------ WiFiUDP
+uint8_t WiFiUDP::begin(uint16_t port) {
+  fd_ = socket(AF_INET, SOCK_DGRAM, 0);
+  if (fd_ < 0) return 0;
+  int one = 1;
+  setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  sockaddr_in a{};
+  a.sin_family = AF_INET;
+  a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  a.sin_port = htons((uint16_t)(port == 4210 ? simPort() : port));
+  if (bind(fd_, (sockaddr*)&a, sizeof(a)) != 0) { close(fd_); fd_ = -1; return 0; }
+  fcntl(fd_, F_SETFL, O_NONBLOCK);
+  return 1;
+}
+int WiFiUDP::parsePacket() {
+  if (fd_ < 0) return 0;
+  char b[1500];
+  sockaddr_in from{};
+  socklen_t fl = sizeof(from);
+  ssize_t n = recvfrom(fd_, b, sizeof(b), 0, (sockaddr*)&from, &fl);
+  if (n <= 0) return 0;
+  in_.assign(b, (size_t)n);
+  inPos_ = 0;
+  peerAddr_ = from.sin_addr.s_addr; // network order = the bytes a.b.c.d
+  peerPort_ = ntohs(from.sin_port);
+  return (int)n;
+}
+int WiFiUDP::read(uint8_t* buf, size_t len) {
+  size_t n = std::min(len, in_.size() - inPos_);
+  memcpy(buf, in_.data() + inPos_, n);
+  inPos_ += n;
+  return (int)n;
+}
+int WiFiUDP::endPacket() {
+  if (fd_ < 0) return 0;
+  sockaddr_in a{};
+  a.sin_family = AF_INET;
+  a.sin_addr.s_addr = outAddr_;
+  a.sin_port = htons(outPort_);
+  return sendto(fd_, out_.data(), out_.size(), 0, (sockaddr*)&a, sizeof(a)) == (ssize_t)out_.size() ? 1 : 0;
+}
+
 WebServer::WebServer(int port) : port_(port) { upload_.status = UPLOAD_FILE_START; upload_.totalSize = upload_.currentSize = 0; }
 WebServer::~WebServer() { stop(); }
 void WebServer::begin() {

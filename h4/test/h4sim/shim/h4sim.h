@@ -654,6 +654,7 @@ class WiFiClass {
   int onEvent(std::function<void(arduino_event_id_t, arduino_event_info_t)>) { return 0; }
   int16_t scanNetworks() { return 0; } // no networks around the PC
   String SSID(uint8_t) { return String(""); }
+  void scanDelete() {}
   int32_t RSSI(uint8_t) { return 0; }
   int32_t channel(uint8_t) { return 0; }
   wifi_auth_mode_t encryptionType(uint8_t) { return 0; }
@@ -664,6 +665,25 @@ class WiFiClass {
   std::string ssid_;
 };
 extern WiFiClass WiFi;
+// UDP (the app's search for the H4, wifi.ino discoveryLoop): a real UDP socket on 127.0.0.1, the H4's port 4210 is
+// H4SIM_PORT (UDP) on the PC.
+class WiFiUDP {
+ public:
+  uint8_t begin(uint16_t port);
+  int parsePacket();
+  int read(uint8_t* buf, size_t len);
+  IPAddress remoteIP() { return IPAddress((uint8_t)(peerAddr_ & 0xff), (uint8_t)(peerAddr_ >> 8), (uint8_t)(peerAddr_ >> 16), (uint8_t)(peerAddr_ >> 24)); }
+  uint16_t remotePort() { return peerPort_; }
+  int beginPacket(IPAddress ip, uint16_t port) { outAddr_ = (uint32_t)ip; outPort_ = port; out_.clear(); return 1; }
+  size_t write(const uint8_t* b, size_t n) { out_.append((const char*)b, n); return n; }
+  int endPacket();
+ private:
+  int fd_ = -1;
+  std::string in_, out_;
+  size_t inPos_ = 0;
+  uint32_t peerAddr_ = 0, outAddr_ = 0;
+  uint16_t peerPort_ = 0, outPort_ = 0;
+};
 // TCP port 23 for Grbl senders: no sender connects in the simulation (the H4 is used from its app)
 class WiFiClient : public Stream {
  public:
