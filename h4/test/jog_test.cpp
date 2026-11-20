@@ -161,6 +161,7 @@ struct Result {
   bool refused = false;
   bool endedOn = false;                          // the H4 still ON at the end
   double longestTickS = 0;                       // longest wait of the step interrupt while it had motion
+  std::vector<std::vector<double>> speeds;       // every 20 ms: time (ms), speed X, Z, C (units/s)
 };
 
 static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEveryMs = 0, double gapMs = 0) {
@@ -232,6 +233,8 @@ static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEvery
           double tS = (double)(now - start) / TIMER_HZ * 1000;
           for (int i = 0; i < CNC_N_AXIS; i++) {
             double v1 = (samples[n - 1][i] - samples[n - 2][i]) / SAMPLE_S, v0 = (samples[n - 2][i] - samples[n - 3][i]) / SAMPLE_S;
+            if (i == 0) r.speeds.push_back({tS, 0, 0, 0});
+            r.speeds.back()[1 + i] = v1;
             r.vSeen[i] = max(r.vSeen[i], fabs(v1));
             r.aSeen[i] = max(r.aSeen[i], fabs(v1 - v0) / SAMPLE_S);
             // steady speed while requests keep coming: at least 0.9 of the wanted (after speeding up)
@@ -425,6 +428,29 @@ int main() {
     checkLimits(r, "one minute, stick moved around");
     snprintf(what, sizeof(what), "one minute, stick moved around: position exact, no underrun (%u), OFF at the end", r.underruns);
     check(r.exact && r.underruns == 0 && !isOn, what);
+  }
+
+  // 8b. one axis moving, a second one added (and later let go): the first keeps its speed, no pause (firmware 1.46;
+  //     before, the corner braked X almost to a stop), and the second speeds up / slows down with its acceleration
+  {
+    struct { const char* name; float a[3]; float b[3]; int keep; int add; } cases[] = {
+        {"X moving, Z added", {VX / 2, 0, 0}, {VX / 2, VZ / 2, 0}, 0, 1},
+        {"Z moving, X added", {0, VZ / 2, 0}, {VX / 2, VZ / 2, 0}, 1, 0},
+        {"X moving, C added", {VX / 2, 0, 0}, {VX / 2, 0, VC / 2}, 0, 2}};
+    for (auto& c : cases) {
+      std::vector<Req> q;
+      addReqs(q, 0, 1500, 100, 0, c.a[0], c.a[1], c.a[2]);
+      addReqs(q, 1600, 3000, 100, 0, c.b[0], c.b[1], c.b[2]);
+      addReqs(q, 3100, 4500, 100, 0, c.a[0], c.a[1], c.a[2]);  // the added axis let go again
+      q.push_back({4600, {0, 0, 0}});
+      Result r = runJog(q, 6000);
+      double want = fabs(c.a[c.keep]) / 60, lo = 1e9;
+      for (auto& sp : r.speeds) if (sp[0] > 1000 && sp[0] < 4400) lo = std::min(lo, fabs(sp[1 + c.keep]));
+      snprintf(what, sizeof(what), "%s: the moving axis keeps its speed (lowest %.2f of %.2f), and back when let go", c.name, lo, want);
+      check(lo >= 0.9 * want, what);
+      checkLimits(r, c.name);
+      check(r.exact && !isOn, "and it stops exactly");
+    }
   }
 
   // 9. one axis, let go, then two axes with one of them reversed (its backlash is taken up first): the jog must run

@@ -101,7 +101,30 @@ class GamepadJog {
         }
     }
 
-    private static final int[] KEYS = {KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_X,
+    // A DualShock 4 on Android versions without Sony's key layout (seen on the owner's Huawei, Android 7: the triggers come
+    // as RX / RY) gives the HID buttons in their raw order, as a generic gamepad: L2 arrives as BUTTON_L1, R2 as R1, L1
+    // as Y, R1 as Z, Share as L2, Options as R2 ... Translated here to the buttons printed on the pad (app 1.64).
+    private String nameOf(int k) {
+        if (!sonyLegacy) return name(k);
+        switch (k) {
+            case KeyEvent.KEYCODE_BUTTON_A: return "square";
+            case KeyEvent.KEYCODE_BUTTON_B: return "cross";
+            case KeyEvent.KEYCODE_BUTTON_C: return "circle";
+            case KeyEvent.KEYCODE_BUTTON_X: return "triangle";
+            case KeyEvent.KEYCODE_BUTTON_Y: return "l1";
+            case KeyEvent.KEYCODE_BUTTON_Z: return "r1";
+            case KeyEvent.KEYCODE_BUTTON_L1: return "l2";
+            case KeyEvent.KEYCODE_BUTTON_R1: return "r2";
+            case KeyEvent.KEYCODE_BUTTON_L2: return "share";
+            case KeyEvent.KEYCODE_BUTTON_R2: return "options";
+            case KeyEvent.KEYCODE_BUTTON_SELECT: return "l3";
+            case KeyEvent.KEYCODE_BUTTON_START: return "r3";
+            case KeyEvent.KEYCODE_BUTTON_MODE: return "ps";
+            default: return name(k);
+        }
+    }
+
+    private static final int[] KEYS = {KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BUTTON_C, KeyEvent.KEYCODE_BUTTON_Z, KeyEvent.KEYCODE_BUTTON_X,
             KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_L2,
             KeyEvent.KEYCODE_BUTTON_R2, KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START,
             KeyEvent.KEYCODE_BUTTON_MODE, KeyEvent.KEYCODE_BUTTON_THUMBL, KeyEvent.KEYCODE_BUTTON_THUMBR,
@@ -112,7 +135,8 @@ class GamepadJog {
     private String deviceName = "";
     private final Set<Integer> down = new HashSet<>();
     private float lx, ry, l2, r2;
-    private boolean hatDown, hatUp, hatLeft, hatRight, legacyTriggers;
+    private boolean hatDown, hatUp, hatLeft, hatRight, legacyTriggers, sonyLegacy;
+    private String lastButton = "";  // shown in Settings, Gamepad: the button last pressed, as the app reads it
 
     // sending (main thread)
     private boolean running, moving;
@@ -188,6 +212,10 @@ class GamepadJog {
             legacyTriggers = d.getMotionRange(MotionEvent.AXIS_LTRIGGER) == null
                     && d.getMotionRange(MotionEvent.AXIS_BRAKE) == null
                     && d.getMotionRange(MotionEvent.AXIS_RX) != null;
+            String n = deviceName == null ? "" : deviceName.toLowerCase(Locale.US);
+            boolean sony = (android.os.Build.VERSION.SDK_INT >= 19 && d.getVendorId() == 0x054C) || n.contains("wireless controller");
+            sonyLegacy = legacyTriggers && sony;
+            AppLog.add("PAD", "gamepad " + deviceName + (sonyLegacy ? ": DualShock 4 with the raw button order, translated" : ""));
         }
     }
 
@@ -196,7 +224,12 @@ class GamepadJog {
         seen(e.getDevice());
         int k = e.getKeyCode();
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
-            if (e.getRepeatCount() == 0 && down.add(k)) pressed(k);
+            if (e.getRepeatCount() == 0 && down.add(k)) {
+                String nm = nameOf(k);
+                lastButton = nm.isEmpty() ? KeyEvent.keyCodeToString(k) : nm.toUpperCase(Locale.US);
+                lastState = "";  // show it now
+                pressed(k);
+            }
         } else if (e.getAction() == KeyEvent.ACTION_UP) {
             down.remove(k);
         }
@@ -239,7 +272,7 @@ class GamepadJog {
     }
 
     private String alone(int k) {
-        String[] a = map.get(name(k));
+        String[] a = map.get(nameOf(k));
         return a == null ? "" : a[0];
     }
 
@@ -254,7 +287,8 @@ class GamepadJog {
         float r = 0;
         for (int k : KEYS) {
             if (!action.equals(alone(k))) continue;
-            float v = k == KeyEvent.KEYCODE_BUTTON_L2 ? left : k == KeyEvent.KEYCODE_BUTTON_R2 ? right : isDown(k) ? 1 : 0;
+            String nm = nameOf(k);
+            float v = "l2".equals(nm) ? left : "r2".equals(nm) ? right : isDown(k) ? 1 : 0;
             r = Math.max(r, v);
         }
         return r;
@@ -266,7 +300,7 @@ class GamepadJog {
 
     // A button just pressed: its action with the safety button held (when it has one), else its own one.
     private void pressed(int k) {
-        String[] m = map.get(name(k));
+        String[] m = map.get(nameOf(k));
         if (m == null) return;
         boolean en = held("enable");
         String a = en && !m[1].isEmpty() ? m[1] : isHold(m[0]) ? "" : m[0];
@@ -316,8 +350,9 @@ class GamepadJog {
         double vx = (revX ? -1 : 1) * ("x".equals(stickL) ? sl : "x".equals(stickR) ? sr : 0) * sp;
         float left = l2, right = r2;
         if (legacyTriggers) {  // RX / RY read 0 (= half pressed) until first touched: trust them only with the button
-            if (!down.contains(KeyEvent.KEYCODE_BUTTON_L2)) left = 0;
-            if (!down.contains(KeyEvent.KEYCODE_BUTTON_R2)) right = 0;
+            // (the trigger's own button: L2 / R2, or L1 / R1 on a DualShock 4 with the raw button order)
+            if (!down.contains(sonyLegacy ? KeyEvent.KEYCODE_BUTTON_L1 : KeyEvent.KEYCODE_BUTTON_L2)) left = 0;
+            if (!down.contains(sonyLegacy ? KeyEvent.KEYCODE_BUTTON_R1 : KeyEvent.KEYCODE_BUTTON_R2)) right = 0;
         }
         double vc = (revC ? -1 : 1) * (dz(amount("cp", left, right), deadT) - dz(amount("cm", left, right), deadT)) * sp * cFactor;
         showAxes(now, left, right);
@@ -350,6 +385,7 @@ class GamepadJog {
             lastStateMs = now;
             String s = deviceId == -1 ? "No gamepad: connect it by Bluetooth (Share + PS to pair), then press a button."
                     : deviceName + (want ? " · moving" : en ? " · safety held" : " · hold the safety button to move")
+                    + (lastButton.isEmpty() ? "" : " · last button: " + lastButton)
                     + (error.isEmpty() ? "" : " · " + error);
             if (!s.equals(lastState)) {
                 lastState = s;

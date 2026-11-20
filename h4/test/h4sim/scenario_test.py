@@ -306,7 +306,11 @@ def held_key_checks():
     ctl("/key", code=24)  # STEP twice: 1 mm -> 0.1 -> 0.01
     time.sleep(0.3)
     x0 = status()["x"]
-    ctl("/key", code=47)  # a tap of X up
+    # a tap of X up, held 0.1 s as a finger does (press and release in the same instant could be missed by the
+    # task that polls the key: one run in ~5 failed so)
+    ctl("/key", code=47, down=1)
+    time.sleep(0.1)
+    ctl("/key", code=47, down=0)
     time.sleep(1.5)
     x1 = status()["x"]
     check(abs(abs(x1 - x0) - 0.01) < 0.002, "a tap at 0.01 moves one step: X %.4f -> %.4f" % (x0, x1))

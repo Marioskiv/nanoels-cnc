@@ -502,7 +502,13 @@ bool grblServiceLine() {
 // WEB_JOG_TIMEOUT_MS (page closed, WiFi lost), stop at once with a jog cancel.
 #define WEB_JOG_PIECE_S 0.05f
 #define WEB_JOG_LEAD_S 0.2f
-#define WEB_JOG_MAX_BLOCKS 4
+#define WEB_JOG_MAX_BLOCKS 24
+// While the wanted speeds change (an axis added or let go, a stick moved further), each axis's speed is ramped by at
+// most what it may change at one corner of the path (its acceleration x CNC_JUNCTION_AXIS_JUMP_MIN, 10 ms), in pieces
+// of that length: so every axis speeds up and slows down with its own acceleration, as LinuxCNC's jog, and the planner
+// never has to slow the axes already moving (firmware 1.46; before, adding Z while X moved made a corner that braked
+// X almost to a stop: a pause).
+#define WEB_JOG_RAMP_S 0.0095f
 #define WEB_JOG_TIMEOUT_MS 300
 volatile float webJogSpeed[3] = {0, 0, 0};  // X mm/min, Z mm/min, C deg/min
 volatile unsigned long webJogMs = 0;
@@ -511,6 +517,7 @@ char webJogError[100] = "";
 bool webJogRunning = false;
 float webJogQueuedS = 0;
 unsigned long webJogLastMs = 0;
+float webJogCur[3] = {0, 0, 0};             // the speeds the pieces give now, ramped to the wanted ones
 unsigned long webJogStopMs = 0;
 
 // From the web server (wifi.ino). False: the last jog was refused (reason in webJogError).
@@ -557,16 +564,43 @@ bool webJogService() {
     webJogRefused = true;
     return false;
   }
-  float dx = vx / 60 * WEB_JOG_PIECE_S, dz = vz / 60 * WEB_JOG_PIECE_S, dc = vc / 60 * WEB_JOG_PIECE_S;
+  // ramp each axis to its wanted speed (see WEB_JOG_RAMP_S); from rest the planner accelerates the move itself
+  float want[3] = {vx, vz, vc};
+  const int cncIdx[3] = {CNC_X, CNC_Z, CNC_C};
+  bool ramping = false;
+  // and the direction may turn only a few degrees per piece (an axis that starts from 0 next to a moving one would
+  // otherwise make a sharp corner at once: X slowed to 2/3 when C was added): each change at most 9 % of the speed now
+  float now2 = 0;
+  for (int i = 0; i < 3; i++) now2 += webJogCur[i] * webJogCur[i];
+  float turnMax = 0.09f * sqrtf(now2);
+  for (int i = 0; i < 3; i++) {
+    if (!webJogRunning) {
+      webJogCur[i] = want[i];
+      continue;
+    }
+    // half the axis's acceleration: the planner also speeds the path up or down at the same time (the length of the
+    // speed vector changes), and the two together stay within 1.5 x the acceleration over 20 ms (jog_test)
+    float dvMax = 0.5f * cnc_core_get_settings()->acceleration[cncIdx[i]] * (WEB_JOG_RAMP_S / 60.0f);  // units/min per piece
+    dvMax = fminf(dvMax, fmaxf(turnMax, 0.1f * dvMax));
+    float d = want[i] - webJogCur[i];
+    if (fabsf(d) > dvMax) {
+      d = d > 0 ? dvMax : -dvMax;
+      ramping = true;
+    }
+    webJogCur[i] += d;
+  }
+  float pieceS = ramping ? WEB_JOG_RAMP_S : WEB_JOG_PIECE_S;
+  if (webJogCur[0] == 0 && webJogCur[1] == 0 && webJogCur[2] == 0) return false;  // passing through 0: next piece
+  float dx = webJogCur[0] / 60 * pieceS, dz = webJogCur[1] / 60 * pieceS, dc = webJogCur[2] / 60 * pieceS;
   // the feed as LinuxCNC (and cnc_gcode.cpp since 1.35) reads it: along X/Z when they move (C follows in the same
   // time), else C alone
   float linear = sqrtf(dx * dx + dz * dz);
-  float feed = (linear > 0 ? linear : fabsf(dc)) / WEB_JOG_PIECE_S * 60;
+  float feed = (linear > 0 ? linear : fabsf(dc)) / pieceS * 60;
   char words[120];
   int n = snprintf(words, sizeof(words), "G91 G94 G21");
-  if (dx != 0) n += snprintf(words + n, sizeof(words) - n, " X%.4f", dx);
-  if (dz != 0) n += snprintf(words + n, sizeof(words) - n, " Z%.4f", dz);
-  if (dc != 0) n += snprintf(words + n, sizeof(words) - n, " C%.4f", dc);
+  if (dx != 0) n += snprintf(words + n, sizeof(words) - n, " X%.5f", dx);
+  if (dz != 0) n += snprintf(words + n, sizeof(words) - n, " Z%.5f", dz);
+  if (dc != 0) n += snprintf(words + n, sizeof(words) - n, " C%.5f", dc);
   snprintf(words + n, sizeof(words) - n, " F%.1f", feed);
   int channel = grblChannel;  // a connected sender keeps its messages
   bool ok = grblJog(-1, String(words));
@@ -579,6 +613,6 @@ bool webJogService() {
     return false;
   }
   webJogRunning = true;
-  webJogQueuedS += WEB_JOG_PIECE_S;
+  webJogQueuedS += pieceS;
   return true;
 }
