@@ -172,7 +172,10 @@ async function waitIdle(timeoutMs = 60000) {
     await page.waitForFunction(() => [...document.querySelectorAll('#files input[name=sel]')].some(i => i.value == 'away.ngc'), null, { timeout: 10000 });
     await page.check('#files input[value="away.ngc"]');
     await page.click('#bStart');
-    await sleep(1500);
+    // the H4 arms its watch only while the program runs and the page asks (cncLinkWatch): wait until it runs (the
+    // check before the start can take more than 1.5 s on a slow CI machine; the WiFi was cut too early then)
+    for (let i = 0; i < 100 && !(await status()).running; i++) await sleep(100);
+    await sleep(1200);
     await page.route('**/status', r => r.abort());
     await sleep(5000);
     ok(/NO CONNECTION/i.test(await page.textContent('#cState')), 'WiFi lost: the page shows "' + (await page.textContent('#cState')).trim() + '"');
