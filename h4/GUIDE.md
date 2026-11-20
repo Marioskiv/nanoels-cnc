@@ -156,6 +156,12 @@ Put your machine's numbers in `h4/my_machine.h` (copy `my_machine.h.example`). I
 so a newer firmware copied over the folder keeps it. Everything can also be changed later on the web page
 (*Machine settings*, stored in the H4; *Defaults from the firmware* goes back to `my_machine.h`).
 
+In the app (app 1.62), each axis page of *Machine settings* calculates the drive: the driver's steps per motor turn,
+the teeth on the motor and on the screw side (and a second belt or gear stage), the screw pitch (degrees per turn
+for a rotary axis); **Calculate** fills in *Motor steps per screw turn* and *Travel per screw turn*. **Fine adjustment
+by measuring**: move the axis by a known amount (e.g. `G1 X20 F300`), measure it, write both, **Correct** (the
+travel per screw turn is corrected). Then *Save and restart*.
+
 | Value | Meaning | From a LinuxCNC `.ini` |
 |---|---|---|
 | `MOTOR_STEPS_X`, `SCREW_X_DU` | steps per screw turn, travel per turn (deci-microns: 2 mm = 20000) | steps per mm = \|`STEP_SCALE`\| |
@@ -430,6 +436,9 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 
 - The H4's keys or the page's jog buttons (Z across: ← towards the chuck is Z−; X up and down: ↑ is X−): they move Z and X, held keys stop when released or when the page loses its
   connection.
+  In the GCODE mode (firmware 1.45) a tap of an arrow key moves one step (0.01, 0.1 or 1 mm, the STEP key); a key
+  held runs smoothly at 5 %, 20 % or 60 % of the axis's maximum speed for those steps and stops soon after it is let
+  go (before: step - pause - step, and 1 mm at the full speed). The lathe modes keep the original behaviour.
 - PS4 / PS5 gamepad. **What each button does is set in Settings, Gamepad**: for every button an action alone and
   one while the **safety button** (*Hold to move*) is held; which axis each stick moves (left stick left / right,
   right stick up / down). Nothing moves without the safety button; Home All, touch-off Z0 and Resume are offered

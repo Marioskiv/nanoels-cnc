@@ -124,6 +124,7 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 /* pop-up */
 .sheet{position:fixed;inset:0;z-index:8;background:#0009;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.drv{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}
 .conn{position:fixed;left:50%;top:58px;transform:translateX(-50%);z-index:7;width:min(560px,calc(100vw - 24px));background:var(--card);color:var(--fg);border:2px solid #e0a020;border-radius:10px;padding:10px;box-shadow:0 6px 24px #0008}
 .conn .sgrid button{padding:12px 4px}.cnmsg{margin:6px 0;min-height:1.2em}.cnmsg button{display:block;width:100%;margin:4px 0;text-align:left}.cn2{grid-template-columns:repeat(2,1fr)}#cnNets button{display:block;width:100%;margin:3px 0;text-align:left}
 .shead{display:flex;justify-content:space-between;align-items:center;font-weight:700}.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.sgrid button{padding:12px 4px}
@@ -625,8 +626,38 @@ function unitText(it){const rot=it.k[0]=='a'&&cfg.items.find(i=>i.k=='aRot').v;c
  if(it.u=='du')return L;if(it.u.startsWith('v:'))return L+'/s';if(it.u.startsWith('a:'))return L+'/s²';return it.u}
 function toShow(it,v){if(it.u=='du')return +(v/10000).toPrecision(8);if(it.u.startsWith('v:')||it.u.startsWith('a:'))return +(v/spu(it.u[2])).toPrecision(7);return v}
 let cfgGroups=[];
+// Drive of an axis, calculated (firmware settings stay "steps per screw turn" and "travel per screw turn"): the driver's
+// steps per motor turn, the teeth (or gear) on the motor and on the screw side, a second stage if there is one, and the
+// screw pitch (degrees per output turn for a rotary axis). Fine adjustment: a move asked and the distance measured.
+// Nothing is saved until "Save and restart"; what was typed is kept on this tablet.
+let drvMem={};try{drvMem=JSON.parse(localStorage.getItem('h4drv')||'{}')}catch(e){}
+function drvRot(p){return p=='a'&&cfg&&!!(cfg.items.find(i=>i.k=='aRot')||{}).v}
+function drvBlock(p){const m=drvMem[p]||{},rot=drvRot(p),u=rot?'°':'mm',f=(id,l,v,ph)=>`<div class="fr"><label for="d_${p}_${id}">${l}</label><input type="number" step="any" id="d_${p}_${id}" value="${v==null?'':v}" placeholder="${ph||''}"></div>`;
+ return `<div class="drv"><b>Drive: calculated from the teeth</b>`+f('spr','Driver steps per motor turn',m.spr,'1600')+f('t1','Teeth on the motor (1st belt / gear)',m.t1,'20')+f('t2','Teeth on the screw side (1st belt / gear)',m.t2,'30')
+  +f('t3','2nd stage: teeth on the motor side (empty = none)',m.t3,'')+f('t4','2nd stage: teeth on the screw side',m.t4,'')+f('pitch',rot?'Degrees per turn of the axis':'Screw pitch (mm per turn)',m.pitch!=null?m.pitch:(rot?360:''),rot?'360':'2')
+  +`<button onclick="drvCalc('${p}')">Calculate</button><div class="small" id="d_${p}_res"></div>`
+  +`<b>Fine adjustment by measuring</b>`+f('ask','Move asked ('+u+')',m.ask,rot?'360':'20')+f('got','Move measured ('+u+')','',rot?'359.8':'19.96')
+  +`<button onclick="drvFine('${p}')">Correct</button><div class="small">Move the axis by a known amount (e.g. G1 X20 F300), measure it, write both, press Correct, then Save and restart.</div></div>`}
+function drvNum(p,id){const v=parseFloat(($('d_'+p+'_'+id)||{}).value);return isFinite(v)?v:null}
+function drvKeep(p){const m={};for(const id of ['spr','t1','t2','t3','t4','pitch','ask'])m[id]=drvNum(p,id);drvMem[p]=m;try{localStorage.setItem('h4drv',JSON.stringify(drvMem))}catch(e){}}
+function drvSet(p,steps,du,txt){const max=(cfg.items.find(i=>i.k==p+'Screw')||{}).max||1e7;
+ const g=(a,b)=>b?g(b,a%b):a;if(steps>1e6||du>max){const d=g(steps,du);steps/=d;du/=d}
+ if(steps<1||du<1||steps>1e6||du>max){$('d_'+p+'_res').textContent=cnT('Out of range: check the numbers.','Εκτός ορίων: έλεγξε τους αριθμούς.');return}
+ const cs=+$('c_'+p+'Steps').value,cd=+$('c_'+p+'Screw').value*10000,rot=drvRot(p),u=rot?'°':'mm';
+ if(cs>0&&cd>0&&Math.abs(cs/cd-steps/du)<1e-9*steps/du){$('d_'+p+'_res').textContent=txt+' — '+cnT('the same as now: nothing to change.','ίδιο με τώρα: τίποτα να αλλάξει.');return}
+ $('c_'+p+'Steps').value=steps;$('c_'+p+'Screw').value=+(du/10000).toPrecision(10);$('c_'+p+'Steps').classList.add('changed');$('c_'+p+'Screw').classList.add('changed');
+ $('d_'+p+'_res').textContent=txt+' — '+cnT('filled in below ('+steps+' steps per '+(du/10000)+' '+u+'): press Save and restart.','γράφτηκε παρακάτω ('+steps+' βήματα ανά '+(du/10000)+' '+u+'): πάτα Αποθήκευση και επανεκκίνηση.')}
+function drvCalc(p){drvKeep(p);const spr=drvNum(p,'spr'),t1=drvNum(p,'t1')||1,t2=drvNum(p,'t2')||1,t3=drvNum(p,'t3'),t4=drvNum(p,'t4'),pitch=drvNum(p,'pitch'),rot=drvRot(p);
+ if(!(spr>0)||!(pitch>0)||!(t1>0)||!(t2>0)||(t3!=null&&!(t3>0))||(t3!=null&&!(t4>0))){$('d_'+p+'_res').textContent=cnT('Write the driver steps, the teeth and the pitch.','Γράψε βήματα driver, δόντια και βήμα.');return}
+ const perTurn=spr*t2/t1*(t3!=null?t4/t3:1);let k=1;while(k<100000&&Math.abs(perTurn*k-Math.round(perTurn*k))>1e-6*Math.max(1,perTurn*k))k++;
+ drvSet(p,Math.round(perTurn*k),Math.round(pitch*10000*k),(+(perTurn/pitch).toPrecision(8))+(rot?cnT(' steps per degree',' βήματα ανά μοίρα'):cnT(' steps per mm',' βήματα ανά mm')))}
+function drvFine(p){drvKeep(p);const ask=drvNum(p,'ask'),got=drvNum(p,'got');if(!(ask>0)||!(got>0)){$('d_'+p+'_res').textContent=cnT('Write the move asked and the move measured.','Γράψε την κίνηση που ζήτησες και αυτή που μέτρησες.');return}
+ if(got/ask<0.5||got/ask>2){$('d_'+p+'_res').textContent=cnT('More than twice off: check the driver steps and the teeth first.','Διαφορά πάνω από 2 φορές: έλεγξε πρώτα βήματα driver και δόντια.');return}
+ const steps=+$('c_'+p+'Steps').value,du=+$('c_'+p+'Screw').value*10000;let k=1;while(k<100000&&Math.abs(du*got/ask*k-Math.round(du*got/ask*k))>1e-3)k++;
+ drvSet(p,steps*k,Math.round(du*got/ask*k),cnT('Corrected by ','Διόρθωση κατά ')+(+((got/ask-1)*100).toFixed(3))+' %')}
 function renderCfg(){const groups={};for(const it of cfg.items)(groups[it.g]=groups[it.g]||[]).push(it);let h='';cfgGroups=Object.keys(groups);{const xi=cfgGroups.findIndex(g=>/^X\b/.test(g)),zi=cfgGroups.findIndex(g=>/^Z\b/.test(g));if(xi>=0&&zi>xi){[cfgGroups[xi],cfgGroups[zi]]=[cfgGroups[zi],cfgGroups[xi]]}}
- cfgGroups.forEach((g,gi)=>{h+=`<div class="spage" data-sp="m${gi}" hidden><div class="pg">`;for(const it of groups[g]){const id='c_'+it.k,u=unitText(it);let inp;
+ cfgGroups.forEach((g,gi)=>{h+=`<div class="spage" data-sp="m${gi}" hidden><div class="pg">`;
+  const sk=groups[g].find(i=>/^[zxa]Steps$/.test(i.k));if(sk)h+=drvBlock(sk.k[0]);for(const it of groups[g]){const id='c_'+it.k,u=unitText(it);let inp;
   if(it.t=='b')inp=`<input type="checkbox" id="${id}" ${it.v?'checked':''}>`;
   else if(it.t=='a')inp=`<select id="${id}"><option ${it.v=='Z'?'selected':''}>Z</option><option ${it.v=='X'?'selected':''}>X</option></select>`;
   else inp=`<input type="number" step="any" id="${id}" value="${toShow(it,it.v)}">`;
@@ -749,7 +780,11 @@ const I18N={
  'Jog with':'Jog με','Buttons':'Κουμπιά','Wheel':'Τροχό','Off':'Όχι','On':'Ναι','Screen orientation':'Προσανατολισμός οθόνης','Automatic':'Αυτόματα','Landscape':'Οριζόντια','Portrait':'Κάθετα',
  'Jog lock: the jog buttons and the wheel work only after the lock button 🔒 is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with':'Κλείδωμα jog: τα κουμπιά jog και ο τροχός δουλεύουν μόνο αφού πατηθεί η κλειδαριά 🔒, και κλειδώνουν ξανά 15 s μετά την τελευταία κίνηση. Με τα κουμπιά, ένα πάτημα κινεί ένα βήμα· με',
  'the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.':'ο άξονας κινείται όσο κρατάς το κουμπί, με την ταχύτητα jog του χειριστηρίου, και σταματά μόλις το αφήσεις.',
- 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Through the router':'Μέσω router','Networks the H4 sees (2.4 GHz), strongest first: tap one, write its password.':'Δίκτυα που βλέπει το H4 (2,4 GHz), το ισχυρότερο πρώτο: πάτα ένα, γράψε τον κωδικό του.',
+ 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Drive: calculated from the teeth':'Μετάδοση: υπολογισμός από τα δόντια','Driver steps per motor turn':'Βήματα driver ανά στροφή μοτέρ',
+ 'Teeth on the motor (1st belt / gear)':'Δόντια στο μοτέρ (1ος ιμάντας / γρανάζι)','Teeth on the screw side (1st belt / gear)':'Δόντια προς τη βίδα (1ος ιμάντας / γρανάζι)','2nd stage: teeth on the motor side (empty = none)':'2ο στάδιο: δόντια από τη μεριά του μοτέρ (κενό = κανένα)',
+ '2nd stage: teeth on the screw side':'2ο στάδιο: δόντια προς τη βίδα','Screw pitch (mm per turn)':'Βήμα βίδας (mm ανά στροφή)','Degrees per turn of the axis':'Μοίρες ανά στροφή του άξονα','Calculate':'Υπολογισμός',
+ 'Fine adjustment by measuring':'Μικρορύθμιση με μέτρηση','Move asked (mm)':'Κίνηση που ζήτησα (mm)','Move measured (mm)':'Κίνηση που μέτρησα (mm)','Move asked (°)':'Κίνηση που ζήτησα (°)','Move measured (°)':'Κίνηση που μέτρησα (°)','Correct':'Διόρθωση',
+ 'Move the axis by a known amount (e.g. G1 X20 F300), measure it, write both, press Correct, then Save and restart.':'Κίνησε τον άξονα γνωστή απόσταση (π.χ. G1 X20 F300), μέτρησέ την, γράψε και τα δύο, πάτα Διόρθωση και μετά Αποθήκευση και επανεκκίνηση.','Through the router':'Μέσω router','Networks the H4 sees (2.4 GHz), strongest first: tap one, write its password.':'Δίκτυα που βλέπει το H4 (2,4 GHz), το ισχυρότερο πρώτο: πάτα ένα, γράψε τον κωδικό του.',
  'Connect through this router':'Σύνδεση μέσω αυτού του router','Password of the H4 network':'Κωδικός του δικτύου H4','8 or more characters':'8 χαρακτήρες ή περισσότεροι','Find the H4':'Βρες το H4','Address by hand':'Διεύθυνση με το χέρι',
  "Direct: the tablet joins the H4's own network (its name and password are on the H4 display), no router: the steadiest beside the machine; the tablet has no internet meanwhile. Through the router: the H4 and the tablet on your WiFi (2.4 GHz); the app finds the H4's address by itself. The H4 needs its WiFi antenna. The SETTINGS key on the H4 also switches between the two.":'Απευθείας: το tablet μπαίνει στο δικό δίκτυο του H4 (όνομα και κωδικός στην οθόνη του H4), χωρίς router: το πιο σταθερό δίπλα στο μηχάνημα· στο μεταξύ το tablet δεν έχει internet. Μέσω router: το H4 και το tablet στο WiFi σου (2,4 GHz)· το app βρίσκει μόνο του τη διεύθυνση του H4. Το H4 θέλει την κεραία WiFi. Το πλήκτρο SETTINGS του H4 αλλάζει επίσης ανάμεσα στα δύο.',
  'No connection to the H4':'Χωρίς σύνδεση με το H4','Connection settings':'Ρυθμίσεις σύνδεσης','Demo (no H4)':'Demo (χωρίς H4)','Hide':'Απόκρυψη','Defaults':'Αρχικές τιμές','Save WiFi and restart':'Αποθήκευση WiFi και επανεκκίνηση','WiFi network name':'Όνομα δικτύου WiFi','password (empty = keep)':'κωδικός (κενό = μένει ο ίδιος)',

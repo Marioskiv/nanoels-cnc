@@ -266,6 +266,24 @@ async function waitIdle(timeoutMs = 60000) {
     await page.click('#hAxes');
     await sleep(1200);
     ok((await status()).axesOn == 1 && /AXES ON|ΑΞΟΝΕΣ ON/.test(await axTxt()), 'pressed again: all axes on, "' + (await axTxt()) + '"');
+    // 12. the drive calculated from the teeth, and the fine adjustment by measuring (Settings, Machine: X / C)
+    const drv = await page.evaluate(() => {
+      const set = (p, v) => { for (const k in v) $('d_' + p + '_' + k).value = v[k]; };
+      set('x', {spr: 1600, t1: 20, t2: 30, t3: '', t4: '', pitch: 2});
+      drvCalc('x');
+      const x1 = [+$('c_xSteps').value, +$('c_xScrew').value, $('d_x_res').textContent];
+      set('x', {ask: 20, got: 19.96});
+      drvFine('x');
+      const x2 = [+$('c_xSteps').value, +$('c_xScrew').value, $('d_x_res').textContent];
+      set('a', {spr: 3200, t1: 20, t2: 48, t3: 20, t4: 86, pitch: 360});
+      drvCalc('a');
+      const a1 = [+$('c_aSteps').value, +$('c_aScrew').value];
+      return {x1, x2, a1};
+    });
+    ok(drv.x1[0] / drv.x1[1] == 1200 && /1200/.test(drv.x1[2]), 'X drive 1600 steps, 20T -> 30T, 2 mm: ' + drv.x1[0] + ' steps per ' + drv.x1[1] + ' mm = 1200 / mm ("' + drv.x1[2].slice(0, 60) + '")');
+    ok(Math.abs(drv.x2[0] / drv.x2[1] - 1200 * 20 / 19.96) < 1e-6, 'fine adjustment, 20 asked and 19.96 measured: ' + drv.x2[0] + ' steps per ' + drv.x2[1] + ' mm (' + (drv.x2[0] / drv.x2[1]).toFixed(4) + ' / mm)');
+    ok(Math.abs(drv.a1[0] / drv.a1[1] - 33024 / 360) < 1e-9, 'C drive 3200 steps, 20 -> 48, 20 -> 86, 360°: ' + drv.a1[0] + ' steps per ' + drv.a1[1] + ' (91.7333 per degree)');
+    await page.evaluate(() => loadCfg());  // nothing saved: the form back to the H4's values
     process.kill(-proc.pid, 'SIGKILL');
     await sleep(7000);
     const panel = await page.evaluate(() => !$('conn').hidden && $('conn').textContent);

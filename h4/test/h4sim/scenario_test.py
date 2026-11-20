@@ -268,7 +268,36 @@ def run_checks():
     check(abs(s["x"] - 1) < 1e-3, "Resume: the program ends at X %.4f" % s["x"])
 
     axes_checks()
+    held_key_checks()
     connection_checks()
+
+
+def held_key_checks():
+    # GCODE mode, the H4's arrow keys at 0.01 mm (firmware 1.45): a tap moves one step, a held key runs smoothly
+    if not status().get("gcodeMode"):
+        return
+    cfg = {i["k"]: i["v"] for i in json.loads(http(B + "/config")[1])["items"]}
+    max_mm_s = cfg["xSpeed"] / (cfg["xSteps"] / (cfg["xScrew"] / 10000.0))
+    ctl("/key", code=24)
+    ctl("/key", code=24)  # STEP twice: 1 mm -> 0.1 -> 0.01
+    time.sleep(0.3)
+    x0 = status()["x"]
+    ctl("/key", code=47)  # a tap of X up
+    time.sleep(1.5)
+    x1 = status()["x"]
+    check(abs(abs(x1 - x0) - 0.01) < 0.002, "a tap at 0.01 moves one step: X %.4f -> %.4f" % (x0, x1))
+    ctl("/key", code=47, down=1)
+    time.sleep(3)
+    ctl("/key", code=47, down=0)
+    time.sleep(1.5)
+    x2 = status()["x"]
+    expected = 0.05 * max_mm_s * 2.3  # 5 %% of the maximum, after the first step (about 0.6 s)
+    check(0.4 * expected < abs(x2 - x1) < 1.6 * expected + 0.05,
+          "held 3 s at 0.01: X ran %.3f mm smoothly (5 %% of %.1f mm/s, expected about %.3f; step-pause-step gave about 0.05)"
+          % (abs(x2 - x1), max_mm_s, expected))
+    ctl("/key", code=24)  # back to 1 mm
+    mdi("G0 X2")
+    wait_idle()
 
 
 def axes_checks():
