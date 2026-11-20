@@ -145,6 +145,10 @@ there; a refusal also rumbles the gamepad. The button last pressed is shown ther
 pad: if it is not the one you pressed, the gamepad is read with another layout. A DualShock 4 on Android versions
 without Sony's layout (seen on Huawei, Android 7: L2 arrived as L1, R2 as R1) is recognised and translated (app 1.64).
 
+The link (app 1.65, firmware 1.48): the page and the gamepad keep one lasting connection each to the H4 (WebSocket,
+port 81): the H4 sends its state by itself and the jogs go on it, faster and steadier over a weak WiFi than a new
+connection per request. When it cannot be opened (an older firmware), everything goes over HTTP as before.
+
 Safety: the app sends the wanted speeds every 0.1 s; the H4 jogs every axis on its own, as LinuxCNC does (each
 with its own acceleration, braking for its soft limit; adding, reversing or letting go one axis does not change the
 others - firmware 1.47) and every axis brakes to a stop by itself 0.3 s after the last request: when L1 or the stick is released, the

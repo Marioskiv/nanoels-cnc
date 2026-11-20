@@ -270,6 +270,7 @@ def run_checks():
     axes_checks()
     held_key_checks()
     jog_reverse_checks()
+    ws_checks()
     connection_checks()
 
 
@@ -294,6 +295,145 @@ def jog_reverse_checks():
         mx, mz, state = jog(vx, vz)
         ok = state == "Idle" and (vx == 0 or abs(mx) > 1.5) and (vz == 0 or abs(mz) > 1.5)
         check(ok, "jog X %+d Z %+d mm/min after a reversal: moved X %.3f Z %.3f, %s" % (vx, vz, mx, mz, state))
+
+
+class Ws:
+    """A WebSocket client (RFC 6455), as the app's page and gamepad open one to the H4's port 81 (firmware 1.48)."""
+    def __init__(self, port, key=b"dGhlIHNhbXBsZSBub25jZQ==", extra=b""):
+        import socket
+        self.s = socket.create_connection(("127.0.0.1", port), timeout=5)
+        self.s.sendall(b"GET / HTTP/1.1\r\nHost: h4\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+                       (b"Sec-WebSocket-Key: " + key + b"\r\n" if key else b"") + extra + b"Sec-WebSocket-Version: 13\r\n\r\n")
+        self.buf = b""
+        self.eof = False
+        while b"\r\n\r\n" not in self.buf:
+            d = self.s.recv(4096)
+            if not d:
+                break
+            self.buf += d
+        head, _, self.buf = self.buf.partition(b"\r\n\r\n")
+        self.head = head.decode("latin-1")
+
+    def send(self, text, op=1):
+        data = text.encode() if isinstance(text, str) else text
+        mask = os.urandom(4)
+        n = len(data)
+        h = bytes([0x80 | op]) + (bytes([0x80 | n]) if n < 126 else bytes([0x80 | 126, n >> 8, n & 255]))
+        self.s.sendall(h + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+
+    def recv(self, timeout=2.0):
+        """One frame (opcode, payload) or None on timeout / close."""
+        self.s.settimeout(timeout)
+        def need(n):
+            while len(self.buf) < n:
+                d = self.s.recv(65536)
+                if not d:
+                    raise EOFError
+                self.buf += d
+        try:
+            need(2)
+            op, n = self.buf[0] & 15, self.buf[1] & 127
+            at = 2
+            if n == 126:
+                need(4)
+                n, at = (self.buf[2] << 8) | self.buf[3], 4
+            elif n == 127:
+                need(10)
+                n, at = int.from_bytes(self.buf[2:10], "big"), 10
+            need(at + n)
+            payload, self.buf = self.buf[at:at + n], self.buf[at + n:]
+            return op, payload
+        except EOFError:
+            self.eof = True
+            return None
+        except Exception:
+            return None
+
+    def close(self):
+        self.s.close()
+
+
+def ws_checks():
+    # the app's lasting link (wslink.ino, firmware 1.48): the handshake, the state pushed 10 times a second, the gamepad's
+    # jog on it with its answer, a refusal, ping, closing a silent connection, a bad opening request refused
+    port = status().get("ws")
+    check(port == PORT + 2, "the state names the lasting link's port (%s)" % port)
+    w = Ws(PORT + 2)
+    check(w.head.startswith("HTTP/1.1 101") and "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=" in w.head, "handshake: 101 with the RFC 6455 accept key")
+    w.send('{"t":"sub"}')
+    t0 = time.time()
+    states = []
+    while time.time() - t0 < 1.0:
+        f = w.recv(0.5)
+        if f and f[0] == 1:
+            states.append(json.loads(f[1]))
+        w.send('{"t":"alive"}') if len(states) % 3 == 0 else None
+    check(8 <= len(states) <= 12 and all("x" in st and "state" in st for st in states),
+          "the state pushed by itself: %d times in 1 s (10 wanted), the same JSON as /status" % len(states))
+    w.send(b"hi", op=9)
+    got = None
+    for _ in range(30):
+        f = w.recv(0.5)
+        if f and f[0] == 10:
+            got = f[1]
+            break
+    check(got == b"hi", "ping answered with pong")
+    # the gamepad's jog on the link: X 120 mm/min for 1.2 s
+    mdi("G90 G0 X5 Z-5")
+    wait_idle()
+    j = Ws(PORT + 2)
+    x0 = status()["x"]
+    answers = []
+    end = time.time() + 1.2
+    while time.time() < end:
+        j.send('{"t":"jog","x":120,"z":0,"c":0}')
+        f = j.recv(0.5)
+        if f:
+            answers.append(json.loads(f[1]))
+        w.send('{"t":"alive"}')
+        time.sleep(0.1)
+    j.send('{"t":"jog","x":0,"z":0,"c":0}')
+    j.recv(0.5)
+    s = wait_idle(10)
+    moved = s["x"] - x0
+    check(answers and all(a.get("t") == "jog" and a.get("ok") == 1 for a in answers) and 1.5 < moved < 3.5 and s["state"] == "Idle",
+          "jog on the lasting link: %d answers ok, X moved %.3f mm (about 2.4), stopped" % (len(answers), moved))
+    # a refusal comes back with its reason: the axes off
+    wait_idle()
+    post("/cmd", **{"do": "axes", "on": "0"})
+    j.send('{"t":"jog","x":0,"z":0,"c":0}')
+    j.recv(0.5)
+    j.send('{"t":"jog","x":120,"z":0,"c":0}')
+    a = None
+    for _ in range(10):
+        f = j.recv(0.5)
+        if f:
+            a = json.loads(f[1])
+            if a.get("ok") == 0:
+                break
+        j.send('{"t":"jog","x":120,"z":0,"c":0}')
+        time.sleep(0.1)
+    check(a is not None and a.get("ok") == 0 and "Axes are off" in a.get("e", ""), "a refused jog answers with the reason: %s" % (a and a.get("e")))
+    j.send('{"t":"jog","x":0,"z":0,"c":0}')
+    post("/cmd", **{"do": "axes", "on": "1"})
+    # a connection that sends nothing is closed after 3 s; the page's (alive) stays
+    t0 = time.time()
+    closed = False
+    while time.time() - t0 < 6:
+        f = j.recv(0.3)
+        if j.eof or (f and f[0] == 8):
+            closed = True
+            break
+        w.send('{"t":"alive"}')
+    check(closed and 2.5 < time.time() - t0 < 4.5, "a silent connection is closed after %.1f s (3 s)" % (time.time() - t0))
+    w.send('{"t":"alive"}')
+    f = w.recv(1.0)
+    check(f is not None and f[0] == 1, "the connection that keeps talking stays open")
+    w.close()
+    j.close()
+    bad = Ws(PORT + 2, key=None)
+    check(bad.head.startswith("HTTP/1.1 400"), "an opening request without a key is refused (400)")
+    bad.close()
 
 
 def held_key_checks():

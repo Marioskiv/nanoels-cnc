@@ -141,6 +141,9 @@ g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/link_test" link_test.cpp
 # of random X Z C programs (G94 / G93, reversals, C alone) on three machines
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/junction_axis_test" junction_axis_test.cpp ../cnc_core.cpp
 "$OUT/junction_axis_test" || fail=$((fail + 1))
+# the app's lasting link (wslink.ino, ws_proto.cpp): SHA-1 / Base64 test vectors, the RFC 6455 handshake, frames
+g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/ws_test" ws_test.cpp ../ws_proto.cpp
+"$OUT/ws_test" || fail=$((fail + 1))
 # jogging from the app when the app stops talking (work plan B6): the gamepad's /jog with the real planner and the
 # arrows' /key hold (grbl.ino, wifi.ino, compiled unchanged): stop within 300 ms + braking, exact position, arrows 500 ms
 { awk '/^#define WEB_JOG_TIMEOUT_MS/,/^unsigned long webJogStopMs/' ../grbl.ino; sh lathe/extract.sh ../grbl.ino "bool webJogRequest" "void webJogStop" "void webJogRefuse" "bool webJogService"; } > "$OUT/jog_funcs.inc"

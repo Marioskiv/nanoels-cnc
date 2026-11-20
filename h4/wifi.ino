@@ -28,6 +28,10 @@ String wifiApPassword = WIFI_AP_DEFAULT_PASSWORD;
 // The app finds the H4 by itself: it sends "H4CNC?" by UDP broadcast to this port, the H4 answers to the sender
 // "H4CNC {json}" with its address, firmware and connection (discoveryLoop). Works on the router and on its own network.
 const uint16_t WIFI_DISCOVERY_PORT = 4210;
+#define WS_PORT 81 // the app's lasting link (wslink.ino)
+#ifndef WS_PUBLIC_PORT
+#define WS_PUBLIC_PORT(p) (p) // (the PC simulation maps it to another port)
+#endif
 WiFiUDP discoveryUdp;
 bool discoveryStarted = false;
 const size_t PROGRAM_MAX_RAM_NO_PSRAM = 120000; // without PSRAM a program must fit in the normal RAM
@@ -220,6 +224,12 @@ void handleMdi() {
 
 void handleStatus() {
   cncAppSeenMs = millis(); // the app / web page is watching (h4.ino cncLinkWatch)
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send(200, "application/json", statusJson());
+}
+
+// The machine's state for the app: /status, and pushed on the lasting link (wslink.ino) 10 times a second.
+String statusJson() {
   float divisor = measure == MEASURE_METRIC ? 10000.0 : 254000.0;
   const char* state = "Idle";
   if (cncStopRequest) state = "Stopping";
@@ -314,9 +324,9 @@ void handleStatus() {
   json += ",\"a2\":" + String(PULSE_2_USE ? 0 : 1);
   if (x.homed) json += ",\"mx\":" + String(machinePosMm(&x), 4);
   if (z.homed) json += ",\"mz\":" + String(machinePosMm(&z), 4);
+  json += ",\"ws\":" + String(WS_PUBLIC_PORT(WS_PORT)); // the lasting link's port (wslink.ino)
   json += "}";
-  server.sendHeader("Cache-Control", "no-cache");
-  server.send(200, "application/json", json);
+  return json;
 }
 
 void handleFileList() {
@@ -878,21 +888,23 @@ void handleKey() {
 }
 
 // Gamepad of the page: wanted speeds x, z (mm/min) and c (deg/min), repeated about every 100 ms while
-// moving; 0 0 0 (or no request for 0.3 s) stops. 409 with the reason when the H4 refused a jog.
-void handleJog() {
-  if (emergencyStop != ESTOP_NONE) {
-    server.send(409, "text/plain", "Emergency stop: restart the controller.");
-    return;
-  }
-  float v[3];
-  const char* names[3] = {"x", "z", "c"};
+// moving; 0 0 0 (or no request for 0.3 s) stops. 409 with the reason when the H4 refused a jog. The same comes on the
+// lasting link (wslink.ino) as {"t":"jog","x":..,"z":..,"c":..}: both call jogFromApp().
+const char* jogFromApp(float vx, float vz, float vc) {
+  if (emergencyStop != ESTOP_NONE) return "Emergency stop: restart the controller.";
+  float v[3] = {vx, vz, vc};
   for (int i = 0; i < 3; i++) {
-    v[i] = server.arg(names[i]).toFloat();
     if (!isfinite(v[i])) v[i] = 0;
     v[i] = constrain(v[i], -100000.0f, 100000.0f);
   }
-  if (!webJogRequest(v[0], v[1], v[2])) {
-    server.send(409, "text/plain", webJogError);
+  if (!webJogRequest(v[0], v[1], v[2])) return webJogError;
+  return NULL;
+}
+
+void handleJog() {
+  const char* refused = jogFromApp(server.arg("x").toFloat(), server.arg("z").toFloat(), server.arg("c").toFloat());
+  if (refused != NULL) {
+    server.send(409, "text/plain", refused);
     return;
   }
   server.send(200, "text/plain", "ok");
@@ -1279,6 +1291,7 @@ void taskWifi(void* param) {
   for (;;) {
     server.handleClient();
     grblTcpLoop(); // Grbl senders on TCP port 23 (grbl.ino)
+    wsLoop(); // the app's lasting link (wslink.ino)
     discoveryLoop(); // the app looking for the H4
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
     if (wifiToggleRequest) { // the SETTINGS key on the H4: own network <-> router
