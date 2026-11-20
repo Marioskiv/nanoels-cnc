@@ -172,7 +172,10 @@ async function waitIdle(timeoutMs = 60000) {
     await page.waitForFunction(() => [...document.querySelectorAll('#files input[name=sel]')].some(i => i.value == 'away.ngc'), null, { timeout: 10000 });
     await page.check('#files input[value="away.ngc"]');
     await page.click('#bStart');
-    await sleep(1500);
+    // the H4 arms its watch only while the program runs and the page asks (cncLinkWatch): wait until it runs (the
+    // check before the start can take more than 1.5 s on a slow CI machine; the WiFi was cut too early then)
+    for (let i = 0; i < 100 && !(await status()).running; i++) await sleep(100);
+    await sleep(1200);
     await page.route('**/status', r => r.abort());
     await sleep(5000);
     ok(/NO CONNECTION/i.test(await page.textContent('#cState')), 'WiFi lost: the page shows "' + (await page.textContent('#cState')).trim() + '"');
@@ -284,6 +287,9 @@ async function waitIdle(timeoutMs = 60000) {
     ok(Math.abs(drv.x2[0] / drv.x2[1] - 1200 * 20 / 19.96) < 1e-6, 'fine adjustment, 20 asked and 19.96 measured: ' + drv.x2[0] + ' steps per ' + drv.x2[1] + ' mm (' + (drv.x2[0] / drv.x2[1]).toFixed(4) + ' / mm)');
     ok(Math.abs(drv.a1[0] / drv.a1[1] - 33024 / 360) < 1e-9, 'C drive 3200 steps, 20 -> 48, 20 -> 86, 360°: ' + drv.a1[0] + ' steps per ' + drv.a1[1] + ' (91.7333 per degree)');
     await page.evaluate(() => loadCfg());  // nothing saved: the form back to the H4's values
+    // 13. a gamepad refusal is explained on the screen (app 1.63)
+    const gx = await page.evaluate(() => [gpExplain('Home All first'), gpExplain('hold the safety button (L1) to move'), gpExplain('Axes are off: Axes ON in the app (beside STOP) or key A on the H4')]);
+    ok(/Home All/.test(gx[0]) && /PS/.test(gx[0]) && /L1/.test(gx[1]) && /Axes|ΑΞΟΝΕΣ|άξονες/.test(gx[2]), 'gamepad refusals explained: "' + gx.join('" | "') + '"');
     process.kill(-proc.pid, 'SIGKILL');
     await sleep(7000);
     const panel = await page.evaluate(() => !$('conn').hidden && $('conn').textContent);

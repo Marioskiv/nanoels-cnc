@@ -120,6 +120,8 @@ class GamepadJog {
     private long lastSendMs, lastStateMs, lastAxesMs;
     private float[] shownAxes;
     private String error = "", lastState = "";
+    private long stickNoSafetyMs = 0;  // since when a stick / trigger is moved without the safety button
+    private boolean safetyHintShown = false;
 
     GamepadJog(MainActivity activity) {
         this.activity = activity;
@@ -321,6 +323,18 @@ class GamepadJog {
         showAxes(now, left, right);
         boolean en = held("enable");
         boolean want = en && (vx != 0 || vz != 0 || vc != 0);
+        // a stick moved without the safety button for half a second: say so on the screen, once per such move (until
+        // 1.62 it was written only in Settings, Gamepad, and the machine just did not move)
+        if (!en && (vx != 0 || vz != 0 || vc != 0)) {
+            if (stickNoSafetyMs == 0) stickNoSafetyMs = now;
+            if (!safetyHintShown && now - stickNoSafetyMs > 500) {
+                safetyHintShown = true;
+                activity.showGamepadMessage("hold the safety button (L1) to move");
+            }
+        } else {
+            stickNoSafetyMs = 0;
+            if (vx == 0 && vz == 0 && vc == 0) safetyHintShown = false;
+        }
         if (want) {
             if (now - lastSendMs >= SEND_MS && jogsInFlight == 0) {
                 moving = true;
@@ -414,7 +428,10 @@ class GamepadJog {
             return;
         }
         String e = body.isEmpty() ? "Refused (" + code + ")" : body;
-        if (!e.equals(error) || !isJog) rumble();
+        if (!e.equals(error) || !isJog) {
+            rumble();
+            activity.showGamepadMessage(e);  // on the screen too, not only in Settings, Gamepad
+        }
         error = e;
         lastState = "";  // show it now
     }

@@ -182,6 +182,10 @@ public class MainActivity extends Activity {
         watchWifi();
         watchScreenAndPad();
         ExitWatch.start(this);         // why the app closed last time, and the watch of this run
+        if (getIntent() != null && getIntent().getBooleanExtra(UpdatedReceiver.EXTRA, false)) {  // opened by itself after an update
+            web.postDelayed(() -> android.widget.Toast.makeText(this, Tr.t(this, "Updated: H4 CNC ", "Ενημερώθηκε: H4 CNC ") + BuildInfo.version(this) + " ✓",
+                    android.widget.Toast.LENGTH_LONG).show(), 1500);
+        }
         UpdateCheck.maybeCheck(this);  // a few seconds after the app opens, each time (and says when an install did not go through)
     }
 
@@ -457,6 +461,12 @@ public class MainActivity extends Activity {
     }
 
     // Gamepad state for the page's Gamepad box (the page shows it when it runs in this app).
+    // A gamepad refusal or hint, shown on the screen's message line (the page translates and explains it).
+    void showGamepadMessage(String text) {
+        AppLog.add("PAD", text);
+        web.evaluateJavascript("window.h4AppPadMsg&&h4AppPadMsg(" + JSONObject.quote(text) + ")", null);
+    }
+
     void showGamepadState(String text) {
         web.evaluateJavascript("window.h4AppGamepad&&h4AppGamepad(" + JSONObject.quote(text) + ")", null);
     }
