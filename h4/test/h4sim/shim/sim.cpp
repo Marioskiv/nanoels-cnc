@@ -46,6 +46,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
+#include <errno.h>
 
 using Clock = std::chrono::steady_clock;
 static const Clock::time_point t0 = Clock::now();
@@ -752,6 +753,68 @@ static int listenOn(int port) {
     _exit(2);
   }
   return s;
+}
+
+// ------------------------------------------------------------------ WiFiServer / WiFiClient (port 81 only)
+int h4simTcpPort(int port) { return port == 81 ? simPort() + 2 : port; }
+SimSock::~SimSock() { if (fd >= 0) close(fd); }
+void WiFiServer::begin() {
+  if (port_ != 81 || fd_ >= 0) return;  // port 23 (Grbl senders) stays closed
+  fd_ = listenOn(h4simTcpPort(port_));
+  fcntl(fd_, F_SETFL, O_NONBLOCK);
+}
+bool WiFiServer::hasClient() {
+  if (fd_ < 0) return false;
+  if (pending_ < 0) {
+    pending_ = ::accept(fd_, nullptr, nullptr);
+    if (pending_ >= 0) {
+      int one = 1;
+      setsockopt(pending_, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+      fcntl(pending_, F_SETFL, O_NONBLOCK);
+    }
+  }
+  return pending_ >= 0;
+}
+WiFiClient WiFiServer::accept() {
+  if (!hasClient()) return WiFiClient();
+  int f = pending_;
+  pending_ = -1;
+  return WiFiClient(f);
+}
+bool WiFiClient::connected() {
+  if (!s_ || s_->fd < 0) return false;
+  char c;
+  ssize_t n = recv(s_->fd, &c, 1, MSG_PEEK | MSG_DONTWAIT);
+  if (n == 0) return false;
+  if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) return false;
+  return true;
+}
+int WiFiClient::available() {
+  if (!s_ || s_->fd < 0) return 0;
+  char b[4096];
+  ssize_t n = recv(s_->fd, b, sizeof(b), MSG_PEEK | MSG_DONTWAIT);
+  return n > 0 ? (int)n : 0;
+}
+int WiFiClient::read() {
+  if (!s_ || s_->fd < 0) return -1;
+  unsigned char c;
+  ssize_t n = recv(s_->fd, &c, 1, MSG_DONTWAIT);
+  return n == 1 ? c : -1;
+}
+size_t WiFiClient::write(const uint8_t* b, size_t n) {
+  if (!s_ || s_->fd < 0) return 0;
+  size_t k = 0;
+  int tries = 0;
+  while (k < n && tries < 200) {  // as the ESP32's: waits a little when the network is slow, then gives up
+    ssize_t w = send(s_->fd, b + k, n - k, MSG_NOSIGNAL);
+    if (w > 0) { k += (size_t)w; continue; }
+    if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) { tries++; std::this_thread::sleep_for(std::chrono::milliseconds(5)); continue; }
+    break;
+  }
+  return k;
+}
+void WiFiClient::stop() {
+  if (s_ && s_->fd >= 0) { close(s_->fd); s_->fd = -1; }
 }
 
 // ------------------------------------------------------------------ WiFiUDP

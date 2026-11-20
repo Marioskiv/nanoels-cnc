@@ -52,6 +52,19 @@ class GamepadJog {
     private final MainActivity activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService net = Executors.newSingleThreadExecutor();
+    // the lasting link (firmware 1.48): jogs go on it when it is open, else over HTTP as before
+    private final H4Socket link = new H4Socket(text -> {
+        if (text.contains("\"t\":\"jog\"")) {
+            boolean ok = text.contains("\"ok\":1");
+            String e = "";
+            int at = text.indexOf("\"e\":\"");
+            if (at >= 0) {
+                int end = text.indexOf('"', at + 5);
+                e = end > at + 5 ? text.substring(at + 5, end).replace("\\u00b0", "\u00b0") : "";
+            }
+            answerLink(ok, e);
+        }
+    });
     private volatile String address;
     private volatile boolean demo;
 
@@ -157,6 +170,7 @@ class GamepadJog {
 
     void setDemo(boolean d) {
         demo = d;
+        if (d) link.close();
     }
 
     void setSettings(String json) {
@@ -337,6 +351,8 @@ class GamepadJog {
 
     private void step() {
         long now = System.currentTimeMillis();
+        if (!demo && deviceId != -1) link.want(address);  // a gamepad is there: keep the lasting link ready
+        link.tick();
         if (deviceId != -1 && InputDevice.getDevice(deviceId) == null) {
             // the gamepad is gone: nothing is held any more
             deviceId = -1;
@@ -407,6 +423,9 @@ class GamepadJog {
 
     private void jog(double x, double z, double c, long now) {
         lastSendMs = now;
+        if (!demo && link.send(String.format(Locale.US, "{\"t\":\"jog\",\"x\":%.1f,\"z\":%.1f,\"c\":%.1f}", x, z, c))) {
+            return;  // (no request in flight to wait for: the link sends it at once; the answer comes when it comes)
+        }
         post(String.format(Locale.US, "/jog?x=%.1f&z=%.1f&c=%.1f", x, z, c), true);
     }
 
@@ -457,6 +476,12 @@ class GamepadJog {
         });
     }
 
+    // an answer to a jog sent on the lasting link (nothing was counted in flight for it)
+    private void answerLink(boolean ok, String e) {
+        jogsInFlight++;
+        answer(true, ok ? 200 : 409, e);
+    }
+
     private void answer(boolean isJog, int code, String body) {
         if (isJog) jogsInFlight = Math.max(0, jogsInFlight - 1);
         if (code >= 200 && code < 300) {
@@ -495,9 +520,10 @@ class GamepadJog {
         lx = ry = l2 = r2 = 0;
         hatDown = hatUp = hatLeft = hatRight = false;
         if (moving || stops > 0) {
-            post("/jog?x=0&z=0&c=0", true);
+            if (demo || !link.send("{\"t\":\"jog\",\"x\":0,\"z\":0,\"c\":0}")) post("/jog?x=0&z=0&c=0", true);
             moving = false;
             stops = 0;
         }
+        link.close();  // (the H4 stops any jog 0.3 s after the last one anyway)
     }
 }

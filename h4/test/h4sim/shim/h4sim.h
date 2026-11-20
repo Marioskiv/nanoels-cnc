@@ -688,27 +688,42 @@ class WiFiUDP {
   uint32_t peerAddr_ = 0, outAddr_ = 0;
   uint16_t peerPort_ = 0, outPort_ = 0;
 };
-// TCP port 23 for Grbl senders: no sender connects in the simulation (the H4 is used from its app)
+// TCP: port 23 for Grbl senders stays closed (the H4 is used from its app); port 81, the app's lasting link
+// (wslink.ino), is a real TCP server on 127.0.0.1, H4SIM_PORT + 2 (h4simTcpPort).
+int h4simTcpPort(int port);
+#define WS_PUBLIC_PORT(p) h4simTcpPort(p)
+struct SimSock {
+  int fd = -1;
+  ~SimSock();
+};
 class WiFiClient : public Stream {
  public:
-  operator bool() const { return false; }
-  bool connected() { return false; }
-  int available() override { return 0; }
-  int read() override { return -1; }
-  size_t write(uint8_t) override { return 1; }
+  WiFiClient() {}
+  explicit WiFiClient(int fd) : s_(std::make_shared<SimSock>()) { s_->fd = fd; }
+  operator bool() const { return s_ && s_->fd >= 0; }
+  bool connected();
+  int available() override;
+  int read() override;
+  size_t write(uint8_t b) override { return write(&b, 1); }
+  size_t write(const uint8_t* b, size_t n) override;
   using Print::write;
-  void stop() {}
+  void stop();
   void setNoDelay(bool) {}
   IPAddress remoteIP() { return IPAddress(); }
+ private:
+  std::shared_ptr<SimSock> s_;
 };
 class WiFiServer {
  public:
-  WiFiServer(uint16_t = 23) {}
-  void begin() {}
+  WiFiServer(uint16_t port = 23) : port_(port) {}
+  void begin();
   void setNoDelay(bool) {}
-  WiFiClient accept() { return WiFiClient(); }
-  WiFiClient available() { return WiFiClient(); }
-  bool hasClient() { return false; }
+  bool hasClient();
+  WiFiClient accept();
+  WiFiClient available() { return accept(); }
+ private:
+  uint16_t port_;
+  int fd_ = -1, pending_ = -1;
 };
 
 // ------------------------------------------------------------------ WebServer (a real HTTP server on the PC)

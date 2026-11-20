@@ -335,6 +335,16 @@ The firmware itself keeps a small **emergency page** for any browser (status, ST
 restart, WiFi, firmware update, lasting log) - enough to recover the H4 if the app is not at hand. The app's screen
 shows the following:
 
+**The app's lasting link (firmware 1.48, `wslink.ino`, app 1.65).** The app keeps one WebSocket (RFC 6455) open
+to the H4's port **81** instead of opening a new HTTP connection for every request (as FluidNC's and grblHAL's web
+UIs do): the H4 sends its state by itself 10 times a second (the same JSON as `/status`, which names the port as
+`"ws"`), the app's page answers that it is still there every 250 ms and the gamepad's speeds go on it
+(`{"t":"jog","x":..,"z":..,"c":..}`, answered `{"t":"jog","ok":1}` or `{"t":"jog","ok":0,"e":"why"}`). Over a weak
+WiFi a new connection takes 100-300 ms and sometimes fails; a lasting one only sends its few bytes. A connection
+silent for 3 s is closed; every jog stops by itself 0.3 s after the last one, as before. The HTTP API is unchanged,
+and the app goes on with it whenever the link cannot be opened or goes quiet (an older firmware, a network that
+does not let port 81 through). At most 3 connections; the one quiet the longest makes room for a new one.
+
 The page shows X, Z and C, the program name, a progress bar and the current line, Start / Pause / Resume and
 a large STOP, a drawing of the program (polar programs as seen from the cutter, the done part in blue, the
 tool as a red dot), the files, the 25 H4 keys, the WiFi settings and a firmware update. The page is a

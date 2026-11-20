@@ -62,7 +62,9 @@ async function waitIdle(timeoutMs = 60000) {
 
 (async () => {
   let proc = await startSim();
-  const browser = await chromium.launch();
+  // (Chromium's local network checks block a WebSocket from a page the test serves itself; the app's WebView loads
+  // its page for the H4's address and talks to it directly)
+  const browser = await chromium.launch({ args: ['--disable-features=LocalNetworkAccessChecks'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     const errs = [];
@@ -75,6 +77,33 @@ async function waitIdle(timeoutMs = 60000) {
     await sleep(2500);
     ok(/Idle/i.test(await page.textContent('#cState')), 'the page connects to the H4 on the PC: "' + (await page.textContent('#cState')).trim() + '"');
     ok(!(await page.isVisible('#demoTag')), 'not the demo: the real firmware answers');
+    // the lasting link (firmware 1.48): open, the state comes on it (no /status asked meanwhile), positions move on it
+    {
+      let statusAsked = 0;
+      const count = r => { if (new URL(r.url()).pathname == '/status') statusAsked++; };
+      page.on('request', count);
+      await sleep(1500);
+      const l = await page.evaluate(() => ({ open: wsOpen, polls }));
+      await sleep(1000);
+      const l2 = await page.evaluate(() => ({ open: wsOpen, polls }));
+      page.off('request', count);
+      ok(l.open && l2.open && l2.polls - l.polls >= 8 && statusAsked <= 1,
+        'the page keeps one lasting link: the state ' + (l2.polls - l.polls) + ' times in 1 s on it, /status asked ' + statusAsked + ' times in 2.5 s');
+      // the link lost and not opened again (an older firmware, a network that does not let it through): /status as before
+      await page.evaluate(() => { wsRetry = Date.now() + 1e9; ws.close(); });
+      await sleep(300);
+      await page.evaluate(() => { wsRetry = Date.now() + 1e9; });  // (the close itself sets the next try)
+      await sleep(500);
+      statusAsked = 0;
+      page.on('request', count);
+      const p0 = await page.evaluate(() => polls);
+      await sleep(2000);
+      page.off('request', count);
+      const p1 = await page.evaluate(() => ({ open: wsOpen, polls }));
+      ok(!p1.open && p1.polls - p0 >= 4 && statusAsked >= 4 && /Idle/i.test(await page.textContent('#cState')),
+        'without the lasting link the page goes on with /status (' + statusAsked + ' in 2 s), still connected');
+      await page.evaluate(() => { wsRetry = 0; });
+    }
 
     // 1. machine settings on the page: home switches X and Z, as the author's machine (switch X at -20 from the
     //    centre, mill-style Z with its switch at +10), no spindle pause (router). The H4 restarts with them.
@@ -176,12 +205,15 @@ async function waitIdle(timeoutMs = 60000) {
     // check before the start can take more than 1.5 s on a slow CI machine; the WiFi was cut too early then)
     for (let i = 0; i < 100 && !(await status()).running; i++) await sleep(100);
     await sleep(1200);
+    // the WiFi cut: /status fails and the lasting link is gone and does not open again
     await page.route('**/status', r => r.abort());
+    await page.evaluate(() => { wsRetry = Date.now() + 1e9; if (ws) ws.close(); });
     await sleep(5000);
     ok(/NO CONNECTION/i.test(await page.textContent('#cState')), 'WiFi lost: the page shows "' + (await page.textContent('#cState')).trim() + '"');
     s = await status();
     ok(s.state == 'Hold' && /connection was lost/.test(s.text), 'the H4 paused by itself: "' + s.text.slice(0, 50) + '"');
     await page.unroute('**/status');
+    await page.evaluate(() => { wsRetry = 0; });
     await page.waitForFunction(() => /Hold/i.test(document.querySelector('#cState').textContent), null, { timeout: 5000 }).catch(() => {});
     ok(/Hold/i.test(await page.textContent('#cState')), 'WiFi back: the page shows the pause again');
     await page.click('button:text-is("Resume")');
@@ -244,6 +276,8 @@ async function waitIdle(timeoutMs = 60000) {
     await sleep(1500);
     page.off('dialog', grab);
     ok(offered == String(rec && rec.line), '"From line..." offers line ' + offered + ' (kept ' + (rec && rec.line) + ')');
+    // (the check before a start reads the whole file first: wait for its answer, up to 6 s on a slow machine)
+    for (let i = 0; i < 60 && /Checking|Έλεγχος/i.test((await page.textContent('#msg')) || ''); i++) await sleep(100);
     const st9 = await status(), said = ((await page.textContent('#msg')) || '').trim();
     ok(!st9.running && !st9.on && /Home All|zeros|μηδέν/i.test(said),
       'nothing starts before Home All / the zeros were confirmed: "' + said.slice(0, 120) + '"');

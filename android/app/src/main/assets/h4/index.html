@@ -512,7 +512,25 @@ function startFrom(){if(!selected){msg('Select a file first (G-code, Files).');r
 function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
  if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
 // the link to the H4: lost / back (with how long) and slow answers go to the app log
-let polls=0,linkLost=0,slowLog=0;async function poll(){const t0=Date.now();try{const r=await withT(fetch('/status'),5000);st=await withT(r.json(),5000);polls++;
+// The lasting link (firmware 1.48, wslink.ino): one WebSocket to the H4's port (st.ws) that stays open; the H4 sends
+// its state by itself 10 times a second and the gamepad's speeds go on it. While it is open /status is not asked; when
+// it cannot open or goes quiet for 1.5 s, the page goes on with /status as before (an older firmware has no port).
+let ws=null,wsOpen=false,wsLast=0,wsAlive=null,wsRetry=0,wsTries=0;
+function wsConnect(){if(ws||!st||!st.ws||isDemo()||Date.now()<wsRetry)return;
+ let s;try{s=new WebSocket('ws://'+location.hostname+':'+st.ws+'/')}catch(e){wsRetry=Date.now()+5000;return}
+ ws=s;s.onopen=()=>{wsOpen=true;wsTries=0;wsLast=Date.now();s.send('{"t":"sub"}');
+  wsAlive=setInterval(()=>{try{s.send('{"t":"alive"}')}catch(e){}},250);alog('H4','lasting link open','μόνιμη σύνδεση ανοιχτή')};
+ s.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}wsLast=Date.now();
+  if(m.t=='jog'){gpLinkAnswer(m);return}
+  if(m.state!==undefined){st=m;polls++;if(linkLost){alog('H4','link back after '+((Date.now()-linkLost)/1000).toFixed(1)+' s','η σύνδεση ξαναβρέθηκε μετά από '+((Date.now()-linkLost)/1000).toFixed(1)+' s');linkLost=0}show()}};
+ s.onclose=s.onerror=()=>{if(ws!==s)return;if(wsOpen)alog('H4','lasting link closed, going on with /status','η μόνιμη σύνδεση έκλεισε, συνέχεια με /status');
+  clearInterval(wsAlive);ws=null;wsOpen=false;wsTries++;wsRetry=Math.max(wsRetry,Date.now()+Math.min(10000,1000*wsTries));try{s.close()}catch(e){}}}
+function wsSend(t){if(!wsOpen)return false;try{ws.send(t);return true}catch(e){return false}}
+function isDemo(){return /[?&]demo=1/.test(location.search)}
+let polls=0,linkLost=0,slowLog=0;async function poll(){const t0=Date.now();
+ if(wsOpen&&Date.now()-wsLast>1500){try{ws.close()}catch(e){}ws.onclose&&ws.onclose()}
+ if(wsOpen){setTimeout(poll,250);return}
+ try{const r=await withT(fetch('/status'),5000);st=await withT(r.json(),5000);polls++;wsConnect();
   const ms=Date.now()-t0;if(linkLost){alog('H4','link back after '+((Date.now()-linkLost)/1000).toFixed(1)+' s','η σύνδεση ξαναβρέθηκε μετά από '+((Date.now()-linkLost)/1000).toFixed(1)+' s');linkLost=0}
   else if(ms>1500&&Date.now()-slowLog>10000){slowLog=Date.now();alog('H4','slow answer '+ms+' ms','αργή απάντηση '+ms+' ms')}show()}
  catch(e){if(!linkLost){linkLost=t0;alog('H4','LINK LOST: '+e.message,'ΧΑΘΗΚΕ Η ΣΥΝΔΕΣΗ: '+e.message)}$('cState').textContent='NO CONNECTION'}
@@ -944,7 +962,10 @@ if(gpApp){$('fwApp').classList.remove('nope');$('gpapp').hidden=false;window.h4A
 let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
 function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
 function gpRumble(){try{gpPad&&gpPad.vibrationActuator&&gpPad.vibrationActuator.playEffect('dual-rumble',{duration:200,strongMagnitude:.5,weakMagnitude:.5})}catch(e){}}
-async function gpSend(x,z,c){gpLast=performance.now();gpBusy=true;
+function gpLinkAnswer(m){if(!m.ok){const t=m.e||'refused';if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}
+async function gpSend(x,z,c){gpLast=performance.now();
+ if(wsSend('{"t":"jog","x":'+x.toFixed(1)+',"z":'+z.toFixed(1)+',"c":'+c.toFixed(1)+'}'))return;
+ gpBusy=true;
  try{const r=await withT(fetch('/jog?x='+x.toFixed(1)+'&z='+z.toFixed(1)+'&c='+c.toFixed(1),{method:'POST'}),1500);
   if(!r.ok){const t=await withT(r.text(),1500);if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}catch(e){}
  gpBusy=false}
