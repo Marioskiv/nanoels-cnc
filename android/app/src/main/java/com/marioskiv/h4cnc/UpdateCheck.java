@@ -325,7 +325,7 @@ final class UpdateCheck {
                         return;
                     }
                     progress.dismiss();
-                    else if (problem.equals(SIGNED_DIFFERENTLY)) offerUninstall(activity);
+                    if (problem.equals(SIGNED_DIFFERENTLY)) offerUninstall(activity);
                     else tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + problem);
                 });
             } catch (Exception e) {
