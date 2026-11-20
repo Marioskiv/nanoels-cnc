@@ -141,10 +141,13 @@ light flashes quickly. Then the PS button alone connects it. The layout is the o
 | D-pad left | feed override back to 100 % |
 
 Speeds, sticks, reversed axes and what each button does: *Settings, Gamepad* (the same map in the app and in Chrome; Defaults = the layout above). The gamepad's state and any refusal of the H4 are shown
-there; a refusal also rumbles the gamepad.
+there; a refusal also rumbles the gamepad. The button last pressed is shown there too, by the name printed on the
+pad: if it is not the one you pressed, the gamepad is read with another layout. A DualShock 4 on Android versions
+without Sony's layout (seen on Huawei, Android 7: L2 arrived as L1, R2 as R1) is recognised and translated (app 1.64).
 
 Safety: the app sends the wanted speeds every 0.1 s; the H4 turns them into short jogs (0.05 s pieces, never
-more than 0.2 s queued) and stops by itself 0.3 s after the last request: when L1 or the stick is released, the
+more than 0.2 s queued; when the speeds change, e.g. a second axis is added, each axis changes speed with its
+own acceleration, as LinuxCNC's jog, so the axis already moving does not pause - firmware 1.46) and stops by itself 0.3 s after the last request: when L1 or the stick is released, the
 app goes to the background, the screen turns off, the gamepad or the WiFi is lost. The screen stays on while the
 app is open. **This is not an emergency stop**: keep the power-supply switch within reach.
 

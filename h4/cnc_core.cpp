@@ -647,12 +647,22 @@ void cnc_st_prep_buffer() {
     }
 
     dt += prep.dt_remainder;
-    float inv_rate = dt / (last_n_steps_remaining - step_dist_remaining);  // min/step
-
-    float cycles_f = ceilf((float)settings.timerHz * 60.0f * inv_rate);
+    float inv_rate, cycles_f;
+    if (prep_segment->n_step == 0) {
+      // No whole step in this segment (very slow motion, e.g. accelerating from rest after a backlash take-up): it lasts
+      // its own time and nothing is carried to the next one. Until firmware 1.46 its one "tick" was the time of a whole
+      // step at the segment's rate, dt / (a fraction of a step that can be tiny): up to 4e9 timer ticks (200 s), and
+      // the step interrupt waited that long: the axes stood still and a stop never ended ("Stopping"; found on the
+      // simulated H4 with X reversed and then X and Z jogged together, 2026-11-20).
+      inv_rate = 0.0f;
+      cycles_f = ceilf((float)settings.timerHz * 60.0f * dt);
+    } else {
+      inv_rate = dt / (last_n_steps_remaining - step_dist_remaining);  // min/step
+      cycles_f = ceilf((float)settings.timerHz * 60.0f * inv_rate);
+    }
     uint32_t cycles = cycles_f > 4.0e9f ? 4000000000UL : (uint32_t)cycles_f;
     uint32_t level1 = settings.timerHz / 8000, level2 = settings.timerHz / 4000, level3 = settings.timerHz / 2000;
-    if (cycles < level1) {
+    if (prep_segment->n_step == 0 || cycles < level1) {  // (a segment without steps is one tick of its whole time)
       prep_segment->amass_level = 0;
     } else {
       if (cycles < level2) prep_segment->amass_level = 1;
@@ -671,7 +681,7 @@ void cnc_st_prep_buffer() {
 
     pl_block->millimeters = mm_remaining;
     prep.steps_remaining = n_steps_remaining;
-    prep.dt_remainder = (n_steps_remaining - step_dist_remaining) * inv_rate;
+    prep.dt_remainder = prep_segment->n_step == 0 ? 0.0f : (n_steps_remaining - step_dist_remaining) * inv_rate;
 
     if (mm_remaining == prep.mm_complete) {
       if (mm_remaining > 0.0f) {
