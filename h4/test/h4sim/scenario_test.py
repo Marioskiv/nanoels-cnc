@@ -269,7 +269,31 @@ def run_checks():
 
     axes_checks()
     held_key_checks()
+    jog_reverse_checks()
     connection_checks()
+
+
+def jog_reverse_checks():
+    # the app's jog (gamepad): X one way, then X back with Z together (backlash taken up first). Until firmware 1.46
+    # this moved 0.2 mm and stood in "Stopping" for good: a step segment without a whole step waited up to 200 s.
+    mdi("G90 G0 X5 Z-5")
+    wait_idle()
+    def jog(vx, vz, secs=1.2):
+        post("/jog", x="0", z="0", c="0")
+        time.sleep(0.6)
+        s0 = status()
+        end = time.time() + secs
+        while time.time() < end:
+            post("/jog", x=str(vx), z=str(vz), c="0")
+            status()
+            time.sleep(0.1)
+        post("/jog", x="0", z="0", c="0")
+        s = wait_idle(10)
+        return s["x"] - s0["x"], s["z"] - s0["z"], s["state"]
+    for vx, vz in [(-120, 0), (120, 120), (-120, 0), (120, -120)]:
+        mx, mz, state = jog(vx, vz)
+        ok = state == "Idle" and (vx == 0 or abs(mx) > 1.5) and (vz == 0 or abs(mz) > 1.5)
+        check(ok, "jog X %+d Z %+d mm/min after a reversal: moved X %.3f Z %.3f, %s" % (vx, vz, mx, mz, state))
 
 
 def held_key_checks():

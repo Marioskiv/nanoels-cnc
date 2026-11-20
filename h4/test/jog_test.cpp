@@ -160,6 +160,7 @@ struct Result {
   bool exact = false;                            // planner position = steps given, after the stop
   bool refused = false;
   bool endedOn = false;                          // the H4 still ON at the end
+  double longestTickS = 0;                       // longest wait of the step interrupt while it had motion
 };
 
 static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEveryMs = 0, double gapMs = 0) {
@@ -250,7 +251,7 @@ static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEvery
         nextSample += (uint64_t)(SAMPLE_S * TIMER_HZ);
       }
       cnc_tick_t tick;
-      cnc_isr(&tick);
+      if (cnc_isr(&tick) && tick.period) r.longestTickS = max(r.longestTickS, (double)tick.period / TIMER_HZ);
       for (int i = 0; i < CNC_N_AXIS; i++) {
         if (!(tick.step & (1 << i)) || tick.motorOnly) continue;
         tool[i] += (tick.dirNeg & (1 << i)) ? -1 : 1;
@@ -424,6 +425,90 @@ int main() {
     checkLimits(r, "one minute, stick moved around");
     snprintf(what, sizeof(what), "one minute, stick moved around: position exact, no underrun (%u), OFF at the end", r.underruns);
     check(r.exact && r.underruns == 0 && !isOn, what);
+  }
+
+  // 9. one axis, let go, then two axes with one of them reversed (its backlash is taken up first): the jog must run
+  //    and stop as any other (found 2026-11-20 on the simulated H4: it moved 0.2 mm and stayed in "Stopping")
+  {
+    struct { const char* name; float a[3]; float b[3]; } cases[] = {
+        {"Z down, then X+ Z+ (Z reverses)", {0, -600, 0}, {600, 600, 0}},
+        {"X out, then X- Z+ (X reverses)", {600, 0, 0}, {-600, 600, 0}},
+        {"Z+, then X+ Z- (Z reverses)", {0, 600, 0}, {600, -600, 0}}};
+    // with backlash on X and Z (take-up blocks): 0.15 mm and 0.3 mm
+    cnc_machine_t m;
+    memset(&m, 0, sizeof(m));
+    m.name[0] = 'X'; m.name[1] = 'Z'; m.name[2] = 'C';
+    for (int i = 0; i < CNC_N_AXIS; i++) m.active[i] = true;
+    m.rotary[CNC_C] = true;
+    m.defaultFeed = 120;
+    m.backlashSteps[CNC_X] = 180;
+    m.backlashSteps[CNC_Z] = 120;
+    cnc_gc_init(&m);
+    syncFromAxes();
+    for (auto& c : cases) {
+      std::vector<Req> q;
+      addReqs(q, 0, 1000, 100, 0, c.a[0], c.a[1], c.a[2]);
+      q.push_back({1100, {0, 0, 0}});
+      runJog(q, 1800);
+      int32_t p0[CNC_N_AXIS];
+      memcpy(p0, tool, sizeof(p0));
+      q.clear();
+      addReqs(q, 0, 1200, 100, 0, c.b[0], c.b[1], c.b[2]);
+      q.push_back({1300, {0, 0, 0}});
+      Result r = runJog(q, 3000);
+      double mx = (tool[CNC_X] - p0[CNC_X]) / settings.stepsPerUnit[CNC_X], mz = (tool[CNC_Z] - p0[CNC_Z]) / settings.stepsPerUnit[CNC_Z];
+      snprintf(what, sizeof(what), "%s: moved X %.3f Z %.3f mm (about 12 each), stopped, exact, not left stopping", c.name, mx, mz);
+      check(fabs(fabs(mx) - 12) < 3 && fabs(fabs(mz) - 12) < 3 && r.exact && !cncStopRequest && !isOn, what);
+    }
+  }
+
+  // 10. the same on the H4's own default machine: X 1920 steps/mm 3.75 mm/s 12.5 mm/s2, Z 400 steps/mm 12 mm/s
+  //     60 mm/s2, backlash X 0.15 mm Z 0.65 mm, jog at 120 mm/min, and the longest wait of the step interrupt. (The
+  //     stall fixed in firmware 1.46, a segment without a whole step waiting up to 200 s, needs the timing of the
+  //     whole firmware to appear: it is checked in h4sim/scenario_test.py.)
+  {
+    cnc_settings_t d = settings;
+    d.stepsPerUnit[CNC_X] = 1920; d.stepsPerUnit[CNC_Z] = 400;
+    d.maxRate[CNC_X] = 3.75f * 60; d.maxRate[CNC_Z] = 12 * 60;
+    d.acceleration[CNC_X] = 12.5f * 3600; d.acceleration[CNC_Z] = 60 * 3600;
+    cnc_core_settings(&d);
+    cnc_settings_t keep = settings;
+    settings = d;
+    for (int i = 0; i < CNC_N_AXIS; i++) { vmax[i] = settings.maxRate[i] / 60; amax[i] = settings.acceleration[i] / 3600; }
+    cnc_machine_t m;
+    memset(&m, 0, sizeof(m));
+    m.name[0] = 'X'; m.name[1] = 'Z'; m.name[2] = 'C';
+    for (int i = 0; i < CNC_N_AXIS; i++) m.active[i] = true;
+    m.rotary[CNC_C] = true;
+    m.defaultFeed = 120;
+    m.backlashSteps[CNC_X] = 288;
+    m.backlashSteps[CNC_Z] = 260;
+    cnc_gc_init(&m);
+    syncFromAxes();
+    float seq[][2] = {{-120, 0}, {120, 120}, {-120, 0}, {120, -120}, {0, 120}, {-120, -120}};
+    for (auto& v : seq) {
+      std::vector<Req> q;
+      addReqs(q, 0, 1200, 100, 0, v[0], v[1], 0);
+      q.push_back({1300, {0, 0, 0}});
+      int32_t p0[CNC_N_AXIS];
+      memcpy(p0, tool, sizeof(p0));
+      Result r = runJog(q, 3000);
+      double mx = (tool[CNC_X] - p0[CNC_X]) / settings.stepsPerUnit[CNC_X], mz = (tool[CNC_Z] - p0[CNC_Z]) / settings.stepsPerUnit[CNC_Z];
+      bool okMove = (v[0] == 0 || fabs(mx) > 1.8) && (v[1] == 0 || fabs(mz) > 1.8);
+      snprintf(what, sizeof(what), "default machine, jog X %+.0f Z %+.0f mm/min: moved X %.3f Z %.3f, longest step wait %.3f s, stopped, exact",
+               v[0], v[1], mx, mz, r.longestTickS);
+      check(okMove && r.longestTickS < 0.05 && r.exact && !cncStopRequest && !isOn, what);
+    }
+    settings = keep;
+    cnc_core_settings(&settings);
+    for (int i = 0; i < CNC_N_AXIS; i++) { vmax[i] = settings.maxRate[i] / 60; amax[i] = settings.acceleration[i] / 3600; }
+    memset(&m, 0, sizeof(m));
+    m.name[0] = 'X'; m.name[1] = 'Z'; m.name[2] = 'C';
+    for (int i = 0; i < CNC_N_AXIS; i++) m.active[i] = true;
+    m.rotary[CNC_C] = true;
+    m.defaultFeed = 120;
+    cnc_gc_init(&m);
+    syncFromAxes();
   }
 
   // ---- the arrows of the app: /key hold=1 every 150 ms
