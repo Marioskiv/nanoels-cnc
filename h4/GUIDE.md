@@ -156,6 +156,12 @@ Put your machine's numbers in `h4/my_machine.h` (copy `my_machine.h.example`). I
 so a newer firmware copied over the folder keeps it. Everything can also be changed later on the web page
 (*Machine settings*, stored in the H4; *Defaults from the firmware* goes back to `my_machine.h`).
 
+In the app (app 1.62), each axis page of *Machine settings* calculates the drive: the driver's steps per motor turn,
+the teeth on the motor and on the screw side (and a second belt or gear stage), the screw pitch (degrees per turn
+for a rotary axis); **Calculate** fills in *Motor steps per screw turn* and *Travel per screw turn*. **Fine adjustment
+by measuring**: move the axis by a known amount (e.g. `G1 X20 F300`), measure it, write both, **Correct** (the
+travel per screw turn is corrected). Then *Save and restart*.
+
 | Value | Meaning | From a LinuxCNC `.ini` |
 |---|---|---|
 | `MOTOR_STEPS_X`, `SCREW_X_DU` | steps per screw turn, travel per turn (deci-microns: 2 mm = 20000) | steps per mm = \|`STEP_SCALE`\| |
@@ -362,6 +368,11 @@ program runs.
 
 Do it in this order, the motors free to move, nothing in the chuck, a hand on the power switch.
 
+0. **Axes ON**: the button beside STOP in the app (green = on) switches all axes on or off together; in the
+   GCODE mode the keys **A** or **B** on the H4 do the same (in the lathe modes they stay A = X, B = Z). An axis
+   that is off has its driver released and its motor free, and the H4 leaves it out of the position line. With
+   an axis off, a program, a jog and Home All refuse to start and say so (firmware 1.45; before, they "ran"
+   without the motor holding).
 1. **Inputs**: on the page, *Inputs (terminal A2)* shows each switch. Free = not active; press each by hand =
    active. Wrong: change *Switch is normally closed* for that switch.
 2. **Directions** (before homing): MDI `$X` (allows moves before Home All), then
@@ -425,6 +436,9 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
 
 - The H4's keys or the page's jog buttons (Z across: ← towards the chuck is Z−; X up and down: ↑ is X−): they move Z and X, held keys stop when released or when the page loses its
   connection.
+  In the GCODE mode (firmware 1.45) a tap of an arrow key moves one step (0.01, 0.1 or 1 mm, the STEP key); a key
+  held runs smoothly at 5 %, 20 % or 60 % of the axis's maximum speed for those steps and stops soon after it is let
+  go (before: step - pause - step, and 1 mm at the full speed). The lathe modes keep the original behaviour.
 - PS4 / PS5 gamepad. **What each button does is set in Settings, Gamepad**: for every button an action alone and
   one while the **safety button** (*Hold to move*) is held; which axis each stick moves (left stick left / right,
   right stick up / down). Nothing moves without the safety button; Home All, touch-off Z0 and Resume are offered
@@ -491,6 +505,7 @@ next step. A speed above what the pulse length allows is refused in the settings
 | Motor hums or misses steps | too high speed or acceleration; weak 5V signal line (use an external 5 V, section 3.2); step pulse too short |
 | Axis moves the wrong way | *Invert direction* for that axis |
 | Wrong distance | steps per turn or travel per turn; the driver's microstep switches |
+| Nothing moves, Home All does nothing, no motor holds | the axes are off: **AXES ON** beside STOP (or key A on the H4 in the GCODE mode) |
 | Home All stops at once / "on its switch" | switch type (normally open / closed) or wiring; check *Inputs* |
 | "the switch was not pressed any more after the search" | something other than the switch stopped the search (electrical noise on its input, a loose wire): Home All again; if it repeats, screened cable, ground, a normally closed switch (firmware 1.34) |
 | "Home All first" | *Programs start only after Home All* is on: home, or `$X` to unlock |

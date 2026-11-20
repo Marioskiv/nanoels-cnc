@@ -23,6 +23,7 @@
 #include <functional>
 #include <mutex>
 #include <atomic>
+#include <thread>
 #include <algorithm>
 #include <type_traits>
 #include <memory>
@@ -296,7 +297,10 @@ void vTaskDelete(TaskHandle_t t);
 TickType_t xTaskGetTickCount();
 inline BaseType_t xPortGetCoreID() { return 0; }
 inline UBaseType_t uxTaskGetStackHighWaterMark(TaskHandle_t) { return 4096; }
-inline void taskYIELD() {}
+// A real yield and a compiler barrier: on the ESP32 taskYIELD() is a call the compiler cannot see through, so loops such
+// as `while (a->pendingPos != 0) taskYIELD();` read the value again each time. An empty inline function let the
+// compiler keep it in a register here: a held arrow key hung after its first step (found 2026-11-20).
+inline void taskYIELD() { std::atomic_signal_fence(std::memory_order_seq_cst); std::this_thread::yield(); }
 QueueHandle_t xQueueCreate(UBaseType_t length, UBaseType_t itemSize);
 BaseType_t xQueueSend(QueueHandle_t q, const void* item, TickType_t wait);
 BaseType_t xQueueReceive(QueueHandle_t q, void* item, TickType_t wait);

@@ -186,6 +186,10 @@ void handleMdi() {
     return;
   }
   if (line.equalsIgnoreCase("$H")) { // Home All, as in Grbl
+    if (!axesAllOn()) {
+      server.send(409, "text/plain", String("Home All refused: ") + AXES_OFF_TEXT);
+      return;
+    }
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");
       return;
@@ -304,6 +308,7 @@ void handleStatus() {
   json += ",\"in\":" + String((int)inRaw);
   json += ",\"act\":[" + String(inHomeX ? 1 : 0) + "," + String(inHomeZ ? 1 : 0) + "," + String(inAlarm ? 1 : 0) + "]";
   json += ",\"use\":[" + String(HOME_X_USE ? 1 : 0) + "," + String(HOME_Z_USE ? 1 : 0) + "," + String(ALARM_USE ? 1 : 0) + "]";
+  json += ",\"axesOn\":" + String(axesAllOn() ? 1 : 0) + ",\"axesOff\":\"" + axesOffLetters() + "\"";
   json += ",\"homed\":[" + String(x.homed ? 1 : 0) + "," + String(z.homed ? 1 : 0) + "," + String(a1.homed ? 1 : 0) + "]";
   json += ",\"homing\":" + String(homingActive ? 1 : 0);
   json += ",\"a2\":" + String(PULSE_2_USE ? 0 : 1);
@@ -531,9 +536,26 @@ void handleCommand() {
     }
     cncOverrideCommand(code);
     server.send(200, "text/plain", "Feed " + String(cncFeedOverrideWanted) + " %, rapids " + String(cncRapidOverrideWanted) + " %");
+  } else if (what == "axes") { // all axes on (1) / off (0), only while nothing moves
+    if (emergencyStop != ESTOP_NONE) {
+      server.send(409, "text/plain", "Emergency stop: restart the controller.");
+      return;
+    }
+    if (isOn || cncBusy() || homingActive || homingRequest || motionActive()) {
+      server.send(409, "text/plain", "The machine is ON or moving: stop it first.");
+      return;
+    }
+    bool on = server.arg("on") != "0";
+    setAllAxes(on);
+    cncLog(on ? "Axes ON" : "Axes OFF: the motors are free");
+    server.send(200, "text/plain", on ? "Axes ON" : "Axes OFF: the motors are free");
   } else if (what == "home") {
     if (emergencyStop != ESTOP_NONE) { // nothing moves after an emergency stop (the web server keeps answering since 1.38)
       server.send(409, "text/plain", "Emergency stop: restart the controller.");
+      return;
+    }
+    if (!axesAllOn()) {
+      server.send(409, "text/plain", String("Home All refused: ") + AXES_OFF_TEXT);
       return;
     }
     if (!homingConfigured()) {

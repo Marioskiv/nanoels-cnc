@@ -151,6 +151,9 @@ void vTaskDelay(int ms) {        // the homing task waits; meanwhile loop() runs
 // safety.ino (tested in safety_test.cpp): no restart to confirm here
 const char* safetyStartRefusal() { return NULL; }
 void safetyConfirmRestart(const char*) {}
+// h4.ino (firmware 1.45): all axes on / off together; a program and Home All refuse while they are off
+bool axesOn = true;
+bool axesAllOn() { return axesOn; }
 
 #include "../homing.ino"
 
@@ -224,6 +227,9 @@ int main() {
   check(a1.homed && a1.machineOffset == -a1.pos, "C takes machine 0 where it stands");
   check(cncFaultCount == 0, "no limit fault from the bounce during homing");
   check(cncStartRefusal() == NULL, "after Home All a program may start");
+  axesOn = false;
+  check(cncStartRefusal() != NULL && strstr(cncStartRefusal(), "Axes are off") != NULL, "axes off: a program is refused, \"Axes are off ...\"");
+  axesOn = true;
   check(!strcmp(cncStatusText, "Homed"), "status Homed");
   // A jog with the keys still moving or braking (firmware 1.25): a program may not start until every axis stands still
   // (the keypad task would switch the driver off at the end of its move, under the running program).

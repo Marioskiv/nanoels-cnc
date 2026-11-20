@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.44"
+#define FW_VERSION "1.45"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -448,6 +448,7 @@ struct Axis {
   long motorPos; // position of the motor in stepper motor steps, same as pos unless moving back, then differs by backlashSteps
   long savedMotorPos; // motorPos saved in Preferences
   bool continuous; // whether current movement is expected to continue until an unknown position
+  int heldSteps; // GCODE mode, keys: steps made since the key went down (0 = the first step of this press)
 
   long leftStop; // left stop value of pos
   long savedLeftStop; // value saved in Preferences
@@ -513,6 +514,7 @@ void initAxis(Axis* a, char name, bool active, bool rotational, float motorSteps
   a->motorPos = 0;
   a->savedMotorPos = 0;
   a->continuous = false;
+  a->heldSteps = 0;
 
   a->leftStop = 0;
   a->savedLeftStop = 0;
@@ -1418,12 +1420,26 @@ long getMoveStepForAxis(Axis* a) {
   return (a->rotational && measure != MEASURE_METRIC) ? (moveStep / 25.4) : moveStep;
 }
 
+// GCODE mode, an arrow key held (firmware 1.45): after the first step (a tap still moves exactly one step) the axis runs
+// smoothly at a speed set by the step size, instead of step - pause - step: 0.01 mm 5 %, 0.1 mm 20 %, 1 mm 60 % of the
+// axis's maximum speed. The lathe modes keep the original behaviour.
+long gcodeHoldSpeed(Axis* a) {
+  long pct = moveStep >= MOVE_STEP_1 ? 60 : moveStep >= MOVE_STEP_2 ? 20 : 5;
+  return max(1L, long(a->speedManualMove) * pct / 100);
+}
+
 long getStepMaxSpeed(Axis* a) {
+  if (mode == MODE_GCODE && (isContinuousStep() || a->heldSteps > 0)) return gcodeHoldSpeed(a);
   return isContinuousStep() ? a->speedManualMove : min(long(a->speedManualMove), abs(getMoveStepForAxis(a)) * 1000 / STEP_TIME_MS);
 }
 
 void waitForStep(Axis* a) {
-  if (isContinuousStep()) {
+  if (mode == MODE_GCODE && (isContinuousStep() || a->heldSteps++ > 0)) {
+    // held: keep about 50 ms of motion queued, so it runs smoothly and stops soon after the key is let go
+    a->speedMax = gcodeHoldSpeed(a);
+    long ahead = max(1L, a->speedMax / 20);
+    while (labs(a->pendingPos) > ahead) taskYIELD();
+  } else if (isContinuousStep()) {
     // Move continuously for default step.
     waitForPendingPosNear0(a);
   } else {
@@ -1525,6 +1541,7 @@ void taskMoveZ(void *param) {
         }
       } while (left ? buttonLeftPressed : buttonRightPressed);
     } else {
+      z.heldSteps = 0;
       z.speedMax = getStepMaxSpeed(&z);
       int delta = 0;
       do {
@@ -1590,6 +1607,7 @@ void taskMoveX(void *param) {
       taskYIELD();
     }
     x.movingManually = true;
+    x.heldSteps = 0;
     x.speedMax = getStepMaxSpeed(&x);
     stepperEnable(&x, true);
 
@@ -1644,6 +1662,7 @@ void taskMoveA1(void *param) {
       continue;
     }
     a1.movingManually = true;
+    a1.heldSteps = 0;
     a1.speedMax = getStepMaxSpeed(&a1);
     stepperEnable(&a1, true);
 
@@ -4108,6 +4127,16 @@ void processKeypadEvent() {
     markAxis0(&x);
   } else if (keyCode == B_Z) {
     markAxis0(&z);
+  } else if ((keyCode == B_A || keyCode == B_B) && mode == MODE_GCODE) {
+    // GCODE mode: all axes together (one switch, as a CNC control's "machine on")
+    if (isOn || cncBusy() || homingActive) {
+      beep();
+    } else {
+      bool on = !axesAllOn();
+      setAllAxes(on);
+      cncLog(on ? "Axes ON" : "Axes OFF: the motors are free");
+      cncStatusText = on ? "Axes ON" : "Axes OFF";
+    }
   } else if (keyCode == B_A) {
     x.disabled = !x.disabled;
     updateEnable(&x);
@@ -4205,6 +4234,32 @@ void stepperEnable(Axis* a, bool value) {
     if (a->stepperEnableCounter == 0) {
       updateEnable(a);
     }
+  }
+}
+
+// All axes on / off together (firmware 1.45): the app's "Axes" button beside STOP and, in the GCODE mode, the keys A / B
+// on the H4. A switched-off axis has its driver released (ENA) and its motor free; a program, a jog or Home All then
+// refuses itself instead of "moving" a motor that does not hold (cncStartRefusal, taskHoming). The lathe modes keep the
+// original keys: A = X, B = Z, and CUT in the A1 mode = C.
+bool axesAllOn() {
+  return !z.disabled && !x.disabled && (!a1.active || !a1.disabled);
+}
+
+// The switched-off axes as letters, e.g. "ZC" ("" = all on).
+String axesOffLetters() {
+  String s = "";
+  if (z.disabled) s += "Z";
+  if (x.disabled) s += "X";
+  if (a1.active && a1.disabled) s += "C";
+  return s;
+}
+
+void setAllAxes(bool on) {
+  Axis* list[3] = {&z, &x, &a1};
+  for (int i = 0; i < 3; i++) {
+    if (!list[i]->active) continue;
+    list[i]->disabled = !on;
+    updateEnable(list[i]);
   }
 }
 

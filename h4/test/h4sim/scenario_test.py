@@ -267,7 +267,77 @@ def run_checks():
     s = wait_idle(30)
     check(abs(s["x"] - 1) < 1e-3, "Resume: the program ends at X %.4f" % s["x"])
 
+    axes_checks()
+    held_key_checks()
     connection_checks()
+
+
+def held_key_checks():
+    # GCODE mode, the H4's arrow keys at 0.01 mm (firmware 1.45): a tap moves one step, a held key runs smoothly
+    if not status().get("gcodeMode"):
+        return
+    cfg = {i["k"]: i["v"] for i in json.loads(http(B + "/config")[1])["items"]}
+    max_mm_s = cfg["xSpeed"] / (cfg["xSteps"] / (cfg["xScrew"] / 10000.0))
+    ctl("/key", code=24)
+    ctl("/key", code=24)  # STEP twice: 1 mm -> 0.1 -> 0.01
+    time.sleep(0.3)
+    x0 = status()["x"]
+    ctl("/key", code=47)  # a tap of X up
+    time.sleep(1.5)
+    x1 = status()["x"]
+    check(abs(abs(x1 - x0) - 0.01) < 0.002, "a tap at 0.01 moves one step: X %.4f -> %.4f" % (x0, x1))
+    ctl("/key", code=47, down=1)
+    time.sleep(3)
+    ctl("/key", code=47, down=0)
+    time.sleep(1.5)
+    x2 = status()["x"]
+    expected = 0.05 * max_mm_s * 2.3  # 5 %% of the maximum, after the first step (about 0.6 s)
+    check(0.4 * expected < abs(x2 - x1) < 1.6 * expected + 0.05,
+          "held 3 s at 0.01: X ran %.3f mm smoothly (5 %% of %.1f mm/s, expected about %.3f; step-pause-step gave about 0.05)"
+          % (abs(x2 - x1), max_mm_s, expected))
+    ctl("/key", code=24)  # back to 1 mm
+    mdi("G0 X2")
+    wait_idle()
+
+
+def axes_checks():
+    # all axes on / off together (firmware 1.45): the app's button beside STOP, keys A / B on the H4 in the GCODE mode
+    s = status()
+    check(s.get("axesOn") == 1 and s.get("axesOff") == "", "/status: all axes on (%s, \"%s\")" % (s.get("axesOn"), s.get("axesOff")))
+    code, text = post("/cmd", **{"do": "axes", "on": "0"})
+    s = status()
+    check(code == 200 and s["axesOn"] == 0 and "Z" in s["axesOff"] and "X" in s["axesOff"],
+          "Axes OFF from the app: %d %s, off: %s" % (code, text.strip(), s["axesOff"]))
+    upload("axes.ngc", "G21 G90\nG1 X1 F300\nM2\n")
+    code, text = post("/cmd", **{"do": "start", "name": "axes.ngc"})
+    time.sleep(1.5)
+    s = status()
+    check(not s["running"] and "Axes are off" in (s["bench"] + text + s["text"]),
+          "a program does not start with the axes off: \"%s\"" % (s["bench"] or text).strip()[:120])
+    for _ in range(5):  # the refusal comes with the next request (the jog is planned by taskGcode)
+        code, text = post("/jog", x="300", z="0", c="0")
+        if code == 409:
+            break
+        time.sleep(0.15)
+    post("/jog", x="0", z="0", c="0")
+    check(code == 409 and "Axes are off" in text, "a jog is refused with the axes off: %d %s" % (code, text.strip()))
+    code, text = post("/cmd", **{"do": "home"})
+    check(code == 409 and "Axes are off" in text, "Home All is refused with the axes off: %d %s" % (code, text.strip()))
+    code, text = mdi("$H")
+    check(code == 409 and "Axes are off" in text, "MDI $H is refused with the axes off: %d %s" % (code, text.strip()))
+    if s.get("gcodeMode"):
+        ctl("/key", code=4)  # key A on the H4: all axes on again (GCODE mode)
+        time.sleep(0.5)
+        s = status()
+        check(s["axesOn"] == 1, "key A on the H4 (GCODE mode) switches all axes on: %s" % s["axesOn"])
+    else:
+        post("/cmd", **{"do": "axes", "on": "1"})
+    code, text = post("/cmd", **{"do": "axes", "on": "1"})
+    s = status()
+    check(code == 200 and s["axesOn"] == 1, "Axes ON from the app: %d %s" % (code, text.strip()))
+    mdi("G0 X2")
+    s = wait_idle()
+    check(abs(s["x"] - 2) < 1e-3, "with the axes on a move runs again: X %.4f" % s["x"])
 
 
 def discover():
