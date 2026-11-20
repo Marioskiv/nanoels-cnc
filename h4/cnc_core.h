@@ -85,7 +85,8 @@ typedef struct {
 typedef struct {
   uint8_t step;      // bit i = step axis i now
   uint8_t dirNeg;    // bit i = axis i direction negative (valid for the stepped axes)
-  uint8_t motorOnly; // set: the steps take up backlash (motor position changes, tool position does not)
+  uint8_t motorOnly; // bit i set: the step of axis i takes up backlash (its motor position changes, its tool position
+                     // does not)
   uint32_t period;   // timer ticks until the next call
 } cnc_tick_t;
 
@@ -127,6 +128,24 @@ void cnc_hold_start();            // decelerate to a stop inside the planned pat
 bool cnc_hold_complete();         // the hold has stopped all motion
 void cnc_hold_resume();           // continue the program after a completed hold
 bool cnc_hold_active();
+
+// ---- jog: every axis on its own, as LinuxCNC's jog (each axis its own planner, simple_tp): its speed goes to the
+// wanted one with its own acceleration, whatever the other axes do; it brakes in time for its soft limits and takes up
+// its backlash when it reverses (firmware 1.47; before, the app's jog was one straight move through the planner, as
+// Grbl's $J=, and the axes slowed or sped up together when one of them changed). Steps come from the same step
+// interrupt as a program's. Start only when nothing is queued (cnc_st_busy() false); cnc_hold_start() brakes every axis
+// to a stop (cnc_hold_complete() then true) and cnc_st_reset() / cnc_plan_reset() end it.
+typedef struct {
+  int32_t pos[CNC_N_AXIS];       // tool position, steps
+  int32_t slack[CNC_N_AXIS];     // backlash not taken up: tool - motor position, 0 (last moved up) ... backlash
+  int32_t backlash[CNC_N_AXIS];  // steps, 0 = none
+  int32_t lo[CNC_N_AXIS];        // soft limits of the tool position, steps (INT32_MIN / INT32_MAX = none)
+  int32_t hi[CNC_N_AXIS];
+} cnc_jog_axes_t;
+void cnc_jog_start(const cnc_jog_axes_t* axes);
+void cnc_jog_target(const float speed[CNC_N_AXIS]);  // wanted speeds, units/min, signed (limited to each axis's rate)
+bool cnc_jog_on();
+void cnc_jog_speeds(float speed[CNC_N_AXIS]);        // the speeds now (of the motion being prepared), units/min
 
 // ---- step interrupt: called by the timer, fills out and returns true if a tick was executed
 bool cnc_isr(cnc_tick_t* out);

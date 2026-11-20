@@ -143,7 +143,7 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/junction_axis_test" junction_axis_test
 "$OUT/junction_axis_test" || fail=$((fail + 1))
 # jogging from the app when the app stops talking (work plan B6): the gamepad's /jog with the real planner and the
 # arrows' /key hold (grbl.ino, wifi.ino, compiled unchanged): stop within 300 ms + braking, exact position, arrows 500 ms
-{ awk '/^#define WEB_JOG_PIECE_S/,/^unsigned long webJogStopMs/' ../grbl.ino; sh lathe/extract.sh ../grbl.ino "bool grblJog" "bool webJogRequest" "void webJogStop" "bool webJogService"; } > "$OUT/jog_funcs.inc"
+{ awk '/^#define WEB_JOG_TIMEOUT_MS/,/^unsigned long webJogStopMs/' ../grbl.ino; sh lathe/extract.sh ../grbl.ino "bool webJogRequest" "void webJogStop" "void webJogRefuse" "bool webJogService"; } > "$OUT/jog_funcs.inc"
 { grep -E "^(const unsigned long HELD_KEY_TIMEOUT_MS|int heldKey|unsigned long heldKeyMs)" ../wifi.ino; sh lathe/extract.sh ../wifi.ino "void releaseHeldKey" "void handleKey"; echo "void heldKeyFailSafe() {"; grep "HELD_KEY_TIMEOUT_MS) releaseHeldKey" ../wifi.ino; echo "}"; } > "$OUT/key_funcs.inc"
 g++ -O2 -Wall -Wextra -std=c++17 -I"$OUT" -o "$OUT/jog_test" jog_test.cpp ../cnc_core.cpp ../cnc_gcode.cpp
 "$OUT/jog_test" > "$OUT/jog.txt" || { cat "$OUT/jog.txt"; fail=$((fail + 1)); }
