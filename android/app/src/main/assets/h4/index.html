@@ -19,7 +19,8 @@ header{grid-area:h;display:flex;gap:8px;align-items:center;padding:6px 10px;bord
 .demo{font:700 11px system-ui;color:#000;background:var(--warn);border-radius:6px;padding:2px 6px}
 .pill{padding:4px 10px;border-radius:14px;border:1px solid #2f6db3;color:#9ecbff;font-weight:700;font-size:13px;letter-spacing:.04em;white-space:nowrap}
 .grow{flex:1}.hdev{display:flex;align-items:center;gap:10px;font:700 15px system-ui;color:var(--fg);white-space:nowrap}.hdev svg{height:16px;vertical-align:-2px;margin-right:3px}.hdev .low{color:var(--bad)}
-@media (max-width:560px){.hdev .hb,.hdev .hw{display:none}}.hstop{padding:7px 16px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
+@media (max-width:560px){.hdev .hb,.hdev .hw{display:none}}.haxes{padding:7px 12px;font-weight:800;white-space:nowrap;background:var(--btn);color:var(--fg);border:2px solid var(--bad)}.haxes.on{background:#1b7a3a;border-color:#1b7a3a;color:#fff}
+.hstop{padding:7px 16px;font-weight:800;letter-spacing:.05em;background:var(--bad);color:#fff;border-color:var(--bad)}
 main{grid-area:m;position:relative;min-height:0;overflow:hidden}
 .scr{position:absolute;inset:0;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:0}.scr[hidden],[hidden]{display:none!important}
 .tabs{position:fixed;z-index:70;left:8px;top:50px;display:flex;flex-direction:column;gap:5px;width:min(270px,calc(100vw - 16px));padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px #000a;
@@ -236,7 +237,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 </style></head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="icCyl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d6570"/><stop offset=".45" stop-color="#d4d9e0"/><stop offset="1" stop-color="#5d6570"/></linearGradient></defs></svg>
 <div id="app">
 <header><button type="button" class="navb" id="navBtn" aria-haspopup="true"></button><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
-<span class="demo" id="demoTag" hidden>DEMO</span><span class="grow"></span><span class="hdev" id="hDev"></span><button class="hstop" onclick="cmd('stop')">STOP</button></header>
+<span class="demo" id="demoTag" hidden>DEMO</span><span class="grow"></span><span class="hdev" id="hDev"></span><button class="haxes" id="hAxes" hidden onclick="axesTap()"></button><button class="hstop" onclick="cmd('stop')">STOP</button></header>
 <div class="conn" id="conn" hidden><b id="connHead">No connection to the H4</b><div id="connMsg" class="cnmsg"></div>
 <div class="sgrid" id="connBtns"><button onclick="cnSearch(8)">Find the H4</button><button onclick="cnJoin()">Direct with the H4</button><button onclick="cnGo()">Connection settings</button><button onclick="cnManual()">Address by hand</button><button onclick="H4App.demo()">Demo (no H4)</button><button onclick="cnHide()">Hide</button></div></div>
 <main>
@@ -423,7 +424,7 @@ if(DEMO)(function(){
   if(S.on){const L=S.lt;S.lp=(S.lp||0)+dt/3;if(S.lp>=1){S.lp=0;L.op++;if(L.op>=L.passes){S.on=false;L.done=(L.done||0)+1;if(L.xr!=null)S.x=L.xr;if(L.zr!=null)S.z=L.zr;add('Demo: lathe passes done')}}
    if(L.zl!=null&&L.zr!=null)S.z=L.zr+(L.zl-L.zr)*(S.lp||0)}}
  function status(){tick();const st=S.running?(S.paused?'Hold':'Run'):'Idle';
-  return {state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,
+  return {axesOn:S.axesOn===false?0:1,axesOff:S.axesOn===false?'ZXC':'',state:st,gcodeMode:1,on:S.on||S.running?1:0,text:S.paused?'Paused':'',x:S.x,z:S.z,c:S.c,cActive:1,inch:0,feed:S.running?60*S.fo/100:0,
    line:S.running?lines[Math.min(lines.length-1,6+Math.floor(S.progress*pts.length))]:'',progress:S.progress,program:S.program,
    programLoaded:S.program?1:0,underruns:0,estop:0,running:S.running?1:0,fsTotal:10e6,fsUsed:4200,psram:2e6,heap:150000,
    wifi:'DEMO - no H4 connected, nothing moves',lcd:['DEMO','X '+S.x.toFixed(3),'Z '+S.z.toFixed(3),'C '+S.c.toFixed(2)],
@@ -464,6 +465,7 @@ if(DEMO)(function(){
    const m=/G91 G1 ([XZC])([-\d.]+)/i.exec(l);if(m){S[m[1].toLowerCase()]+= +m[2]}
    add('Demo: '+l);return ok('Running: '+l)}
   if(p=='/cmd'){const d=arg('do');
+   if(d=='axes'){if(S.running)return no('The machine is ON or moving: stop it first.');S.axesOn=arg('on')!='0';return ok(S.axesOn?'Axes ON':'Axes OFF: the motors are free')}
    if(d=='start'){if(S.running)return no('The machine is ON or moving: stop it (OFF) first.');S.program=arg('name');S.running=true;S.paused=false;S.progress=0;add('Demo: start '+S.program);S.benchN++;S.bench='Checked '+S.program+': '+(text[S.program]||'').split('\n').length+' lines, all can run. Started.';return ok('Checking '+S.program+' before it starts (nothing moves) ...')}
    if(d=='stop'){S.running=false;S.on=false;S.paused=false;add('Demo: STOP');return ok('Stopping')}
    if(d=='pause'){if(!S.running)return no('Nothing runs.');S.paused=true;return ok('Pausing')}
@@ -546,7 +548,12 @@ async function eventsShow(){try{const r=await fetch('/events');const t=await r.t
 // The screen is the app's; the H4 firmware must speak the same interface (st.api). Older firmware works but lacks
 // newer fields: say it once.
 let apiSaid=false;function apiCheck(){if(apiSaid||DEMO||st.api!==undefined)return;apiSaid=true;msg('The H4 firmware is older than this app: update it (Settings, Firmware).')}
-function show(){const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
+// All axes on / off (firmware 1.45): green = the motors hold; otherwise nothing moves until it is pressed.
+function hAxesShow(){const b=$('hAxes');if(st.axesOn===undefined){b.hidden=true;return}b.hidden=false;const on=st.axesOn==1;b.classList.toggle('on',on);
+ const t=cnT(on?'AXES ON':'AXES OFF',on?'ΑΞΟΝΕΣ ON':'ΑΞΟΝΕΣ OFF')+(!on&&st.axesOff&&st.axesOff.length<2+(st.cActive?1:0)?' ('+st.axesOff+')':'')  /* only some off: which */;if(b.textContent!=t)b.textContent=t}
+function axesTap(){if(st.axesOn==1){if(!confirm(cnT('Switch all axes off? The motors go free (they can be turned by hand); nothing moves until AXES ON.',
+  'Σβήσιμο όλων των αξόνων; Τα μοτέρ μένουν ελεύθερα (γυρίζουν με το χέρι)· τίποτα δεν κινείται μέχρι το ΑΞΟΝΕΣ ON.')))return;cmd('axes','&on=0')}else cmd('axes','&on=1')}
+function show(){const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -715,7 +722,8 @@ function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmwar
 const I18N={
  // why a G-code program may not start (firmware homing.ino cncStartRefusal / cncAxisMovingRefusal; also the status line)
  'Driver alarm or E-stop':'Alarm driver ή έκτακτη ανάγκη','X on its switch':'Ο X πάνω στον διακόπτη του','Z on its switch':'Ο Z πάνω στον διακόπτη του',
- 'Homing':'Home σε εξέλιξη','Home All first':'Πρώτα Home All','Restarted while moving: Home All or confirm the zeros':'Επανεκκίνηση εν κινήσει: Home All ή επιβεβαίωσε τα μηδέν',
+ 'Homing':'Home σε εξέλιξη','Home All first':'Πρώτα Home All','Axes are off: Axes ON in the app (beside STOP) or key A on the H4':'Οι άξονες είναι σβηστοί: ΑΞΟΝΕΣ ON στο app (δίπλα στο STOP) ή πλήκτρο A στο H4',
+ 'Home All refused: Axes are off: Axes ON in the app (beside STOP) or key A on the H4':'Home All: όχι, οι άξονες είναι σβηστοί: ΑΞΟΝΕΣ ON στο app (δίπλα στο STOP) ή πλήκτρο A στο H4','Axes ON':'Άξονες ON','Axes OFF: the motors are free':'Άξονες OFF: τα μοτέρ είναι ελεύθερα','The machine is ON or moving: stop it first.':'Η μηχανή είναι ON ή κινείται: σταμάτησέ την πρώτα.','Restarted while moving: Home All or confirm the zeros':'Επανεκκίνηση εν κινήσει: Home All ή επιβεβαίωσε τα μηδέν',
  'X is still moving: start again when it has stopped':'Ο X κινείται ακόμα: ξεκίνα ξανά όταν σταματήσει','Z is still moving: start again when it has stopped':'Ο Z κινείται ακόμα: ξεκίνα ξανά όταν σταματήσει',
  'C is still moving: start again when it has stopped':'Ο C κινείται ακόμα: ξεκίνα ξανά όταν σταματήσει',
  // header, Control

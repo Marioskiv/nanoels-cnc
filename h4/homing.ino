@@ -81,12 +81,15 @@ int cncClampJog(Axis* a, long posCopy, int delta) {
   return delta;
 }
 
+const char AXES_OFF_TEXT[] = "Axes are off: Axes ON in the app (beside STOP) or key A on the H4";
+
 // Why a G-code program may not start now, or NULL.
 const char* cncStartRefusal() {
   if (ALARM_USE && inAlarm) return "Driver alarm or E-stop";
   if (HOME_X_USE && HOME_X_IS_LIMIT && inHomeX) return "X on its switch";
   if (HOME_Z_USE && HOME_Z_IS_LIMIT && inHomeZ) return "Z on its switch";
   if (homingActive) return "Homing";
+  if (!axesAllOn()) return AXES_OFF_TEXT;
   const char* restart = safetyStartRefusal(); // restarted while moving (safety.ino)
   if (restart != NULL) return restart;
   if (HOME_REQUIRED && !cncHomeOverride && ((HOME_X_USE && !x.homed) || (HOME_Z_USE && !z.homed))) return "Home All first";
@@ -506,6 +509,13 @@ void homeCheckRun() {
 
 void taskHoming(void* param) {
   while (emergencyStop == ESTOP_NONE) {
+    if ((homingRequest || homeCheckRequest) && !axesAllOn()) { // every way in: app, MDI $H, Grbl $H, keys
+      homingRequest = homeCheckRequest = false;
+      static char refused[140];
+      snprintf(refused, sizeof(refused), "Home All refused: %s", AXES_OFF_TEXT);
+      cncStatusText = refused;
+      cncLog(refused);
+    }
     if (homingRequest) {
       homingRequest = false;
       homingRun();

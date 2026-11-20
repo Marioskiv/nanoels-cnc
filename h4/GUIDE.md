@@ -362,6 +362,11 @@ program runs.
 
 Do it in this order, the motors free to move, nothing in the chuck, a hand on the power switch.
 
+0. **Axes ON**: the button beside STOP in the app (green = on) switches all axes on or off together; in the
+   GCODE mode the keys **A** or **B** on the H4 do the same (in the lathe modes they stay A = X, B = Z). An axis
+   that is off has its driver released and its motor free, and the H4 leaves it out of the position line. With
+   an axis off, a program, a jog and Home All refuse to start and say so (firmware 1.45; before, they "ran"
+   without the motor holding).
 1. **Inputs**: on the page, *Inputs (terminal A2)* shows each switch. Free = not active; press each by hand =
    active. Wrong: change *Switch is normally closed* for that switch.
 2. **Directions** (before homing): MDI `$X` (allows moves before Home All), then
@@ -491,6 +496,7 @@ next step. A speed above what the pulse length allows is refused in the settings
 | Motor hums or misses steps | too high speed or acceleration; weak 5V signal line (use an external 5 V, section 3.2); step pulse too short |
 | Axis moves the wrong way | *Invert direction* for that axis |
 | Wrong distance | steps per turn or travel per turn; the driver's microstep switches |
+| Nothing moves, Home All does nothing, no motor holds | the axes are off: **AXES ON** beside STOP (or key A on the H4 in the GCODE mode) |
 | Home All stops at once / "on its switch" | switch type (normally open / closed) or wiring; check *Inputs* |
 | "the switch was not pressed any more after the search" | something other than the switch stopped the search (electrical noise on its input, a loose wire): Home All again; if it repeats, screened cable, ground, a normally closed switch (firmware 1.34) |
 | "Home All first" | *Programs start only after Home All* is on: home, or `$X` to unlock |

@@ -256,6 +256,16 @@ async function waitIdle(timeoutMs = 60000) {
     const nets = ((await page.textContent('#cnNets')) || '').trim();
     ok(/no network|κανένα δίκτυο/.test(nets), 'the H4\'s networks are listed in the app (none on the PC): "' + nets.slice(0, 80) + '"');
     ok(await page.evaluate(() => $('conn').hidden), 'no "no connection" panel while the H4 answers');
+    // 11. one button for all axes, beside STOP (firmware 1.45)
+    const axTxt = async () => ((await page.textContent('#hAxes')) || '').trim();
+    ok(!(await page.evaluate(() => $('hAxes').hidden)) && /AXES ON|ΑΞΟΝΕΣ ON/.test(await axTxt()), 'the Axes button beside STOP shows ON: "' + (await axTxt()) + '"');
+    await page.click('#hAxes');  // its question is answered yes (the page's dialog handler)
+    await sleep(1200);
+    const sOff = await status();
+    ok(sOff.axesOn == 0 && /AXES OFF|ΑΞΟΝΕΣ OFF/.test(await axTxt()), 'pressed (confirmed): the axes are off, the button says "' + (await axTxt()) + '"');
+    await page.click('#hAxes');
+    await sleep(1200);
+    ok((await status()).axesOn == 1 && /AXES ON|ΑΞΟΝΕΣ ON/.test(await axTxt()), 'pressed again: all axes on, "' + (await axTxt()) + '"');
     process.kill(-proc.pid, 'SIGKILL');
     await sleep(7000);
     const panel = await page.evaluate(() => !$('conn').hidden && $('conn').textContent);

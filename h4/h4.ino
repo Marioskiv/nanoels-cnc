@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.44"
+#define FW_VERSION "1.45"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -4108,6 +4108,16 @@ void processKeypadEvent() {
     markAxis0(&x);
   } else if (keyCode == B_Z) {
     markAxis0(&z);
+  } else if ((keyCode == B_A || keyCode == B_B) && mode == MODE_GCODE) {
+    // GCODE mode: all axes together (one switch, as a CNC control's "machine on")
+    if (isOn || cncBusy() || homingActive) {
+      beep();
+    } else {
+      bool on = !axesAllOn();
+      setAllAxes(on);
+      cncLog(on ? "Axes ON" : "Axes OFF: the motors are free");
+      cncStatusText = on ? "Axes ON" : "Axes OFF";
+    }
   } else if (keyCode == B_A) {
     x.disabled = !x.disabled;
     updateEnable(&x);
@@ -4205,6 +4215,32 @@ void stepperEnable(Axis* a, bool value) {
     if (a->stepperEnableCounter == 0) {
       updateEnable(a);
     }
+  }
+}
+
+// All axes on / off together (firmware 1.45): the app's "Axes" button beside STOP and, in the GCODE mode, the keys A / B
+// on the H4. A switched-off axis has its driver released (ENA) and its motor free; a program, a jog or Home All then
+// refuses itself instead of "moving" a motor that does not hold (cncStartRefusal, taskHoming). The lathe modes keep the
+// original keys: A = X, B = Z, and CUT in the A1 mode = C.
+bool axesAllOn() {
+  return !z.disabled && !x.disabled && (!a1.active || !a1.disabled);
+}
+
+// The switched-off axes as letters, e.g. "ZC" ("" = all on).
+String axesOffLetters() {
+  String s = "";
+  if (z.disabled) s += "Z";
+  if (x.disabled) s += "X";
+  if (a1.active && a1.disabled) s += "C";
+  return s;
+}
+
+void setAllAxes(bool on) {
+  Axis* list[3] = {&z, &x, &a1};
+  for (int i = 0; i < 3; i++) {
+    if (!list[i]->active) continue;
+    list[i]->disabled = !on;
+    updateEnable(list[i]);
   }
 }
 

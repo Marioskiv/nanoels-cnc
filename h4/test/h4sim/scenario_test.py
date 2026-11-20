@@ -267,7 +267,48 @@ def run_checks():
     s = wait_idle(30)
     check(abs(s["x"] - 1) < 1e-3, "Resume: the program ends at X %.4f" % s["x"])
 
+    axes_checks()
     connection_checks()
+
+
+def axes_checks():
+    # all axes on / off together (firmware 1.45): the app's button beside STOP, keys A / B on the H4 in the GCODE mode
+    s = status()
+    check(s.get("axesOn") == 1 and s.get("axesOff") == "", "/status: all axes on (%s, \"%s\")" % (s.get("axesOn"), s.get("axesOff")))
+    code, text = post("/cmd", **{"do": "axes", "on": "0"})
+    s = status()
+    check(code == 200 and s["axesOn"] == 0 and "Z" in s["axesOff"] and "X" in s["axesOff"],
+          "Axes OFF from the app: %d %s, off: %s" % (code, text.strip(), s["axesOff"]))
+    upload("axes.ngc", "G21 G90\nG1 X1 F300\nM2\n")
+    code, text = post("/cmd", **{"do": "start", "name": "axes.ngc"})
+    time.sleep(1.5)
+    s = status()
+    check(not s["running"] and "Axes are off" in (s["bench"] + text + s["text"]),
+          "a program does not start with the axes off: \"%s\"" % (s["bench"] or text).strip()[:120])
+    for _ in range(5):  # the refusal comes with the next request (the jog is planned by taskGcode)
+        code, text = post("/jog", x="300", z="0", c="0")
+        if code == 409:
+            break
+        time.sleep(0.15)
+    post("/jog", x="0", z="0", c="0")
+    check(code == 409 and "Axes are off" in text, "a jog is refused with the axes off: %d %s" % (code, text.strip()))
+    code, text = post("/cmd", **{"do": "home"})
+    check(code == 409 and "Axes are off" in text, "Home All is refused with the axes off: %d %s" % (code, text.strip()))
+    code, text = mdi("$H")
+    check(code == 409 and "Axes are off" in text, "MDI $H is refused with the axes off: %d %s" % (code, text.strip()))
+    if s.get("gcodeMode"):
+        ctl("/key", code=4)  # key A on the H4: all axes on again (GCODE mode)
+        time.sleep(0.5)
+        s = status()
+        check(s["axesOn"] == 1, "key A on the H4 (GCODE mode) switches all axes on: %s" % s["axesOn"])
+    else:
+        post("/cmd", **{"do": "axes", "on": "1"})
+    code, text = post("/cmd", **{"do": "axes", "on": "1"})
+    s = status()
+    check(code == 200 and s["axesOn"] == 1, "Axes ON from the app: %d %s" % (code, text.strip()))
+    mdi("G0 X2")
+    s = wait_idle()
+    check(abs(s["x"] - 2) < 1e-3, "with the axes on a move runs again: X %.4f" % s["x"])
 
 
 def discover():
