@@ -499,7 +499,9 @@ async function post(url,body){const quiet=/^\/(jog|key\?.*hold=1)/.test(url),t0=
  try{r=await withT(fetch(url,{method:'POST',body}),ms0);t=await withT(r.text(),ms0)}catch(e){if(!quiet)alog('CMD',url+' → no answer: '+e.message,url+' → καμία απάντηση: '+e.message);throw e}
  const ms=Date.now()-t0;if(!r.ok){if(!quiet)alog('CMD',url+' → refused: '+t,url+' → το αρνήθηκε: '+t);throw new Error(t)}
  if(ms>1500&&!quiet)alog('CMD',url+' → slow answer '+ms+' ms',url+' → αργή απάντηση '+ms+' ms');return t}
-async function cmd(c,extra){try{msg(await post('/cmd?do='+c+(extra||'')))}catch(e){msg(e.message)}}
+// (the H4's own answer about the check before a start - "Started" / "Not started: ..." - may come on the lasting link
+// before this request's "Checking ...": it is not covered by it then)
+async function cmd(c,extra){const b0=st&&st.benchN;try{const t=await post('/cmd?do='+c+(extra||''));if(!(st&&b0!==undefined&&st.benchN!==b0))msg(t)}catch(e){msg(e.message)}}
 // Start from line N (firmware 1.31): proposed = the line where the last program stopped.
 function startFrom(){if(!selected){msg('Select a file first (G-code, Files).');return}
  const cut=resumeCut(),fromCut=cut&&cut.program==selected&&!st.stoppedAt;
