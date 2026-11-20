@@ -2,8 +2,9 @@
   jog_test.cpp - jogging from the app when the app stops talking (work plan B6). The H4 is jogged from the app in two
   ways, both checked here with the firmware's own code (extracted unchanged by run_tests.sh):
   1. the gamepad: the app sends the wanted speeds to /jog about every 100 ms (grbl.ino webJogRequest, webJogService,
-     webJogStop, grblJog) and the H4 plans short pieces with the real planner, interpreter and step generator
-     (cnc_core.cpp, cnc_gcode.cpp). Simulated: the step interrupt on a 20 MHz clock, taskGcode every 1 ms with now
+     webJogStop) and, since firmware 1.47, the step generator's jog (cnc_core.cpp cnc_jog_*) moves every axis on its
+     own, as LinuxCNC's jog: each with its own acceleration, braking for its soft limit, taking up its backlash (8c-8e).
+     Before 1.47 the speeds became short G1 pieces through the planner (one straight move of all axes, as Grbl's $J=). Simulated: the step interrupt on a 20 MHz clock, taskGcode every 1 ms with now
      and then a long gap, the app's requests (also late and irregular, as over WiFi), and what the firmware does
      around them (models, written here: grblEnsureOn starting the session, setIsOnFromLoop / cncService stopping,
      the end of the session in grblServiceLine). Checked on the author's machine (X 12 mm/s 100 mm/s2, Z 25 mm/s 100 mm/s2, C 360 deg/s 720 deg/s2):
@@ -75,6 +76,10 @@ static bool nextIsOnFlag = false, nextIsOn = false;
 void setIsOnFromTask(bool on) { nextIsOn = on; nextIsOnFlag = true; }
 
 static int32_t tool[CNC_N_AXIS] = {0, 0, 0};
+static int32_t motor[CNC_N_AXIS] = {0, 0, 0};       // motor position: differs from the tool by the backlash not taken up
+static int32_t backlash[CNC_N_AXIS] = {0, 0, 0};    // steps
+static int32_t limLo[CNC_N_AXIS] = {INT32_MIN, INT32_MIN, INT32_MIN}, limHi[CNC_N_AXIS] = {INT32_MAX, INT32_MAX, INT32_MAX};
+static bool cncStartRequest = false;                // (the firmware takes the positions before the jog starts)
 static void syncFromAxes() {  // cncSyncFromAxes: drop what is queued, the position is where the tool stands
   cnc_st_reset();
   cnc_plan_reset();
@@ -83,21 +88,23 @@ static void syncFromAxes() {  // cncSyncFromAxes: drop what is queued, the posit
   cnc_gc_sync(tool, z0, neg);
 }
 
-// grblRunGcode: grblEnsureOn (start a session: the H4 ON), then the line through the interpreter
-bool grblRunGcode(int ch, const char* text) {
-  if (!(isOn && grblSession)) {
-    if (isOn || cncBusy() || homingActive) return false;
-    if (cncStartRefusal()) { snprintf(cncLastError, sizeof(cncLastError), "%s", cncStartRefusal()); return false; }
-    grblSession = true;
-    isOn = true;
-  }
-  cncLastError[0] = '\0';
-  grblChannel = ch;
-  char msg[100] = "";
-  float dwell = 0;
-  int r = cnc_gc_line(text, 1, msg, sizeof(msg), &dwell);
-  if (r == CNC_ERROR) { snprintf(cncLastError, sizeof(cncLastError), "%s", msg); return false; }
+// webJogBegin: grblEnsureOn (start a session: the H4 ON)
+bool webJogBegin() {
+  if (isOn || cncBusy() || homingActive) return false;
+  if (cncStartRefusal()) { snprintf(cncLastError, sizeof(cncLastError), "%s", cncStartRefusal()); return false; }
+  grblSession = true;
+  isOn = true;
   return true;
+}
+// webJogAxes: the positions, backlash and limits of the axes
+void webJogAxes(cnc_jog_axes_t* ax) {
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    ax->pos[i] = tool[i];
+    ax->slack[i] = tool[i] - motor[i];
+    ax->backlash[i] = backlash[i];
+    ax->lo[i] = limLo[i];
+    ax->hi[i] = limHi[i];
+  }
 }
 
 #include "jog_funcs.inc"
@@ -238,15 +245,10 @@ static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEvery
             r.vSeen[i] = max(r.vSeen[i], fabs(v1));
             r.aSeen[i] = max(r.aSeen[i], fabs(v1 - v0) / SAMPLE_S);
             // steady speed while requests keep coming: at least 0.9 of the wanted (after speeding up)
-            // the jog queues WEB_JOG_LEAD_S of motion and that must be enough to brake: v <= 2 a lead on every
-            // axis; the axes move together (one straight move), so the slowest of them scales all
-            double k = 1;
-            for (int j = 0; j < CNC_N_AXIS; j++) {
-              double wj = fabs(wanted[j]) / 60;
-              if (wj > 2 * amax[j] * WEB_JOG_LEAD_S) k = std::min(k, 2 * amax[j] * WEB_JOG_LEAD_S / wj);
-            }
-            double w = wanted[i] / 60 * k;
-            if (w != 0 && wantedSince >= 0 && tS - wantedSince > 400 && tS < r.lastReqMs + 60 && ri < reqs.size()) {
+            double w = wanted[i] / 60;
+            // (after the time the axis needs to speed up with its own acceleration, + 0.1 s for the request to arrive)
+            double upMs = fabs(w) / amax[i] * 1000 + 100;
+            if (w != 0 && wantedSince >= 0 && tS - wantedSince > upMs && tS < r.lastReqMs + 60 && ri < reqs.size()) {
               r.minSpeedRatio = std::min(r.minSpeedRatio, v1 / w);
             }
           }
@@ -256,7 +258,9 @@ static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEvery
       cnc_tick_t tick;
       if (cnc_isr(&tick) && tick.period) r.longestTickS = max(r.longestTickS, (double)tick.period / TIMER_HZ);
       for (int i = 0; i < CNC_N_AXIS; i++) {
-        if (!(tick.step & (1 << i)) || tick.motorOnly) continue;
+        if (!(tick.step & (1 << i))) continue;
+        motor[i] += (tick.dirNeg & (1 << i)) ? -1 : 1;
+        if (tick.motorOnly & (1 << i)) continue;
         tool[i] += (tick.dirNeg & (1 << i)) ? -1 : 1;
         lastStepAt = now;
       }
@@ -267,7 +271,9 @@ static Result runJog(const std::vector<Req>& reqs, double endMs, double gapEvery
   if (lastStepAt > start) r.stillMs = (double)(lastStepAt - start) * 1000 / TIMER_HZ;
   for (int i = 0; i < CNC_N_AXIS; i++) r.travelAfter[i] = fabs((double)(tool[i] - atLast[i]) / settings.stepsPerUnit[i]);
   r.underruns = cnc_st_underruns() - under0;
+  // exact: nothing left, the planner where the tool is, and the motor within the backlash of the tool
   r.exact = !cnc_st_busy() && memcmp(cnc_plan_position(), tool, sizeof(tool)) == 0;
+  for (int i = 0; i < CNC_N_AXIS; i++) r.exact = r.exact && tool[i] - motor[i] >= 0 && tool[i] - motor[i] <= backlash[i];
   r.endedOn = isOn;
   return r;
 }
@@ -372,10 +378,10 @@ int main() {
     int32_t before = tool[CNC_Z];
     std::vector<Req> q;
     q.push_back({0, {0, 60, 0}});
-    q.push_back({1, {0, 0, 0}});  // a tap: one piece of 50 ms (0.05 mm at 60 mm/min)
+    q.push_back({100, {0, 0, 0}});  // a tap: the stick pushed for one request of the app (100 ms)
     Result r = runJog(q, 1500);
-    // speeds 0 a millisecond later: the hold comes after what was already prepared (0.1 s at 1 mm/s)
-    double moved = (tool[CNC_Z] - before) / settings.stepsPerUnit[CNC_Z], bound = 1.0 * (0.002 + CNC_SEGMENT_AHEAD_S + 0.01) + 0.01;
+    // speeds 0 after 100 ms: the stop comes after what was already prepared (0.06 s at 1 mm/s)
+    double moved = (tool[CNC_Z] - before) / settings.stepsPerUnit[CNC_Z], bound = 1.0 * (0.1 + 0.06 + 0.01) + 0.01;
     snprintf(what, sizeof(what), "a tap of the stick at 60 mm/min: Z moved %.3f mm (limit %.3f), position exact", moved, bound);
     check(r.exact && moved > 0 && moved <= bound, what);
   }
@@ -453,6 +459,85 @@ int main() {
     }
   }
 
+  // 8c. every axis on its own (firmware 1.47, as LinuxCNC's jog): X held at half speed the whole time while Z and C do
+  //     everything else (start, full speed, reverse at full speed, stop, start again): X's speed never changes (every
+  //     20 ms sample within 2 % + one step), and no axis accelerates harder than its own limit (+ one step per sample)
+  {
+    std::vector<Req> q;
+    float x = VX / 2;
+    addReqs(q, 0, 1000, 100, 0, x, 0, 0);
+    addReqs(q, 1100, 2000, 100, 0, x, VZ, 0);
+    addReqs(q, 2100, 3000, 100, 0, x, -VZ, VC);
+    addReqs(q, 3100, 4000, 100, 0, x, 0, -VC);
+    addReqs(q, 4100, 5000, 100, 0, x, VZ / 3, 0);
+    addReqs(q, 5100, 6000, 100, 0, x, -VZ, -VC / 2);
+    q.push_back({6100, {0, 0, 0}});
+    Result r = runJog(q, 8000);
+    double lo = 1e9, hi = 0, aMax[CNC_N_AXIS] = {0, 0, 0};
+    for (size_t k = 0; k < r.speeds.size(); k++) {
+      double t = r.speeds[k][0];
+      if (t > 800 && t < 6050) { lo = std::min(lo, r.speeds[k][1]); hi = max(hi, r.speeds[k][1]); }
+      if (k > 0) for (int i = 0; i < CNC_N_AXIS; i++) aMax[i] = max(aMax[i], fabs(r.speeds[k][1 + i] - r.speeds[k - 1][1 + i]) / 0.02);
+    }
+    double w = x / 60, q1 = 1 / settings.stepsPerUnit[CNC_X] / 0.02;
+    snprintf(what, sizeof(what), "X held at %.1f mm/s while Z and C start, reverse and stop: X between %.3f and %.3f", w, lo, hi);
+    check(lo >= w * 0.98 - q1 && hi <= w * 1.02 + q1, what);
+    bool aOk = true;
+    for (int i = 0; i < CNC_N_AXIS; i++) aOk = aOk && aMax[i] <= amax[i] * 1.1 + 2 / settings.stepsPerUnit[i] / (0.02 * 0.02);
+    snprintf(what, sizeof(what), "and each axis within its own acceleration: X %.0f Z %.0f C %.0f (limits %.0f %.0f %.0f)", aMax[0], aMax[1], aMax[2],
+             amax[0], amax[1], amax[2]);
+    check(aOk, what);
+    check(r.exact && r.underruns == 0 && !isOn, "and it stops exactly, no underrun");
+  }
+
+  // 8d. soft limits: X at full speed toward a limit 5 mm away brakes with its own acceleration and stops exactly on it
+  //     (LinuxCNC jog), not past it; the other way it moves again
+  {
+    int32_t lim = tool[CNC_X] + (int32_t)(5 * settings.stepsPerUnit[CNC_X]);
+    limHi[CNC_X] = lim;
+    std::vector<Req> q;
+    addReqs(q, 0, 3000, 100, 0, VX, VZ / 2, 0);
+    q.push_back({3100, {0, 0, 0}});
+    Result r = runJog(q, 4000);
+    double zMin = 1e9;
+    for (auto& sp : r.speeds) if (sp[0] > 800 && sp[0] < 3000) zMin = std::min(zMin, sp[2]);
+    snprintf(what, sizeof(what), "X at full speed toward a soft limit 5 mm away: stopped %d steps from it (0), Z went on (lowest %.2f of %.2f)",
+             lim - tool[CNC_X], zMin, VZ / 2 / 60);
+    check(tool[CNC_X] == lim && zMin >= VZ / 2 / 60 * 0.98 && r.exact, what);
+    checkLimits(r, "toward the soft limit");
+    int32_t p0 = tool[CNC_X];
+    q.clear();
+    addReqs(q, 0, 500, 100, 0, -VX, 0, 0);
+    q.push_back({600, {0, 0, 0}});
+    runJog(q, 1500);
+    check(tool[CNC_X] < p0, "and away from the limit it moves again");
+    limHi[CNC_X] = INT32_MAX;
+  }
+
+  // 8e. backlash per axis: Z down then up (0.3 mm backlash): the motor ends the take-up's length below the tool after
+  //     the move down and level with it after the move up; X going on meanwhile is not slowed by Z's take-up
+  {
+    backlash[CNC_Z] = 120;
+    std::vector<Req> q;
+    addReqs(q, 0, 800, 100, 0, VX / 2, -VZ, 0);
+    q.push_back({900, {0, 0, 0}});
+    runJog(q, 1800);
+    int32_t down = tool[CNC_Z] - motor[CNC_Z];
+    q.clear();
+    addReqs(q, 0, 800, 100, 0, VX / 2, 0, 0);
+    addReqs(q, 900, 2000, 100, 0, VX / 2, VZ, 0);
+    q.push_back({2100, {0, 0, 0}});
+    Result r = runJog(q, 3000);
+    int32_t up = tool[CNC_Z] - motor[CNC_Z];
+    double lo = 1e9;
+    for (auto& sp : r.speeds) if (sp[0] > 600 && sp[0] < 2050) lo = std::min(lo, sp[1]);
+    snprintf(what, sizeof(what), "Z backlash 120 steps: motor below the tool by %d after down, %d after up; X kept %.2f of %.2f", down, up, lo,
+             VX / 2 / 60);
+    check(down == 120 && up == 0 && lo >= VX / 2 / 60 * 0.98 && r.exact, what);
+    backlash[CNC_Z] = 0;
+    memcpy(motor, tool, sizeof(motor));
+  }
+
   // 9. one axis, let go, then two axes with one of them reversed (its backlash is taken up first): the jog must run
   //    and stop as any other (found 2026-11-20 on the simulated H4: it moved 0.2 mm and stayed in "Stopping")
   {
@@ -469,6 +554,7 @@ int main() {
     m.defaultFeed = 120;
     m.backlashSteps[CNC_X] = 180;
     m.backlashSteps[CNC_Z] = 120;
+    backlash[CNC_X] = 180; backlash[CNC_Z] = 120;
     cnc_gc_init(&m);
     syncFromAxes();
     for (auto& c : cases) {
@@ -509,6 +595,7 @@ int main() {
     m.defaultFeed = 120;
     m.backlashSteps[CNC_X] = 288;
     m.backlashSteps[CNC_Z] = 260;
+    backlash[CNC_X] = 288; backlash[CNC_Z] = 260;
     cnc_gc_init(&m);
     syncFromAxes();
     float seq[][2] = {{-120, 0}, {120, 120}, {-120, 0}, {120, -120}, {0, 120}, {-120, -120}};
@@ -534,6 +621,8 @@ int main() {
     m.rotary[CNC_C] = true;
     m.defaultFeed = 120;
     cnc_gc_init(&m);
+    memset(backlash, 0, sizeof(backlash));
+    memcpy(motor, tool, sizeof(motor));
     syncFromAxes();
   }
 

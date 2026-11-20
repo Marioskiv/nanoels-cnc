@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.46"
+#define FW_VERSION "1.47"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1793,7 +1793,7 @@ static uint64_t IRAM_ATTR cncStepTick(uint64_t countValue, uint64_t alarmValue) 
       int d = (cncPending.dirNeg & (1 << i)) ? -1 : 1;
       a->motorPos += d;
       a->posGlobal += d;
-      if (!cncPending.motorOnly) a->pos += d;
+      if (!(cncPending.motorOnly & (1 << i))) a->pos += d;  // a backlash take-up step moves the motor only
       a->stepStartUs = nowUs;
     }
     cncDiagSteps = cncDiagSteps + 1;

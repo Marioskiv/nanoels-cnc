@@ -496,28 +496,54 @@ bool grblServiceLine() {
 
 // ------------------------------------------------------------------ gamepad of the web page
 
+// The jog's session: the H4 ON in a Grbl session (grblEnsureOn waits until loop() has turned it on). False: refused,
+// the reason in cncLastError or sent as a message.
+bool webJogBegin() {
+  int channel = grblChannel;  // a connected sender keeps its messages
+  bool ok = grblEnsureOn(-1);
+  grblChannel = channel;
+  return ok;
+}
+
+// What the jog starts from: the H4 axes (tool and motor positions, backlash) and the soft limits / stops, as
+// cncSyncFromAxes gives them to the interpreter.
+void webJogAxes(cnc_jog_axes_t* ax) {
+  bool limits = CNC_RESPECT_STOPS || softLimitsActive();
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    ax->pos[i] = a->pos;
+    ax->backlash[i] = a->backlashSteps;
+    ax->slack[i] = a->backlashSteps > 0 ? a->pos - a->motorPos : 0;
+    long lo = (!CNC_RESPECT_STOPS || a->rightStop == LONG_MIN) ? INT32_MIN : a->rightStop;
+    long hi = (!CNC_RESPECT_STOPS || a->leftStop == LONG_MAX) ? INT32_MAX : a->leftStop;
+    long slo, shi;
+    if (softLimitSteps(a, &slo, &shi)) {  // homing.ino
+      if (slo > lo) lo = slo;
+      if (shi < hi) hi = shi;
+    }
+    if (!limits || !a->active) {
+      lo = INT32_MIN;
+      hi = INT32_MAX;
+    }
+    ax->lo[i] = lo;
+    ax->hi[i] = hi;
+  }
+}
+
 // The web page reads a gamepad (on the phone / computer) and sends the wanted speeds to /jog about every 100 ms
-// (wifi.ino). Here they become short jogs, as a Grbl jog pendant sends them: pieces of WEB_JOG_PIECE_S seconds,
-// never more than WEB_JOG_LEAD_S seconds or WEB_JOG_MAX_BLOCKS of them queued. Speeds 0, or no request for
-// WEB_JOG_TIMEOUT_MS (page closed, WiFi lost), stop at once with a jog cancel.
-#define WEB_JOG_PIECE_S 0.05f
-#define WEB_JOG_LEAD_S 0.2f
-#define WEB_JOG_MAX_BLOCKS 24
-// While the wanted speeds change (an axis added or let go, a stick moved further), each axis's speed is ramped by at
-// most what it may change at one corner of the path (its acceleration x CNC_JUNCTION_AXIS_JUMP_MIN, 10 ms), in pieces
-// of that length: so every axis speeds up and slows down with its own acceleration, as LinuxCNC's jog, and the planner
-// never has to slow the axes already moving (firmware 1.46; before, adding Z while X moved made a corner that braked
-// X almost to a stop: a pause).
-#define WEB_JOG_RAMP_S 0.0095f
+// (wifi.ino). Since firmware 1.47 they go to the step generator's jog (cnc_core.h cnc_jog_*): every axis on its own,
+// as LinuxCNC's jog, each speeding up, slowing down and reversing with its own acceleration, braking in time for its
+// soft limits and taking up its backlash itself; adding, changing or letting go one axis does not change the others.
+// (Before, the speeds became short G1 jogs through the planner, as a Grbl pendant sends $J=: one straight move of all
+// axes, so the axes slowed or sped up together when one changed.) The jog runs in a Grbl session (the H4 ON, state
+// "Jog"); speeds 0, or no request for WEB_JOG_TIMEOUT_MS (page closed, WiFi lost), brake every axis to a stop and end it.
 #define WEB_JOG_TIMEOUT_MS 300
 volatile float webJogSpeed[3] = {0, 0, 0};  // X mm/min, Z mm/min, C deg/min
 volatile unsigned long webJogMs = 0;
 volatile bool webJogRefused = false;        // set on a refusal; cleared when the page sends speeds 0
 char webJogError[100] = "";
-bool webJogRunning = false;
-float webJogQueuedS = 0;
-unsigned long webJogLastMs = 0;
-float webJogCur[3] = {0, 0, 0};             // the speeds the pieces give now, ramped to the wanted ones
+bool webJogRunning = false;                 // the step generator jogs
+bool webJogStarting = false;                // the session is being started (the H4 takes the positions first)
 unsigned long webJogStopMs = 0;
 
 // From the web server (wifi.ino). False: the last jog was refused (reason in webJogError).
@@ -531,14 +557,19 @@ bool webJogRequest(float vx, float vz, float vc) {
 }
 
 void webJogStop() {
-  if (!webJogRunning) return;
+  if (!webJogRunning && !webJogStarting) return;
   webJogRunning = false;
-  webJogQueuedS = 0;
+  webJogStarting = false;
   webJogStopMs = millis();
-  if (grblJogging) setIsOnFromTask(false);  // as the Grbl jog cancel: brake, drop the rest
+  if (isOn && grblSession) setIsOnFromTask(false);  // brakes every axis (cnc_hold_start), then the session ends
 }
 
-// In taskGcode. True when a jog piece was planned.
+void webJogRefuse(const char* why) {
+  snprintf(webJogError, sizeof(webJogError), "%s", why);
+  webJogRefused = true;
+}
+
+// In taskGcode, before cncService() (which prepares the steps). Always false (nothing to skip in taskGcode).
 bool webJogService() {
   unsigned long now = millis();
   float vx = webJogSpeed[0], vz = webJogSpeed[1], vc = webJogSpeed[2];
@@ -547,72 +578,49 @@ bool webJogService() {
     webJogStop();
     return false;
   }
-  webJogQueuedS = max(0.0f, webJogQueuedS - (now - webJogLastMs) / 1000.0f);
-  webJogLastMs = now;
-  if (!webJogRunning) {
+  if (webJogRunning && !cnc_jog_on()) {
+    // ended by the H4 (a limit switch, a driver alarm, STOP): stays refused until the stick is let go
+    webJogRunning = false;
+    webJogStopMs = now;
+    webJogRefuse(cncLastError[0] ? cncLastError : "The jog was stopped");
+    return false;
+  }
+  if (!webJogRunning && !webJogStarting) {
     if (now - webJogStopMs < 500 || (cncBusy() && !isOn)) return false;  // the last stop is still braking
     if (isOn || cncBusy()) {
-      snprintf(webJogError, sizeof(webJogError), "A program is running");
-      webJogRefused = true;
+      webJogRefuse("A program is running");
       return false;
     }
-  }
-  if (webJogQueuedS >= WEB_JOG_LEAD_S || cnc_plan_blocks_used() >= WEB_JOG_MAX_BLOCKS) return false;
-  const char* refusal = isOn ? NULL : (homingActive || homingRequest ? "Home All is running" : cncStartRefusal());
-  if (refusal != NULL) {
-    snprintf(webJogError, sizeof(webJogError), "%s", refusal);
-    webJogRefused = true;
+    const char* refusal = homingActive || homingRequest ? "Home All is running" : cncStartRefusal();
+    if (refusal != NULL) {
+      webJogRefuse(refusal);
+      return false;
+    }
+    cncLastError[0] = '\0';
+    if (!webJogBegin()) {  // the session: the H4 ON
+      webJogRefuse(cncLastError[0] ? cncLastError : "Jog refused");
+      return false;
+    }
+    webJogStarting = true;
+    grblLastMs = now;
     return false;
   }
-  // ramp each axis to its wanted speed (see WEB_JOG_RAMP_S); from rest the planner accelerates the move itself
-  float want[3] = {vx, vz, vc};
-  const int cncIdx[3] = {CNC_X, CNC_Z, CNC_C};
-  bool ramping = false;
-  // and the direction may turn only a few degrees per piece (an axis that starts from 0 next to a moving one would
-  // otherwise make a sharp corner at once: X slowed to 2/3 when C was added): each change at most 9 % of the speed now
-  float now2 = 0;
-  for (int i = 0; i < 3; i++) now2 += webJogCur[i] * webJogCur[i];
-  float turnMax = 0.09f * sqrtf(now2);
-  for (int i = 0; i < 3; i++) {
-    if (!webJogRunning) {
-      webJogCur[i] = want[i];
-      continue;
+  if (webJogStarting) {
+    if (!isOn || !grblSession) {  // turned off meanwhile
+      webJogStarting = false;
+      webJogStopMs = now;
+      return false;
     }
-    // half the axis's acceleration: the planner also speeds the path up or down at the same time (the length of the
-    // speed vector changes), and the two together stay within 1.5 x the acceleration over 20 ms (jog_test)
-    float dvMax = 0.5f * cnc_core_get_settings()->acceleration[cncIdx[i]] * (WEB_JOG_RAMP_S / 60.0f);  // units/min per piece
-    dvMax = fminf(dvMax, fmaxf(turnMax, 0.1f * dvMax));
-    float d = want[i] - webJogCur[i];
-    if (fabsf(d) > dvMax) {
-      d = d > 0 ? dvMax : -dvMax;
-      ramping = true;
-    }
-    webJogCur[i] += d;
+    if (cncStartRequest || cncBusy()) return false;  // taskGcode takes the positions from the axes first
+    cnc_jog_axes_t ax;
+    webJogAxes(&ax);
+    cnc_jog_start(&ax);
+    webJogStarting = false;
+    webJogRunning = true;
   }
-  float pieceS = ramping ? WEB_JOG_RAMP_S : WEB_JOG_PIECE_S;
-  if (webJogCur[0] == 0 && webJogCur[1] == 0 && webJogCur[2] == 0) return false;  // passing through 0: next piece
-  float dx = webJogCur[0] / 60 * pieceS, dz = webJogCur[1] / 60 * pieceS, dc = webJogCur[2] / 60 * pieceS;
-  // the feed as LinuxCNC (and cnc_gcode.cpp since 1.35) reads it: along X/Z when they move (C follows in the same
-  // time), else C alone
-  float linear = sqrtf(dx * dx + dz * dz);
-  float feed = (linear > 0 ? linear : fabsf(dc)) / pieceS * 60;
-  char words[120];
-  int n = snprintf(words, sizeof(words), "G91 G94 G21");
-  if (dx != 0) n += snprintf(words + n, sizeof(words) - n, " X%.5f", dx);
-  if (dz != 0) n += snprintf(words + n, sizeof(words) - n, " Z%.5f", dz);
-  if (dc != 0) n += snprintf(words + n, sizeof(words) - n, " C%.5f", dc);
-  snprintf(words + n, sizeof(words) - n, " F%.1f", feed);
-  int channel = grblChannel;  // a connected sender keeps its messages
-  bool ok = grblJog(-1, String(words));
-  grblChannel = channel;
-  grblLastMs = millis();
-  if (!ok) {
-    snprintf(webJogError, sizeof(webJogError), "%s", cncLastError[0] ? cncLastError : "Jog refused");
-    webJogRefused = true;
-    webJogStop();
-    return false;
-  }
-  webJogRunning = true;
-  webJogQueuedS += pieceS;
-  return true;
+  grblJogging = true;  // the state "Jog"
+  float v[3] = {vx, vz, vc};
+  cnc_jog_target(v);
+  grblLastMs = now;  // the session goes on while the jog runs
+  return false;
 }

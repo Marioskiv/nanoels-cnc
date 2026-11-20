@@ -297,8 +297,12 @@ Releases page) shows this page full screen and reads the gamepad itself, with no
 
 **Gamepad on the phone (no extra board).** The H4 web page also reads a PS4 / PS5 gamepad connected to the
 phone or computer (Android: Settings > Bluetooth, pair it with Share + PS). Same layout; the page sends the wanted
-speeds to the H4 every 100 ms and the H4 turns them into the same short jogs (0.05 s pieces, at most 0.2 s queued,
-stop 0.3 s after the last request or at once on release). The page must stay open in front. Chrome only gives a
+speeds to the H4 every 100 ms and the H4 jogs every axis on its own, as LinuxCNC does (firmware 1.47): each axis
+speeds up, slows down and reverses with its own acceleration, brakes in time to stop exactly on its soft limit and takes
+up its own backlash, so adding, changing or letting go one axis does not change the others (before, the speeds became
+short G1 jogs through the planner, one straight move of all axes as Grbl's `$J=`, and the axes slowed or sped up
+together). 0.06 s of motion is prepared ahead; every axis brakes to a stop 0.3 s after the last request, or at once on
+release. The page must stay open in front. Chrome only gives a
 page a gamepad on a secure origin, and the H4 page is plain `http://`: on Android open `chrome://flags`, search
 *Insecure origins treated as secure*, add the H4 address (e.g. `http://192.168.1.50`), Enabled, Relaunch. Speeds
 and reversed axes are set in the *Gamepad* box of the page (kept in that browser). The MDI line also accepts `$X`

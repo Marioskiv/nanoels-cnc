@@ -358,6 +358,7 @@ typedef struct {
   uint8_t direction_bits;
   uint8_t condition;
   uint32_t line;
+  uint32_t takeup[CNC_N_AXIS];  // jog: the first steps of each axis that take up its backlash
 } st_block_t;
 static st_block_t st_block_buffer[CNC_SEGMENT_BUFFER_SIZE - 1];
 
@@ -373,6 +374,7 @@ static segment_t segment_buffer[CNC_SEGMENT_BUFFER_SIZE];
 
 typedef struct {
   uint32_t counter[CNC_N_AXIS];
+  uint32_t takeup[CNC_N_AXIS];
   uint32_t steps[CNC_N_AXIS];
   uint32_t step_count;
   uint8_t exec_block_index;
@@ -410,7 +412,21 @@ typedef struct {
 } st_prep_t;
 static st_prep_t prep;
 
+// ---- jog (see cnc_core.h)
+#define JOG_DT_S 0.005f      // one segment: each axis's speed changes by at most its acceleration x this
+#define JOG_AHEAD_S 0.06f    // prepared ahead (a new wanted speed or a hold takes effect after at most this)
+typedef struct {
+  bool on;
+  float target[CNC_N_AXIS];  // units/min
+  float speed[CNC_N_AXIS];   // units/min at the end of the last prepared segment
+  double motor[CNC_N_AXIS];  // motor position the speeds give, steps (fractional), relative to the start
+  int32_t motorSteps[CNC_N_AXIS];  // whole steps prepared, relative to the start
+  cnc_jog_axes_t ax;         // pos and slack follow the prepared steps
+} jog_t;
+static jog_t jog;
+
 void cnc_st_reset() {
+  jog.on = false;
   memset(&prep, 0, sizeof(prep));
   memset(&st, 0, sizeof(st));
   st.exec_segment = NULL;
@@ -433,6 +449,144 @@ static void st_update_plan_block_parameters() {
 
 static uint8_t st_next_block_index(uint8_t i) { i++; return i == (CNC_SEGMENT_BUFFER_SIZE - 1) ? 0 : i; }
 
+// Segment timing as for the planner's segments: n_step steps of the busiest axis in dt seconds, with AMASS.
+static void st_segment_timing(segment_t* seg, float dt_s) {
+  float cycles_f = seg->n_step == 0 ? ceilf((float)settings.timerHz * dt_s) : (float)settings.timerHz * dt_s / seg->n_step;
+  uint32_t cycles = cycles_f > 4.0e9f ? 4000000000UL : (uint32_t)(cycles_f + 0.5f);
+  if (cycles < 1) cycles = 1;
+  uint32_t level1 = settings.timerHz / 8000, level2 = settings.timerHz / 4000, level3 = settings.timerHz / 2000;
+  if (seg->n_step == 0 || cycles < level1) {
+    seg->amass_level = 0;
+  } else {
+    if (cycles < level2) seg->amass_level = 1;
+    else if (cycles < level3) seg->amass_level = 2;
+    else seg->amass_level = 3;
+    cycles >>= seg->amass_level;
+    seg->n_step <<= seg->amass_level;
+  }
+  seg->cycles_per_tick = cycles;
+}
+
+void cnc_jog_start(const cnc_jog_axes_t* axes) {
+  memset(&jog, 0, sizeof(jog));
+  jog.ax = *axes;
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    if (jog.ax.backlash[i] < 0) jog.ax.backlash[i] = 0;
+    if (jog.ax.slack[i] < 0) jog.ax.slack[i] = 0;
+    if (jog.ax.slack[i] > jog.ax.backlash[i]) jog.ax.slack[i] = jog.ax.backlash[i];
+  }
+  jog.on = true;
+}
+
+void cnc_jog_target(const float speed[CNC_N_AXIS]) {
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    float v = speed[i];
+    if (!(v == v)) v = 0;  // NaN
+    if (v > settings.maxRate[i]) v = settings.maxRate[i];
+    if (v < -settings.maxRate[i]) v = -settings.maxRate[i];
+    jog.target[i] = v;
+  }
+}
+
+bool cnc_jog_on() { return jog.on; }
+
+void cnc_jog_speeds(float speed[CNC_N_AXIS]) {
+  for (int i = 0; i < CNC_N_AXIS; i++) speed[i] = jog.on ? jog.speed[i] : 0.0f;
+}
+
+// Jog segments of JOG_DT_S, each axis by itself (LinuxCNC simple_tp: the speed moves toward the wanted one by at most
+// the axis's acceleration x dt; toward a soft limit never faster than it can stop there: v^2 = 2 a d).
+static void jog_prep(uint64_t ahead) {
+  const uint64_t aheadWanted = (uint64_t)(JOG_AHEAD_S * settings.timerHz);
+  const float dt_min = JOG_DT_S / 60.0f;
+  bool hold = (step_control & STEP_CONTROL_EXECUTE_HOLD) != 0;
+  while (segment_buffer_tail != segment_next_head && ahead < aheadWanted) {
+    int32_t m[CNC_N_AXIS], take[CNC_N_AXIS];
+    bool moving = false;
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      float a = settings.acceleration[i];
+      float v = jog.speed[i];
+      float t = hold ? 0.0f : jog.target[i];
+      float spu = settings.stepsPerUnit[i];
+      // Room to the soft limit in the direction of the wanted speed (backlash still to take up is extra room). The speed
+      // at the end of this segment may be at most what can still stop there in whole segments: after moving
+      // (v + vn) / 2 * dt the room left must hold vn^2 / 2a + vn * dt / 2, so vn <= a (-dt + sqrt(dt^2 + 2 (room - v dt / 2) / a)).
+      float room = -1.0f;
+      if (t > 0 && jog.ax.hi[i] != INT32_MAX) room = (float)((double)jog.ax.hi[i] - jog.ax.pos[i]) / spu;
+      else if (t < 0 && jog.ax.lo[i] != INT32_MIN) room = (float)((double)jog.ax.pos[i] - jog.ax.lo[i]) / spu;
+      if (room >= 0.0f) {
+        float r = room - fabsf(v) * dt_min * 0.5f;
+        float vmax = r > 0.0f ? a * (-dt_min + sqrtf(dt_min * dt_min + 2.0f * r / a)) : 0.0f;
+        if (t > vmax) t = vmax;
+        if (t < -vmax) t = -vmax;
+      }
+      float dv = a * dt_min;
+      float vn = t > v + dv ? v + dv : (t < v - dv ? v - dv : t);
+      if ((v > 0 && vn < 0) || (v < 0 && vn > 0)) vn = 0;  // through zero: stop for this segment, reverse in the next
+      jog.motor[i] += 0.5 * ((double)v + vn) * dt_min * spu;
+      int32_t whole = (int32_t)llround(jog.motor[i]);
+      m[i] = whole - jog.motorSteps[i];
+      // backlash: on reversal the motor first closes the gap, the tool stands
+      if (m[i] > 0) {
+        take[i] = m[i] < jog.ax.slack[i] ? m[i] : jog.ax.slack[i];
+      } else if (m[i] < 0) {
+        int32_t open = jog.ax.backlash[i] - jog.ax.slack[i];
+        take[i] = -m[i] < open ? -m[i] : open;
+      } else {
+        take[i] = 0;
+      }
+      // never past a soft limit: what is left of this segment stops there
+      int32_t toolMove = m[i] > 0 ? m[i] - take[i] : (m[i] < 0 ? m[i] + take[i] : 0);
+      int64_t to = (int64_t)jog.ax.pos[i] + toolMove;
+      if (to > jog.ax.hi[i] && toolMove > 0) {
+        int32_t cut = (int32_t)(to - jog.ax.hi[i]);
+        m[i] -= cut;
+        vn = 0;
+      } else if (to < jog.ax.lo[i] && toolMove < 0) {
+        int32_t cut = (int32_t)(jog.ax.lo[i] - to);
+        m[i] += cut;
+        vn = 0;
+      }
+      if (vn == 0 && (t == 0 || m[i] != whole - jog.motorSteps[i])) jog.motor[i] = jog.motorSteps[i] + m[i];  // standing: no fraction left
+      jog.motorSteps[i] += m[i];
+      if (m[i] > 0) { jog.ax.slack[i] -= take[i]; jog.ax.pos[i] += m[i] - take[i]; }
+      if (m[i] < 0) { jog.ax.slack[i] += take[i]; jog.ax.pos[i] += m[i] + take[i]; }
+      jog.speed[i] = vn;
+      if (v != 0 || vn != 0 || m[i] != 0) moving = true;
+    }
+    if (!moving) {
+      // every axis stands: a hold is complete; otherwise nothing to do until a speed is wanted
+      if (hold) step_control |= STEP_CONTROL_END_MOTION;
+      prep.current_speed = 0.0f;
+      return;
+    }
+    prep.st_block_index = st_next_block_index(prep.st_block_index);
+    st_block_t* b = &st_block_buffer[prep.st_block_index];
+    uint32_t most = 0;
+    b->direction_bits = 0;
+    for (int i = 0; i < CNC_N_AXIS; i++) {
+      uint32_t n = (uint32_t)(m[i] < 0 ? -m[i] : m[i]);
+      if (m[i] < 0) b->direction_bits |= (uint8_t)(1 << i);
+      b->steps[i] = n << MAX_AMASS_LEVEL;
+      b->takeup[i] = (uint32_t)take[i];
+      if (n > most) most = n;
+    }
+    b->step_event_count = most << MAX_AMASS_LEVEL;
+    b->condition = 0;
+    b->line = 0;
+    segment_t* seg = &segment_buffer[segment_buffer_head];
+    seg->st_block_index = prep.st_block_index;
+    seg->n_step = most;
+    st_segment_timing(seg, JOG_DT_S);
+    ahead += segment_ticks(seg);
+    float lin = sqrtf(jog.speed[CNC_X] * jog.speed[CNC_X] + jog.speed[CNC_Z] * jog.speed[CNC_Z]);
+    prep.current_speed = lin > 0 ? lin : fabsf(jog.speed[CNC_C]);
+    CNC_BARRIER();
+    segment_buffer_head = segment_next_head;
+    if (++segment_next_head == CNC_SEGMENT_BUFFER_SIZE) segment_next_head = 0;
+  }
+}
+
 void cnc_st_prep_buffer() {
   if (step_control & STEP_CONTROL_END_MOTION) return;
 
@@ -444,6 +598,10 @@ void cnc_st_prep_buffer() {
          i = (i + 1 == CNC_SEGMENT_BUFFER_SIZE) ? 0 : i + 1) {
       ahead += segment_ticks(&segment_buffer[i]);
     }
+  }
+  if (jog.on) {
+    jog_prep(ahead);
+    return;
   }
   const uint64_t aheadWanted = (uint64_t)(CNC_SEGMENT_AHEAD_S * settings.timerHz);
 
@@ -462,6 +620,7 @@ void cnc_st_prep_buffer() {
         st_prep_block->line = pl_block->line;
         for (int idx = 0; idx < CNC_N_AXIS; idx++) st_prep_block->steps[idx] = pl_block->steps[idx] << MAX_AMASS_LEVEL;
         st_prep_block->step_event_count = pl_block->step_event_count << MAX_AMASS_LEVEL;
+        for (int idx = 0; idx < CNC_N_AXIS; idx++) st_prep_block->takeup[idx] = 0;
 
         prep.steps_remaining = (float)pl_block->step_event_count;
         prep.step_per_mm = prep.steps_remaining / pl_block->millimeters;
@@ -697,7 +856,7 @@ void cnc_st_prep_buffer() {
 }
 
 bool cnc_st_busy() {
-  return segment_buffer_head != segment_buffer_tail || exec_active || block_buffer_head != block_buffer_tail;
+  return jog.on || segment_buffer_head != segment_buffer_tail || exec_active || block_buffer_head != block_buffer_tail;
 }
 
 float cnc_st_realtime_rate() { return cnc_st_busy() ? prep.current_speed : 0.0f; }
@@ -756,7 +915,10 @@ CNC_ISR_ATTR bool cnc_isr(cnc_tick_t* out) {
       if (st.exec_block == NULL || st.exec_block_index != st.exec_segment->st_block_index) {
         st.exec_block_index = st.exec_segment->st_block_index;
         st.exec_block = &st_block_buffer[st.exec_block_index];
-        for (int i = 0; i < CNC_N_AXIS; i++) st.counter[i] = st.exec_block->step_event_count >> 1;
+        for (int i = 0; i < CNC_N_AXIS; i++) {
+          st.counter[i] = st.exec_block->step_event_count >> 1;
+          st.takeup[i] = st.exec_block->takeup[i];
+        }
         exec_line = st.exec_block->line;
       }
       for (int i = 0; i < CNC_N_AXIS; i++) st.steps[i] = st.exec_block->steps[i] >> st.exec_segment->amass_level;
@@ -781,17 +943,21 @@ CNC_ISR_ATTR bool cnc_isr(cnc_tick_t* out) {
     }
   }
 
-  uint8_t bits = 0;
+  uint8_t bits = 0, takeup = 0;
   for (int i = 0; i < CNC_N_AXIS; i++) {
     st.counter[i] += st.steps[i];
     if (st.counter[i] > st.exec_block->step_event_count) {
       bits |= (1 << i);
       st.counter[i] -= st.exec_block->step_event_count;
+      if (st.takeup[i] > 0) {  // a jog's backlash take-up: the first steps of the axis after it reversed
+        takeup |= (1 << i);
+        st.takeup[i]--;
+      }
     }
   }
   out->step = bits;
   out->dirNeg = st.exec_block->direction_bits;
-  out->motorOnly = (st.exec_block->condition & CNC_COND_BACKLASH) ? 1 : 0;
+  out->motorOnly = (st.exec_block->condition & CNC_COND_BACKLASH) ? bits : takeup;
   out->period = st.exec_segment->cycles_per_tick;
 
   if (--st.step_count == 0) {
