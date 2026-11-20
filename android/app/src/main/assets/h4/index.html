@@ -780,7 +780,7 @@ const I18N={
  'Jog with':'Jog με','Buttons':'Κουμπιά','Wheel':'Τροχό','Off':'Όχι','On':'Ναι','Screen orientation':'Προσανατολισμός οθόνης','Automatic':'Αυτόματα','Landscape':'Οριζόντια','Portrait':'Κάθετα',
  'Jog lock: the jog buttons and the wheel work only after the lock button 🔒 is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with':'Κλείδωμα jog: τα κουμπιά jog και ο τροχός δουλεύουν μόνο αφού πατηθεί η κλειδαριά 🔒, και κλειδώνουν ξανά 15 s μετά την τελευταία κίνηση. Με τα κουμπιά, ένα πάτημα κινεί ένα βήμα· με',
  'the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.':'ο άξονας κινείται όσο κρατάς το κουμπί, με την ταχύτητα jog του χειριστηρίου, και σταματά μόλις το αφήσεις.',
- 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Drive: calculated from the teeth':'Μετάδοση: υπολογισμός από τα δόντια','Driver steps per motor turn':'Βήματα driver ανά στροφή μοτέρ',
+ 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Gamepad:':'Χειριστήριο:','Drive: calculated from the teeth':'Μετάδοση: υπολογισμός από τα δόντια','Driver steps per motor turn':'Βήματα driver ανά στροφή μοτέρ',
  'Teeth on the motor (1st belt / gear)':'Δόντια στο μοτέρ (1ος ιμάντας / γρανάζι)','Teeth on the screw side (1st belt / gear)':'Δόντια προς τη βίδα (1ος ιμάντας / γρανάζι)','2nd stage: teeth on the motor side (empty = none)':'2ο στάδιο: δόντια από τη μεριά του μοτέρ (κενό = κανένα)',
  '2nd stage: teeth on the screw side':'2ο στάδιο: δόντια προς τη βίδα','Screw pitch (mm per turn)':'Βήμα βίδας (mm ανά στροφή)','Degrees per turn of the axis':'Μοίρες ανά στροφή του άξονα','Calculate':'Υπολογισμός',
  'Fine adjustment by measuring':'Μικρορύθμιση με μέτρηση','Move asked (mm)':'Κίνηση που ζήτησα (mm)','Move measured (mm)':'Κίνηση που μέτρησα (mm)','Move asked (°)':'Κίνηση που ζήτησα (°)','Move measured (°)':'Κίνηση που μέτρησα (°)','Correct':'Διόρθωση',
@@ -940,7 +940,7 @@ window.h4AppPadAxes=(a,b,c,d)=>gpShowAxes(a==null?null:[a,b,c,d]);
 gpForm();
 // In the H4 CNC Android app the app reads the gamepad itself (no browser setting needed); the page only shows its state.
 const gpApp=isApp;function gpToApp(){if(gpApp)try{H4App.settings(JSON.stringify(gp))}catch(e){}}
-if(gpApp){$('fwApp').classList.remove('nope');$('gpapp').hidden=false;window.h4AppGamepad=t=>{$('gpstate').textContent=T(t)};gpToApp()}
+if(gpApp){$('fwApp').classList.remove('nope');$('gpapp').hidden=false;window.h4AppGamepad=t=>{$('gpstate').textContent=T(t)};window.h4AppPadMsg=t=>msg(gpExplain(t));gpToApp()}
 let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
 function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
 function gpRumble(){try{gpPad&&gpPad.vibrationActuator&&gpPad.vibrationActuator.playEffect('dual-rumble',{duration:200,strongMagnitude:.5,weakMagnitude:.5})}catch(e){}}
@@ -948,6 +948,12 @@ async function gpSend(x,z,c){gpLast=performance.now();gpBusy=true;
  try{const r=await withT(fetch('/jog?x='+x.toFixed(1)+'&z='+z.toFixed(1)+'&c='+c.toFixed(1),{method:'POST'}),1500);
   if(!r.ok){const t=await withT(r.text(),1500);if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}catch(e){}
  gpBusy=false}
+// A gamepad refusal on the screen, with what to do (firmware reasons are English; the page translates them)
+function gpExplain(t){const el=look.lang=='el';let h='';
+ if(/Home All first/.test(t))h=el?' — Home All (L1 + Share) ή ξεκλείδωμα για jog χωρίς Home (PS)':' — Home All (L1 + Share), or unlock to jog before homing (PS)';
+ else if(/Axes are off/.test(t))h='';
+ else if(/safety button/.test(t))return el?'Χειριστήριο: κράτα το κουμπί ασφαλείας (L1) για να κινηθεί':'Gamepad: hold the safety button (L1) to move';
+ return T('Gamepad: ')+T(t)+h}
 function gpMdi(l){post('/mdi',new URLSearchParams({line:l})).then(msg,e=>{msg(e.message);gpRumble()})}
 // a pressed action (the same in GamepadJog.java)
 function gpDo(a){if(a=='stop')cmd('stop');else if(a=='pause')cmd('pause');else if(a=='resume')cmd('resume');else if(a=='home')cmd('home');

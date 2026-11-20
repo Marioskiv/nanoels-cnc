@@ -457,6 +457,12 @@ public class MainActivity extends Activity {
     }
 
     // Gamepad state for the page's Gamepad box (the page shows it when it runs in this app).
+    // A gamepad refusal or hint, shown on the screen's message line (the page translates and explains it).
+    void showGamepadMessage(String text) {
+        AppLog.add("PAD", text);
+        web.evaluateJavascript("window.h4AppPadMsg&&h4AppPadMsg(" + JSONObject.quote(text) + ")", null);
+    }
+
     void showGamepadState(String text) {
         web.evaluateJavascript("window.h4AppGamepad&&h4AppGamepad(" + JSONObject.quote(text) + ")", null);
     }
