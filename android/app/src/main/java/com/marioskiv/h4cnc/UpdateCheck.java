@@ -20,7 +20,12 @@ import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -59,9 +64,16 @@ final class UpdateCheck {
             // Android closes this old version and the new one opens by itself (UpdatedReceiver)
             if (newer(tried, current) && System.currentTimeMillis() - prefs.getLong("installAt", 0) < INSTALLING_MS) {
                 ExitWatch.event(activity, "opened while " + tried + " installs", "άνοιξε ενώ εγκαθίσταται η " + tried);
+                String pct = "";
+                try {
+                    for (PackageInstaller.SessionInfo si : activity.getPackageManager().getPackageInstaller().getMySessions())
+                        if (si.isActive()) pct = " " + Math.round(si.getProgress() * 100) + " %";
+                } catch (Exception ignored) {
+                }
+                final String done = pct;
                 activity.web().postDelayed(() -> tell(activity, Tr.t(activity,
-                        "H4 CNC " + tried + " is still being installed. Wait a little: this version closes and the new one opens by itself.",
-                        "Το H4 CNC " + tried + " εγκαθίσταται ακόμα. Περίμενε λίγο: αυτή η έκδοση θα κλείσει και η νέα θα ανοίξει μόνη της.")), 1500);
+                        "H4 CNC " + tried + " is still being installed" + done + ". Wait a little: this version closes and the new one opens by itself.",
+                        "Το H4 CNC " + tried + " εγκαθίσταται ακόμα" + done + ". Περίμενε λίγο: αυτή η έκδοση θα κλείσει και η νέα θα ανοίξει μόνη της.")), 1500);
                 return;
             }
             prefs.edit().remove("installTried").apply();
@@ -170,6 +182,47 @@ final class UpdateCheck {
         }).start();
     }
 
+    // The update's progress (app 1.63): a bar and a line, step 1 of 3 download (%), 2 checking the file, 3 Android
+    // installs it (% where Android gives it: the install session). "Hide" only closes the window.
+    static final class Progress {
+        final AlertDialog dialog;
+        final ProgressBar bar;
+        final TextView text;
+
+        Progress(MainActivity a) {
+            LinearLayout l = new LinearLayout(a);
+            l.setOrientation(LinearLayout.VERTICAL);
+            int pad = (int) (20 * a.getResources().getDisplayMetrics().density);
+            l.setPadding(pad, pad / 2, pad, 0);
+            text = new TextView(a);
+            text.setTextSize(16);
+            bar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
+            bar.setMax(100);
+            bar.setIndeterminate(true);
+            l.addView(text);
+            l.addView(bar);
+            dialog = new AlertDialog.Builder(a).setTitle(Tr.t(a, "App update", "Ενημέρωση app")).setView(l).setCancelable(false)
+                    .setNegativeButton(Tr.t(a, "Hide", "Απόκρυψη"), null).show();
+        }
+
+        void set(String t, int pct) {
+            text.setText(pct >= 0 ? t + "  " + pct + " %" : t);
+            if (pct < 0) {
+                bar.setIndeterminate(true);
+            } else {
+                bar.setIndeterminate(false);
+                bar.setProgress(pct);
+            }
+        }
+
+        void dismiss() {
+            try {
+                dialog.dismiss();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     private static void tell(MainActivity activity, String text) {
         activity.runOnUiThread(() -> {
             if (activity.isFinishing()) return;
@@ -232,8 +285,8 @@ final class UpdateCheck {
                     .setNegativeButton(Tr.t(activity, "Later", "Αργότερα"), null).show();
             return;
         }
-        final AlertDialog progress = new AlertDialog.Builder(activity).setTitle(Tr.t(activity, "App update", "Ενημέρωση app"))
-                .setMessage(Tr.t(activity, "Downloading ...", "Λήψη ...")).setCancelable(false).show();
+        final Progress progress = new Progress(activity);
+        progress.set(Tr.t(activity, "Step 1 of 3: downloading " + version + " ...", "Βήμα 1 από 3: λήψη της " + version + " ..."), -1);
         new Thread(() -> {
             try {
                 final File apk = ApkProvider.file(activity);
@@ -250,22 +303,28 @@ final class UpdateCheck {
                         final int pct = total > 0 ? (int) (100 * done / total) : -1;
                         if (pct != lastPct) {
                             lastPct = pct;
-                            final long kb = done / 1024;
-                            activity.runOnUiThread(() -> progress.setMessage(Tr.t(activity, "Downloading ... ", "Λήψη ... ") + (pct >= 0 ? pct + " %" : kb + " kB")));
+                            final String mb = String.format(java.util.Locale.US, "%.1f", done / 1048576.0) + (total > 0 ? String.format(java.util.Locale.US, " / %.1f", total / 1048576.0) : "") + " MB";
+                            activity.runOnUiThread(() -> progress.set(Tr.t(activity, "Step 1 of 3: downloading (", "Βήμα 1 από 3: λήψη (") + mb + ")", pct));
                         }
                     }
                 }
                 c.disconnect();
                 if (total > 0 && apk.length() != total) throw new Exception("the download was cut off");
+                activity.runOnUiThread(() -> progress.set(Tr.t(activity, "Step 2 of 3: checking the file ...", "Βήμα 2 από 3: έλεγχος του αρχείου ..."), 100));
                 final String problem = check(activity, apk);
                 ExitWatch.event(activity, "update " + version + " downloaded (" + apk.length() / 1024 + " kB)" + (problem == null ? "" : ", refused: " + problem),
                         "η " + version + " κατέβηκε (" + apk.length() / 1024 + " kB)" + (problem == null ? "" : ", απορρίφθηκε: " + problem));
                 activity.runOnUiThread(() -> {
-                    progress.dismiss();
                     if (problem == null) {
-                        if (WAY_INTENT.equals(way(activity))) openInstaller(activity, apk, version);
-                        else sessionInstall(activity, apk, version);
+                        if (WAY_INTENT.equals(way(activity))) {
+                            progress.dismiss();  // Android's own installer screen shows its progress
+                            openInstaller(activity, apk, version);
+                        } else {
+                            sessionInstall(activity, apk, version, progress);
+                        }
+                        return;
                     }
+                    progress.dismiss();
                     else if (problem.equals(SIGNED_DIFFERENTLY)) offerUninstall(activity);
                     else tell(activity, Tr.t(activity, "The update was not installed: ", "Η ενημέρωση δεν εγκαταστάθηκε: ") + problem);
                 });
@@ -322,13 +381,40 @@ final class UpdateCheck {
     // Android asks "Install?" in a screen of its own task (InstallReceiver) and installs it itself. With the older way
     // (the installer's screen opened by this app and waiting for its answer) some installers, Huawei's on Android 7,
     // stayed at "Installing..." when Android stopped this app to replace it. The older way stays as the fallback.
-    private static void sessionInstall(MainActivity activity, File apk, String version) {
+    private static void sessionInstall(MainActivity activity, File apk, String version, Progress progress) {
         try {
             PackageInstaller pi = activity.getPackageManager().getPackageInstaller();
             PackageInstaller.SessionParams p = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
             p.setAppPackageName(activity.getPackageName());
             p.setSize(apk.length());
-            int id = pi.createSession(p);
+            final int id = pi.createSession(p);
+            // the install's progress and its end, from Android (the app is closed by Android when it succeeds)
+            pi.registerSessionCallback(new PackageInstaller.SessionCallback() {
+                @Override
+                public void onCreated(int sessionId) {
+                }
+
+                @Override
+                public void onBadgingChanged(int sessionId) {
+                }
+
+                @Override
+                public void onActiveChanged(int sessionId, boolean active) {
+                }
+
+                @Override
+                public void onProgressChanged(int sessionId, float pr) {
+                    if (sessionId == id) progress.set(Tr.t(activity, "Step 3 of 3: Android installs " + version, "Βήμα 3 από 3: το Android εγκαθιστά την " + version), Math.round(pr * 100));
+                }
+
+                @Override
+                public void onFinished(int sessionId, boolean ok) {
+                    if (sessionId != id) return;
+                    progress.dismiss();
+                    if (!ok) tell(activity, Tr.t(activity, "The install of " + version + " did not finish (cancelled or refused by Android). Try again: the next try uses Android's other way.",
+                            "Η εγκατάσταση της " + version + " δεν ολοκληρώθηκε (ακυρώθηκε ή την αρνήθηκε το Android). Ξαναδοκίμασε: η επόμενη προσπάθεια γίνεται με τον άλλο τρόπο του Android."));
+                }
+            }, new Handler(Looper.getMainLooper()));
             PackageInstaller.Session s = pi.openSession(id);
             try {
                 try (InputStream in = new FileInputStream(apk); OutputStream out = s.openWrite("H4CNC.apk", 0, apk.length())) {
@@ -343,9 +429,8 @@ final class UpdateCheck {
                         .putLong("installAt", System.currentTimeMillis()).commit();
                 ExitWatch.event(activity, version + " handed to Android (session)", "η " + version + " δόθηκε στο Android (session)");
                 s.commit(pending.getIntentSender());
-                // the session shows no progress: say what happens
-                tell(activity, Tr.t(activity, "Android asks \"Install?\": press Install. Then the install runs in the background (up to a minute): this app closes and H4 CNC " + version + " opens by itself. Do not open the app meanwhile.",
-                        "Το Android ρωτά «Εγκατάσταση;»: πάτα Εγκατάσταση. Μετά η εγκατάσταση γίνεται στο παρασκήνιο (ως ένα λεπτό): αυτό το app κλείνει και το H4 CNC " + version + " ανοίγει μόνο του. Μην ανοίξεις το app στο μεταξύ."));
+                progress.set(Tr.t(activity, "Step 3 of 3: Android asks \"Install?\": press Install (tablet upright). Then this app closes and H4 CNC " + version + " opens by itself.",
+                        "Βήμα 3 από 3: το Android ρωτά «Εγκατάσταση;»: πάτα Εγκατάσταση (tablet όρθιο). Μετά αυτό το app κλείνει και το H4 CNC " + version + " ανοίγει μόνο του."), -1);
             } catch (Exception e) {
                 s.abandon();
                 throw e;
@@ -356,6 +441,7 @@ final class UpdateCheck {
                 }
             }
         } catch (Exception e) {
+            progress.dismiss();
             openInstaller(activity, apk, version);   // the older way
         }
     }
