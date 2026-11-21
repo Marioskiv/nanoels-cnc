@@ -48,6 +48,9 @@ int main(int argc, char** argv) {
     cnc_bench_t r;
     cnc_bench_run(text.data(), text.size(), &r, nowUs, nullptr);
     double plannedPerSecond = r.busyUs > 0 ? r.blocks / (r.busyUs / 1e6) : 0;
+    printf("%s: estimate %.2f s (dwells %.1f s), extents X %.3f..%.3f Z %.3f..%.3f C %.3f..%.3f\n", argv[f], r.minutes * 60, r.dwellSeconds,
+           r.minSteps[0] / s.stepsPerUnit[0], r.maxSteps[0] / s.stepsPerUnit[0], r.minSteps[1] / s.stepsPerUnit[1], r.maxSteps[1] / s.stepsPerUnit[1],
+           r.minSteps[2] / s.stepsPerUnit[2], r.maxSteps[2] / s.stepsPerUnit[2]);
     printf("%s: %u lines, %u blocks, %.1f min at programmed speeds; this PC plans %.0f blocks/s; the program needs up to %.0f blocks/s (line %u)%s%s\n",
            argv[f], r.lines, r.blocks, r.programMinutes, plannedPerSecond, r.neededPerSecond, r.neededAtLine,
            r.stopLine ? "; stopped: " : "", r.stopLine ? r.stopReason : "");

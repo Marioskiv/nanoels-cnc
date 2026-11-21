@@ -108,6 +108,18 @@ const int32_t* cnc_plan_position();
 float cnc_plan_last_block_minutes();
 // Self-test: takes out every planned block as if executed at once; minutes[] = time of each at its programmed speed
 int cnc_plan_take_all(float* minutes, int max);  // time of the last block at its programmed speed (for reports)
+// The time estimate before a start (firmware 1.49): takes the oldest planned blocks out as if executed, leaving `keep`
+// in the planner for its look-ahead (0 = all: the motion stops after the last). Each with its time as the step
+// generator runs it: from its planned entry speed, with its acceleration, up to its speed, down to the next block's
+// entry speed (0 after the last) - the same trapezoid; and what it moves, so that the caller can follow the position.
+typedef struct {
+  float nominalMinutes;            // at its programmed speed (no acceleration)
+  float minutes;                   // with the acceleration
+  int32_t delta[CNC_N_AXIS];       // steps it moves (a backlash take-up block moves the motor only: condition)
+  uint8_t condition;
+  uint32_t line;
+} cnc_taken_t;
+int cnc_plan_take_timed(cnc_taken_t* out, int max, int keep);
 
 // ---- step segment generator (call often from a task)
 void cnc_st_reset();

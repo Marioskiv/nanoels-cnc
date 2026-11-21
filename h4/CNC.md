@@ -352,6 +352,13 @@ convenience, **not** an emergency stop: keep a real one within reach.
 
 - **Files** are uploaded to the H4's own flash (about 9.9 MB, folder `/gcode`), streamed, so the size of the
   upload is not limited by RAM.
+- **Before the start** (firmware 1.49, app 1.67), as LinuxCNC's AXIS and gSender: Start checks the whole program first
+  (nothing moves) and the app shows how long it takes and where each axis goes, against its soft limits (⚠ when less
+  than 2 mm is left), before it asks to start. The time is the planner's own: every move as the step generator runs it,
+  with the acceleration and the look-ahead, plus the dwells (the pauses for the operator, M0 / M6 / M3, not in it);
+  checked against the full simulation of the step interrupt (`run_tests.sh`): within 0.1 % on the polar samples and the
+  author's FreeCAD program (1049.6 s estimated, 1049.8 s simulated), where the time at the programmed speeds alone was
+  8-15 % short. Test (and the H4's ON key) say the same time in their message; `/status` has it as `"chk"`.
 - **Running**: Start reads the whole program into memory first (PSRAM, up to about 2 MB; 120 kB on a board
   without PSRAM) and then runs it from memory with look-ahead. Nothing is read from or written to the flash
   while the machine moves: a flash read or write turns the CPU cache off, and the step interrupt (not cache-safe in

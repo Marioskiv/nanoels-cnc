@@ -180,6 +180,19 @@ g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/runfrom_test" runfrom_test.cpp ../cnc_
 # the controller's self-test (cnc_bench.cpp) on the sample programs
 g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/cnc_bench_pc" cnc_bench_pc.cpp ../cnc_bench.cpp ../cnc_core.cpp ../cnc_gcode.cpp
 "$OUT/cnc_bench_pc" polar_sample.ngc lathecode_sample.ngc || fail=$((fail + 1))
+# the time estimate before a start (firmware 1.49, cnc_bench.cpp): the same programs run in the full simulation of the
+# step interrupt (cnc_sim, task every 1 ms) must take what was estimated, within 1 %
+est_fail=0
+for f in polar_sample.ngc g93_hard.ngc g64_sample.ngc g611_sample.ngc modes_sample.ngc cam/freecad_linuxcnc_polar.ngc.gz; do
+  src="$f"
+  case "$f" in *.gz) src="$OUT/$(basename "$f" .gz)"; gzip -dc "$f" > "$src" ;; esac
+  est=$("$OUT/cnc_bench_pc" "$src" | sed -n 's/.*: estimate \([0-9.]*\) s.*/\1/p')
+  run=$("$OUT/cnc_sim" "$src" --task-gap-ms 1 | sed -n 's/.* moves, \([0-9.]*\) s (programmed.*/\1/p' | head -1)
+  ok=$(awk -v e="$est" -v r="$run" 'BEGIN { d = e - r; if (d < 0) d = -d; print (r > 0 && d <= 0.01 * r + 0.1) ? 1 : 0 }')
+  echo "time estimate $(basename "$src"): estimated $est s, simulated $run s $( [ "$ok" = 1 ] && echo ok || echo FAIL)"
+  [ "$ok" = 1 ] || est_fail=$((est_fail + 1))
+done
+[ $est_fail = 0 ] || fail=$((fail + 1))
 # Second opinion: LinuxCNC's own interpreter, when its rs274 is given (RS274=/path/to/rs274)
 if [ -n "$RS274" ]; then
   g++ -O2 -Wall -Wextra -std=c++17 -o "$OUT/gcode_trace" gcode_trace.cpp ../cnc_core.cpp ../cnc_gcode.cpp

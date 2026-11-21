@@ -511,8 +511,28 @@ function startFrom(){if(!selected){msg('Select a file first (G-code, Files).');r
  const n=parseInt(v,10);if(!(n>1)){msg('Give a line number above 1.');return}
  if(confirm('Start '+selected+' from line '+n+'? Lines 1 to '+(n-1)+' are read without moving. The machine goes up, to the start of line '+n+', pauses for the router, then goes down slowly.'))
   cmd('start','&name='+encodeURIComponent(selected)+'&from='+n)}
-function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
- if(confirm('Start '+selected+' on the machine?'))cmd('start','&name='+encodeURIComponent(selected))}
+// Start (app 1.67, firmware 1.49): as LinuxCNC's AXIS and gSender, the program is checked first (nothing moves) and the
+// window before the start says how long it takes (with the acceleration, as the H4 will run it) and where each axis
+// goes against its soft limits. An older firmware without the check's summary: the question as before.
+function chkText(c){const el=look.lang=='el',f=v=>(+v).toFixed(2),n=['X','Z','C'],u=['mm','mm','°'];
+ const sec=Math.round(c.sec),h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+ const dur=h?h+' h '+m+' min':m?m+' min '+s+' s':s+' s';
+ let t=(el?'Χρόνος: περίπου ':'Time: about ')+dur+(c.waits?(el?' (χωρίς τις '+c.waits+' παύσεις για σένα)':' (without the '+c.waits+' pauses for you)'):'')+'\n';
+ (c.ax||[]).forEach((a,i)=>{if(i==2&&!st.cActive)return;
+  let line=n[i]+'  '+f(a.lo)+' … '+f(a.hi)+' '+u[i];
+  if(a.min!==undefined){const room=Math.min(a.lo-a.min,a.max-a.hi);
+   line+=(el?'   (όρια ':'   (limits ')+f(a.min)+' … '+f(a.max)+')'+(room<2?(el?'  ⚠ κοντά στο όριο':'  ⚠ close to the limit'):'')}
+  t+=line+'\n'});
+ return t}
+async function startSel(){if(!selected){msg('Select a file first (G-code, Files).');return}
+ const name=selected,b0=st.benchN;
+ if(b0===undefined||st.chk===undefined){if(confirm('Start '+name+' on the machine?'))cmd('start','&name='+encodeURIComponent(name));return}
+ try{msg(await post('/cmd?do=bench&name='+encodeURIComponent(name)))}catch(e){msg(e.message);return}
+ const t0=Date.now();while(st.benchN==b0&&Date.now()-t0<120000)await new Promise(r=>setTimeout(r,200));
+ const c=st.chk;
+ if(st.benchN==b0||!c||c.name!=name){msg(T('The check of the program did not answer: try again.'));return}
+ if(!c.ok){msg(st.bench);return}
+ if(confirm(name+'\n\n'+chkText(c)+'\n'+(look.lang=='el'?'Έναρξη στο μηχάνημα;':'Start it on the machine?')))cmd('start','&name='+encodeURIComponent(name))}
 // the link to the H4: lost / back (with how long) and slow answers go to the app log
 // The lasting link (firmware 1.48, wslink.ino): one WebSocket to the H4's port (st.ws) that stays open; the H4 sends
 // its state by itself 10 times a second and the gamepad's speeds go on it. While it is open /status is not asked; when

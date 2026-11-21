@@ -160,9 +160,18 @@ async function waitIdle(timeoutMs = 60000) {
     await page.evaluate(() => document.querySelector('#up input[type=submit]').click());
     await page.waitForFunction(() => [...document.querySelectorAll('#files input[name=sel]')].some(i => i.value == 'square.ngc'), null, { timeout: 10000 });
     await page.check('#files input[value="square.ngc"]');
+    const asked = [];
+    const keep = d => asked.push(d.message());
+    page.on('dialog', keep);
     await page.click('#bStart');
     s = await waitIdle();
+    page.off('dialog', keep);
     ok(Math.abs(s.x - 3) < 1e-3 && Math.abs(s.z) < 1e-3, 'upload + Start from the page: the program ended at X ' + s.x + ' Z ' + s.z);
+    // the window before the start (firmware 1.49, app 1.67): the time with the acceleration and where each axis goes
+    const q = asked.find(t => /Time: about/.test(t)) || '';
+    const xr = /X\s+(-?[\d.]+) … (-?[\d.]+) mm/.exec(q), zr = /Z\s+(-?[\d.]+) … (-?[\d.]+) mm/.exec(q);
+    ok(xr && zr && Math.abs(+xr[1] - 1) < 1e-3 && Math.abs(+xr[2] - 10) < 1e-3 && Math.abs(+zr[1] + 8) < 1e-3 && Math.abs(+zr[2]) < 1e-3 && /Start it on the machine/.test(q),
+      'before the start the page shows the time and where the axes go (X 1 … 10, Z -8 … 0): ' + JSON.stringify(q.replace(/\n/g, ' | ')));
     await sleep(800);
     ok(await page.evaluate(() => resumeRec === null), 'the program ended normally: the tablet keeps no line (no false "cut" later)');
 
@@ -172,6 +181,7 @@ async function waitIdle(timeoutMs = 60000) {
     await page.waitForFunction(() => [...document.querySelectorAll('#files input[name=sel]')].some(i => i.value == 'slow.ngc'), null, { timeout: 10000 });
     await page.check('#files input[value="slow.ngc"]');
     await page.click('#bStart');
+    for (let i = 0; i < 100 && !(await status()).running; i++) await sleep(100);  // (checked first, then it starts)
     await sleep(1500);
     await page.click('button.pause');
     // the click reaches the H4 through the browser (a few tenths of a second, more on a busy PC): from the moment the

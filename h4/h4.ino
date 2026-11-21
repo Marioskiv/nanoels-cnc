@@ -174,7 +174,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.48"
+#define FW_VERSION "1.49"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -1906,8 +1906,70 @@ volatile bool cncBenchRequest = false;
 const char* volatile cncBenchData = NULL;
 volatile size_t cncBenchSize = 0;
 char cncBenchName[64] = "";
-char cncBenchText[480] = "";
+char cncBenchText[640] = "";
 volatile uint32_t cncBenchCount = 0;  // changes when a new result is there
+
+// What the last check found (Test or the check before a start, firmware 1.49), for the app's window before a start
+// (as LinuxCNC's AXIS and gSender show them): the time with the acceleration, where each axis goes (work coordinates)
+// and its soft limits. Sent in /status as "chk".
+struct CncCheck {
+  bool valid;
+  bool ok;               // the whole program can run (up to a threading line)
+  char name[64];
+  float seconds;         // the estimate (moves with acceleration + dwells; the operator's pauses not in it)
+  uint32_t lines, waits;
+  float lo[3], hi[3];    // the tool's lowest / highest work position, mm (C degrees)
+  bool hasLim[3];
+  float limLo[3], limHi[3];
+};
+CncCheck cncCheck = {};
+
+void cncCheckStore(const char* name, const cnc_bench_t& r) {
+  CncCheck c = {};
+  c.valid = true;
+  c.ok = !(r.stopLine && strncmp(r.stopReason, "threading", 9) != 0);
+  snprintf(c.name, sizeof(c.name), "%s", name);
+  c.seconds = (float)(r.minutes * 60.0);
+  c.lines = r.lines;
+  c.waits = r.waits;
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    Axis* a = cncAxis(i);
+    float spu = cncStepsPerUnit(i);
+    c.lo[i] = (r.minSteps[i] + a->originPos) / spu;
+    c.hi[i] = (r.maxSteps[i] + a->originPos) / spu;
+    long lo, hi;
+    c.hasLim[i] = softLimitSteps(a, &lo, &hi);  // homing.ino
+    if (c.hasLim[i]) {
+      c.limLo[i] = (lo + a->originPos) / spu;
+      c.limHi[i] = (hi + a->originPos) / spu;
+    }
+  }
+  cncCheck = c;
+}
+
+// "about 17 min 30 s" (the check's message)
+String cncDurationText(float seconds) {
+  long s = lround(seconds);
+  if (s < 60) return String(s) + " s";
+  long h = s / 3600, m = (s % 3600) / 60;
+  s %= 60;
+  if (h > 0) return String(h) + " h " + String(m) + " min";
+  return String(m) + " min " + String(s) + " s";
+}
+
+String cncCheckJson() {
+  if (!cncCheck.valid) return "null";
+  const CncCheck& c = cncCheck;
+  String j = "{\"name\":\"" + jsonEscape(String(c.name)) + "\",\"ok\":" + String(c.ok ? 1 : 0) + ",\"sec\":" + String(c.seconds, 1) +
+             ",\"lines\":" + String((unsigned long)c.lines) + ",\"waits\":" + String((unsigned long)c.waits) + ",\"ax\":[";
+  for (int i = 0; i < CNC_N_AXIS; i++) {
+    if (i) j += ",";
+    j += "{\"lo\":" + String(c.lo[i], 3) + ",\"hi\":" + String(c.hi[i], 3);
+    if (c.hasLim[i]) j += ",\"min\":" + String(c.limLo[i], 3) + ",\"max\":" + String(c.limHi[i], 3);
+    j += "}";
+  }
+  return j + "]}";
+}
 
 uint64_t cncBenchNowUs() {
   return (uint64_t)esp_timer_get_time();
@@ -1970,6 +2032,7 @@ void cncRunPreflight() {
     cnc_bench_t r;
     // exactly the text the program will run
     cncBenchCheck(cncPreflightData, cncPreflightSize, &r);
+    cncCheckStore(cncPreflightName, r);
     cncStatusText = "";
     bool error = r.stopLine && strncmp(r.stopReason, "threading", 9) != 0;
     if (cncPreflightCancel) {
@@ -1986,9 +2049,9 @@ void cncRunPreflight() {
       if (r.waits) extra += " It will wait for you " + String((unsigned long)r.waits) + (r.waits == 1 ? " time" : " times") +
           ", first at line " + String((unsigned long)r.waitLine) + ": " + r.waitReason + ".";
       if (r.notes) extra += " Note, line " + String((unsigned long)r.noteLine) + ": " + r.note + ".";
-      snprintf(cncBenchText, sizeof(cncBenchText), "Checked %s: %lu lines%s. Started.%s", cncPreflightName,
+      snprintf(cncBenchText, sizeof(cncBenchText), "Checked %s: %lu lines%s, about %s. Started.%s", cncPreflightName,
           (unsigned long)r.lines, r.stopLine ? (", up to the threading at line " + String((unsigned long)r.stopLine) +
-          " (threading is not checked)").c_str() : ", all can run", extra.c_str());
+          " (threading is not checked)").c_str() : ", all can run", cncDurationText(r.minutes * 60).c_str(), extra.c_str());
       gcodeProgramCharIndex = 0;
       cncUserHold = false;
       cncRunFrom = from;
@@ -2002,10 +2065,12 @@ void cncRunPreflight() {
 void cncRunBench() {
   cnc_bench_t r;
   cncBenchCheck(cncBenchData, cncBenchSize, &r);
+  cncCheckStore(cncBenchName, r);
   double planned = r.busyUs > 0 ? r.blocks / (r.busyUs / 1e6) : 0;
-  int n = snprintf(cncBenchText, sizeof(cncBenchText), "Test %s: %lu lines, %lu moves, %.1f min at the programmed speeds. "
+  int n = snprintf(cncBenchText, sizeof(cncBenchText), "Test %s: %lu lines, %lu moves, about %s (with the acceleration; %.1f min at the programmed speeds). "
       "The H4 plans %.0f moves/s, the program needs at most %.0f/s (line %lu): ", cncBenchName, (unsigned long)r.lines,
-      (unsigned long)r.blocks, r.programMinutes, planned, r.neededPerSecond, (unsigned long)r.neededAtLine);
+      (unsigned long)r.blocks, cncDurationText(r.minutes * 60).c_str(), r.programMinutes, planned, r.neededPerSecond, (unsigned long)r.neededAtLine);
+  if (n < 0 || n >= (int)sizeof(cncBenchText)) n = sizeof(cncBenchText) - 1;
   if (r.stopLine && strncmp(r.stopReason, "threading", 9) != 0) {
     snprintf(cncBenchText + n, sizeof(cncBenchText) - n, "STOPPED at line %lu: %s", (unsigned long)r.stopLine, r.stopReason);
   } else if (planned >= 2 * r.neededPerSecond) {

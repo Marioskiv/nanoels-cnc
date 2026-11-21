@@ -272,6 +272,7 @@ String statusJson() {
       ",\"movePulseMaxUs\":" + String(moveDiagPulseMaxCycles / (float)cncCpuCyclesPerUs, 2) +
       ",\"loopGapMs\":" + String(loopGapMaxUs / 1000.0, 1) + ",\"loopLong\":" + String(loopGapLongCount) + "}";
   json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
+  json += ",\"chk\":" + cncCheckJson(); // the last check: time, where each axis goes, its limits (h4.ino)
   cnc_modes_t modes;
   cnc_gc_get_modes(&modes);
   const char* wcsNames[] = {"G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3"};
