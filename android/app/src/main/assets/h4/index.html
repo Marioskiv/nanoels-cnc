@@ -288,6 +288,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <form id="up" class="row"><input type="file" id="file" accept=".nc,.ngc,.gcode,.tap,.txt"><input type="submit" value="Upload"></form>
 <div class="bar"><div id="ubar"></div></div><div class="pg" id="files"></div><div class="pgc"></div><div class="small" id="fs"></div></div>
 <div class="pane card" data-p="path" hidden><h2>Path</h2><div class="cvbox" id="cvbox"><canvas id="cv" width="600" height="600"></canvas></div>
+<div class="row"><button id="bTurn" onclick="turnView(!pathTurns)">Part turns with the chuck</button></div>
 <div class="small" id="pathinfo">Select a file and press Draw.</div></div>
 </div></section>
 
@@ -624,19 +625,50 @@ function parse(text,name){let abs=true,x=0,z=0,c=0,pts=[],hasC=false,chars=0;
   if(/G91(?![\d.])/.test(l))abs=false;if(/G90(?![\d.])/.test(l))abs=true;
   const g=(k)=>{const m=l.match(new RegExp(k+'\\s*([-+]?[\\d.]+)'));return m?parseFloat(m[1]):null};
   const X=g('X'),Z=g('Z'),C=g('C');if(X===null&&Z===null&&C===null)continue;if(C!==null)hasC=true;
-  if(X!==null)x=abs?X:x+X;if(Z!==null)z=abs?Z:z+Z;if(C!==null)c=abs?C:c+C;pts.push([x,z,c,chars,/G0(?![\d.])/.test(l)])}
+  const px=x,pz=z,pc=c,rapid=/G0(?![\d.])/.test(l);
+  if(X!==null)x=abs?X:x+X;if(Z!==null)z=abs?Z:z+Z;if(C!==null)c=abs?C:c+C;
+  // a move with C turns the part: the machine moves X and C together in steps (G93), so the tool goes round, not along
+  // the chord - drawn in pieces of at most 3 degrees (app 1.68; before, a C-only arc of 45 degrees was a straight line)
+  const n=Math.min(720,Math.ceil(Math.abs(c-pc)/3));
+  for(let k=1;k<n;k++){const f=k/n;pts.push([px+(x-px)*f,pz+(z-pz)*f,pc+(c-pc)*f,chars,rapid])}
+  pts.push([x,z,c,chars,rapid])}
  return{name,pts,hasC,total:chars}}
 function xy(p,hasC){return hasC?[p[0]*Math.cos(p[2]*Math.PI/180),p[0]*Math.sin(p[2]*Math.PI/180)]:[p[1],p[0]]}
-function drawPath(){const cv=$('cv'),box=$('cvbox');if(box.clientWidth){const s=Math.max(50,Math.min(box.clientWidth,box.clientHeight));cv.style.width=cv.style.height=s+'px'}
+// App 1.68: a polar program can be shown as the machine does it: the part (the drawing) turns with the chuck by the
+// C angle the H4 reports, the cutter stays on the X slide's line and moves only along the radius; with the chuck's
+// outline and three jaws turning with it. Or fixed (the part as drawn by the CAM, the cutter moving round it).
+// +C turns the chuck clockwise seen from the cutter (ISO 841, the polar converter): a point of the part at angle a is
+// seen at a - C, so the one at a = C is under the cutter. Between two states (10 a second on the lasting link) the
+// drawing turns on smoothly with the last C speed seen.
+let pathTurns=true;try{pathTurns=localStorage.getItem('h4PathTurns')!=='0'}catch(e){}
+function turnView(on){pathTurns=on;try{localStorage.setItem('h4PathTurns',on?'1':'0')}catch(e){}drawPath()}
+let cSeen=null,cSeenAt=0,cRate=0,pathAnim=0;
+function cNow(){if(cSeen===null)return st.c||0;const dt=Math.min(0.25,(performance.now()-cSeenAt)/1000);return cSeen+cRate*dt}
+function cTrack(){const t=performance.now(),c=st.c||0;
+ if(cSeen!==null&&c!==cSeen){const dt=(t-cSeenAt)/1000;cRate=dt>0.02&&dt<1?(c-cSeen)/dt:0}else if(cSeen!==null&&t-cSeenAt>300)cRate=0;
+ if(cSeen===null||c!==cSeen||t-cSeenAt>300){cSeen=c;cSeenAt=t}}
+function pathTick(){pathAnim=0;if(curTab!='program'||!drawn||!drawn.hasC||!pathTurns||!cRate)return;drawPath(true);pathAnim=requestAnimationFrame(pathTick)}
+function drawPath(anim){const cv=$('cv'),box=$('cvbox');if(box.clientWidth){const s=Math.max(50,Math.min(box.clientWidth,box.clientHeight));cv.style.width=cv.style.height=s+'px'}
+ if(!anim)cTrack();
  const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);if(!drawn||!drawn.pts.length)return;
+ const turns=drawn.hasC&&pathTurns;$('bTurn').hidden=!drawn.hasC;
+ $('bTurn').textContent=T(turns?'Part turns with the chuck':'Part fixed, cutter moves round it');
  const P=drawn.pts.map(p=>xy(p,drawn.hasC));let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(const[a,b]of P){x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b)}
- if(drawn.hasC){const r=Math.max(Math.abs(x0),Math.abs(x1),Math.abs(y0),Math.abs(y1));x0=y0=-r;x1=y1=r}
- const s=0.9*cv.width/Math.max(x1-x0,y1-y0,1e-3),ox=cv.width/2-s*(x0+x1)/2,oy=cv.height/2+s*(y0+y1)/2,T=([a,b])=>[ox+s*a,oy-s*b];
+ if(drawn.hasC){const r=Math.max(Math.abs(x0),Math.abs(x1),Math.abs(y0),Math.abs(y1),Math.abs(st.x||0))*1.12;x0=y0=-r;x1=y1=r}
+ const s=0.9*cv.width/Math.max(x1-x0,y1-y0,1e-3),ox=cv.width/2-s*(x0+x1)/2,oy=cv.height/2+s*(y0+y1)/2;
+ // turning: every point of the part by -C (the chuck clockwise for +C, seen from the cutter)
+ const cc=turns?cNow():0,ca=Math.cos(-cc*Math.PI/180),sa=Math.sin(-cc*Math.PI/180);
+ const R=([a,b])=>turns?[a*ca-b*sa,a*sa+b*ca]:[a,b],TP=q=>{const[a,b]=R(q);return[ox+s*a,oy-s*b]};
+ if(turns){const rr=(x1-x0)/2*s;g.strokeStyle='#999';g.lineWidth=1.5;g.beginPath();g.arc(ox,oy,rr,0,7);g.stroke();
+  g.fillStyle='rgba(120,120,120,.35)';for(let k=0;k<3;k++){const a=-(cc+k*120)*Math.PI/180;g.save();g.translate(ox,oy);g.rotate(-a);g.fillRect(rr*0.8,-rr*0.07,rr*0.18,rr*0.14);g.restore()}
+  g.strokeStyle='#c99';g.setLineDash([6,5]);g.beginPath();g.moveTo(ox,oy);g.lineTo(ox+rr,oy);g.stroke();g.setLineDash([])}
  const done=(st.program==drawn.name&&(st.running||st.programLoaded))?st.progress*drawn.total:0;
- g.lineWidth=1.2;for(let i=1;i<P.length;i++){const[a,b]=T(P[i-1]),[c2,d]=T(P[i]);g.strokeStyle=drawn.pts[i][3]<=done?'#3a8ee6':(drawn.pts[i][4]?'#553':'#888');g.beginPath();g.moveTo(a,b);g.lineTo(c2,d);g.stroke()}
+ g.lineWidth=1.2;for(let i=1;i<P.length;i++){const[a,b]=TP(P[i-1]),[c2,d]=TP(P[i]);g.strokeStyle=drawn.pts[i][3]<=done?'#3a8ee6':(drawn.pts[i][4]?'#553':'#888');g.beginPath();g.moveTo(a,b);g.lineTo(c2,d);g.stroke()}
  if(drawn.hasC){g.strokeStyle='#444';g.beginPath();g.arc(ox,oy,3,0,7);g.stroke()}
- const cur=T(xy([st.x,st.z,st.c],drawn.hasC));g.fillStyle='#e33';g.beginPath();g.arc(cur[0],cur[1],6,0,7);g.fill();
- $('pathinfo').textContent=drawn.name+': '+drawn.pts.length+' moves'+(drawn.hasC?', seen from the cutter (X radius, C angle)':', Z across, X up')}
+ // the cutter: on the X slide's line (turning view), or where it is on the part
+ const cur=turns?[ox+s*(st.x||0),oy]:TP(xy([st.x,st.z,st.c],drawn.hasC));g.fillStyle='#e33';g.beginPath();g.arc(cur[0],cur[1],6,0,7);g.fill();
+ $('pathinfo').textContent=drawn.name+': '+drawn.pts.length+' moves'+(drawn.hasC?(turns?', seen from the cutter: the part turns with the chuck (C '+cc.toFixed(1)+'°), the cutter on the X line':', seen from the cutter (X radius, C angle)'):', Z across, X up');
+ if(!anim&&turns&&cRate&&!pathAnim)pathAnim=requestAnimationFrame(pathTick)}
 let logSeen=-1,logLines=[];
 async function mdiRun(l){l=l.trim();if(!l)return;try{msg(await post('/mdi',new URLSearchParams({line:l})))}catch(err){msg(err.message)}}
 $('mdiform').onsubmit=e=>{e.preventDefault();mdiRun($('mdi').value)};
@@ -804,7 +836,7 @@ const I18N={
  'Jog lock':'Κλείδωμα jog','Jog is locked: press the lock button first.':'Το jog είναι κλειδωμένο: πάτα πρώτα το κουμπί κλειδαριάς.',
  // G-code
  'Run':'Εκτέλεση','Files':'Αρχεία','Path':'Διαδρομή','Start':'Έναρξη','Pause':'Παύση','Resume':'Συνέχεια','Feed':'Πρόωση','Rapids':'Γρήγορες','Draw':'Σχέδιο','Test':'Έλεγχος',
- 'Upload':'Ανέβασμα','Upload failed':'Το ανέβασμα απέτυχε','Select a file and press Draw.':'Διάλεξε αρχείο και πάτα Σχέδιο.','Select a file first (G-code, Files).':'Διάλεξε πρώτα αρχείο (G-code, Αρχεία).',
+ 'Upload':'Ανέβασμα','Upload failed':'Το ανέβασμα απέτυχε','Select a file and press Draw.':'Διάλεξε αρχείο και πάτα Σχέδιο.','Part turns with the chuck':'Το κομμάτι γυρίζει με το τσοκ','Part fixed, cutter moves round it':'Σταθερό κομμάτι, το κοπτικό γύρω του','The check of the program did not answer: try again.':'Ο έλεγχος του προγράμματος δεν απάντησε: ξαναδοκίμασε.','Select a file first (G-code, Files).':'Διάλεξε πρώτα αρχείο (G-code, Αρχεία).',
  'G-code line, e.g. G0 C90':'Γραμμή G-code, π.χ. G0 C90','e.g. G0 C90':'π.χ. G0 C90','About':'Πληροφορίες','Feed and rapids':'Πρόωση και γρήγορες κινήσεις',
  'MDI: one G-code line':'MDI: μία γραμμή G-code','The H4 must be idle. Keep a real emergency stop within reach.':'Το H4 πρέπει να είναι σε αναμονή. Να έχεις κοντά σου πραγματικό κουμπί έκτακτης ανάγκης.',
  'Edit…':'Αλλαγή…','Kept in this phone or browser.':'Κρατιούνται σε αυτό το κινητό ή browser.','Unlock ($X)':'Ξεκλείδωμα ($X)','Z up 5 mm':'Z πάνω 5 mm','Touch off Z':'Μηδέν Z εδώ','C to 0°':'C στις 0°',
