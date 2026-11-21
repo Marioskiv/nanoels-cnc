@@ -22,6 +22,12 @@ typedef struct {
   uint32_t lines;            // program lines read
   uint32_t blocks;           // planner blocks (an arc gives many)
   double programMinutes;     // sum of the block times at their programmed speeds (no acceleration)
+  double minutes;            // the estimate (firmware 1.49): every block as the step generator runs it, with the
+                             // acceleration and the look-ahead, plus the dwells (G4, cycles); pauses for the operator
+                             // (M0 / M6 / M3) are not in it
+  double dwellSeconds;       // of that, the dwells
+  int32_t minSteps[3], maxSteps[3];  // where the tool goes: lowest / highest position of each axis (steps, as the
+                             // planner counts them; the start position included)
   double busyUs;             // time spent in the interpreter and planner (yields not counted)
   double neededPerSecond;    // most blocks per second the program asks for (over CNC_BENCH_WINDOW blocks)
   uint32_t neededAtLine;     // where that is

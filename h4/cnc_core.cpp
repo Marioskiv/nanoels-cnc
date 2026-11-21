@@ -211,6 +211,40 @@ int cnc_plan_take_all(float* minutes, int max) {
   return n;
 }
 
+// Time of one block in minutes with the acceleration: entry speed v0 (planned), up to its nominal speed, down to v1.
+static float plan_block_minutes(const cnc_block_t* b, float exit_speed_sqr) {
+  float L = b->millimeters, a = b->acceleration;
+  if (L <= 0.0f) return 0.0f;
+  float vn = plan_compute_profile_nominal_speed(b);
+  float v0 = sqrtf(b->entry_speed_sqr), v1 = sqrtf(exit_speed_sqr);
+  if (v0 > vn) v0 = vn;
+  if (v1 > vn) v1 = vn;
+  if (a <= 0.0f || vn <= 0.0f) return vn > 0.0f ? L / vn : 0.0f;
+  float da = (vn * vn - v0 * v0) / (2.0f * a), dd = (vn * vn - v1 * v1) / (2.0f * a);
+  if (da + dd <= L) return (vn - v0) / a + (vn - v1) / a + (L - da - dd) / vn;  // trapezoid
+  float vp = sqrtf(a * L + 0.5f * (v0 * v0 + v1 * v1));                         // triangle: no cruise
+  if (vp < v0 || vp < v1) return 2.0f * L / (v0 + v1 > 0.0f ? v0 + v1 : vn);
+  return (vp - v0) / a + (vp - v1) / a;
+}
+
+int cnc_plan_take_timed(cnc_taken_t* out, int max, int keep) {
+  int n = 0;
+  while (n < max && cnc_plan_blocks_used() > (uint8_t)keep) {
+    cnc_block_t* block = &block_buffer[block_buffer_tail];
+    uint8_t next = plan_next_block_index(block_buffer_tail);
+    float exit_sqr = next != block_buffer_head ? block_buffer[next].entry_speed_sqr : 0.0f;
+    cnc_taken_t* t = &out[n];
+    t->nominalMinutes = block->millimeters / plan_compute_profile_nominal_speed(block);
+    t->minutes = plan_block_minutes(block, exit_sqr);
+    for (int i = 0; i < CNC_N_AXIS; i++) t->delta[i] = (block->direction_bits & (1 << i)) ? -(int32_t)block->steps[i] : (int32_t)block->steps[i];
+    t->condition = block->condition;
+    t->line = block->line;
+    n++;
+    plan_discard_current_block();
+  }
+  return n;
+}
+
 // Adds a block that moves from the planner position by delta_steps. The caller checks that a block is free.
 static bool plan_buffer_steps(const int32_t delta_steps[CNC_N_AXIS], float feed, uint8_t condition, uint32_t line) {
   cnc_block_t* block = &block_buffer[block_buffer_head];

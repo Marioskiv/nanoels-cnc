@@ -42,18 +42,29 @@ void cnc_bench_run(const char* text, size_t length, cnc_bench_t* r, uint64_t (*n
   float window[CNC_BENCH_WINDOW];
   int windowCount = 0, windowNext = 0;
   double windowSum = 0;
-  float minutes[CNC_BLOCK_BUFFER_SIZE];
+  cnc_taken_t taken[CNC_BLOCK_BUFFER_SIZE];
+  int32_t tool[CNC_N_AXIS];
+  for (int i = 0; i < CNC_N_AXIS; i++) r->minSteps[i] = r->maxSteps[i] = tool[i] = cnc_plan_position()[i];
   char line[256], msg[96];
   size_t pos = 0;
   uint32_t lineNo = 0;
   uint64_t busyStart = nowUs();
 
-  // Takes the planned blocks out and adds their times to the running window.
-  auto drain = [&](uint32_t atLine) {
-    int n = cnc_plan_take_all(minutes, CNC_BLOCK_BUFFER_SIZE);
-    if (n > CNC_BLOCK_BUFFER_SIZE) n = CNC_BLOCK_BUFFER_SIZE;
+  // Takes planned blocks out (all = the motion stops here: M0, G4, the end; otherwise the newest stay for the
+  // look-ahead, as when the program runs) and adds their times to the estimate and the running window.
+  auto drain = [&](uint32_t atLine, bool all) {
+    int keep = all ? 0 : CNC_BLOCK_BUFFER_SIZE - 8;
+    int n;
+    while ((n = cnc_plan_take_timed(taken, CNC_BLOCK_BUFFER_SIZE, keep)) > 0)
     for (int i = 0; i < n; i++) {
-      float m = minutes[i];
+      float m = taken[i].nominalMinutes;
+      r->minutes += taken[i].minutes;
+      for (int k = 0; k < CNC_N_AXIS; k++) {
+        if (taken[i].condition & CNC_COND_BACKLASH) break;  // the motor only: the tool stays
+        tool[k] += taken[i].delta[k];
+        if (tool[k] < r->minSteps[k]) r->minSteps[k] = tool[k];
+        if (tool[k] > r->maxSteps[k]) r->maxSteps[k] = tool[k];
+      }
       r->blocks++;
       r->programMinutes += m;
       if (windowCount == CNC_BENCH_WINDOW) windowSum -= window[windowNext];
@@ -82,7 +93,14 @@ void cnc_bench_run(const char* text, size_t length, cnc_bench_t* r, uint64_t (*n
       float dwell = 0;
       msg[0] = '\0';
       int res = cnc_gc_line(line, lineNo, msg, sizeof(msg), &dwell);
-      drain(lineNo);
+      // the motion stops before a dwell, a pause for the operator, threading and the end
+      bool stops = res == CNC_DWELL || res == CNC_DWELL_MORE || res == CNC_PAUSE || res == CNC_END || res == CNC_THREAD ||
+                   res == CNC_THREAD_MORE;
+      drain(lineNo, stops);
+      if ((res == CNC_DWELL || res == CNC_DWELL_MORE) && dwell > 0) {
+        r->dwellSeconds += dwell;
+        r->minutes += dwell / 60.0;
+      }
       if (res == CNC_PAUSE) {
         if (r->waits++ == 0) {
           r->waitLine = lineNo;
@@ -116,5 +134,6 @@ void cnc_bench_run(const char* text, size_t length, cnc_bench_t* r, uint64_t (*n
       busyStart = nowUs();
     }
   }
+  drain(lineNo, true);  // the program's last moves (a program without M2 / M30 ends at its last line)
   r->busyUs += (double)(nowUs() - busyStart);
 }
