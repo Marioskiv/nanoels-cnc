@@ -45,7 +45,12 @@ is left, the next try uses the other way (as F-Droid, which below Android 12 ope
 directly, because makers break the session on some devices); the way that worked stays. On one Huawei tablet
 with Android 7 the session's *Install* button did nothing. From app 1.39 the first try below Android 13 is Android's installer
 screen (Ackpine and F-Droid advise against the session there, above all on Huawei and Xiaomi installers); from
-Android 13 on, the session.
+Android 13 on, the session. **From app 1.66, below Android 13 it is always Android's installer screen, opened exactly as the
+Files app opens a downloaded APK** (in a task of its own, no answer asked): opened "for a result" inside the app's
+own task, as until 1.65, it had to answer an app that Android was closing to replace, and Huawei's installer stayed
+at "Installing..." now and then, while the same file from Files installed at once. A try that did not go through no
+longer switches later updates to the session (that made updates go fast and stick in turn). In the session (Android
+13+, or as a fallback) the app now says "press Install" when Android waits for it, instead of "installs 90 %".
 
 **After an update (from app 1.41).** When Android has installed the new version, it opens by itself (Android tells
 the app, MY_PACKAGE_REPLACED); while an install handed to Android less than 3 minutes ago may still run, opening the

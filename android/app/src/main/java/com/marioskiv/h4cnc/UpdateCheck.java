@@ -351,7 +351,11 @@ final class UpdateCheck {
     static String way(Context c) {
         // first try: Android's installer screen below Android 13, the session from 13 on (Ackpine and F-Droid advise
         // against the session below that, above all on Huawei / Xiaomi installers)
-        return c.getSharedPreferences("h4", Context.MODE_PRIVATE).getString("installWay", Build.VERSION.SDK_INT >= 33 ? WAY_SESSION : WAY_INTENT);
+        // App 1.66: below Android 13 always Android's installer screen, opened as the Files app opens an APK (see
+        // openInstaller). Before, a try that did not go through switched every later update to the session, whose
+        // "Install?" screen often does not come up on the owner's Huawei (Android 7): updates went fast and stuck in turn.
+        if (Build.VERSION.SDK_INT < 33) return WAY_INTENT;
+        return c.getSharedPreferences("h4", Context.MODE_PRIVATE).getString("installWay", WAY_SESSION);
     }
 
     static void flipWay(Context c) {
@@ -404,7 +408,12 @@ final class UpdateCheck {
 
                 @Override
                 public void onProgressChanged(int sessionId, float pr) {
-                    if (sessionId == id) progress.set(Tr.t(activity, "Step 3 of 3: Android installs " + version, "Βήμα 3 από 3: το Android εγκαθιστά την " + version), Math.round(pr * 100));
+                    if (sessionId != id) return;
+                    // from 80 % the file is all with Android, which waits for "Install" on its own screen: say so
+                    // (until 1.65 "installs 90 %" covered it and looked as if it were still installing)
+                    if (pr >= 0.8f) progress.set(Tr.t(activity, "Step 3 of 3: Android waits for you: press Install on its screen (if it is not in front: the square key, Package installer).",
+                            "Βήμα 3 από 3: το Android περιμένει εσένα: πάτα Εγκατάσταση στη δική του οθόνη (αν δεν φαίνεται: το τετράγωνο πλήκτρο, Πρόγραμμα εγκατάστασης)."), -1);
+                    else progress.set(Tr.t(activity, "Step 3 of 3: Android takes " + version, "Βήμα 3 από 3: το Android παίρνει την " + version), Math.round(pr * 100));
                 }
 
                 @Override
@@ -446,26 +455,31 @@ final class UpdateCheck {
         }
     }
 
+    // Android's installer screen, opened as the Files app opens a downloaded APK (app 1.66): ACTION_VIEW in a task of
+    // its own, no answer asked. Until 1.65 it was opened with startActivityForResult (ACTION_INSTALL_PACKAGE,
+    // EXTRA_RETURN_RESULT): the installer then ran in this app's own task and had to answer this app while Android
+    // closed this app to replace it; on the owner's Huawei (Android 7) it stayed at "Installing..." now and then, while
+    // the same file opened from Files installed at once. The end is seen as before: the new version opens by itself
+    // (UpdatedReceiver); still the old one at the next opening = not installed (maybeCheck).
     @SuppressWarnings("deprecation")
     private static void openInstaller(MainActivity activity, File apk, String version) {
-        Intent i;
+        Intent i = new Intent(Intent.ACTION_VIEW);
         if (Build.VERSION.SDK_INT >= 24) {
-            i = new Intent(Intent.ACTION_INSTALL_PACKAGE, ApkProvider.uri(activity));
+            i.setDataAndType(ApkProvider.uri(activity), "application/vnd.android.package-archive");
             i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } else {
             // Android 5 and 6 take a plain file: make it readable by the installer
             apk.setReadable(true, false);
             apk.getParentFile().setExecutable(true, false);
-            i = new Intent(Intent.ACTION_INSTALL_PACKAGE, Uri.fromFile(apk));
+            i.setDataAndType(Uri.fromFile(apk), "application/vnd.android.package-archive");
         }
-        i.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true);
-        i.putExtra(Intent.EXTRA_RETURN_RESULT, true);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             // remembered: if the app opens again still at the old version, it says the install did not go through
             activity.getSharedPreferences("h4", Context.MODE_PRIVATE).edit().putString("installTried", version)
                     .putLong("installAt", System.currentTimeMillis()).commit();
-            ExitWatch.event(activity, version + " handed to Android (installer screen)", "η " + version + " δόθηκε στο Android (οθόνη εγκατάστασης)");
-            activity.startActivityForResult(i, INSTALL_REQUEST);
+            ExitWatch.event(activity, version + " handed to Android (installer screen, own task)", "η " + version + " δόθηκε στο Android (οθόνη εγκατάστασης, χωριστή)");
+            activity.startActivity(i);
         } catch (Exception e) {
             tell(activity, Tr.t(activity, "Android's installer did not open: ", "Ο εγκαταστάτης του Android δεν άνοιξε: ") + e.getMessage());
         }
