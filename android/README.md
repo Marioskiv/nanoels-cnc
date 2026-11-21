@@ -150,6 +150,11 @@ there; a refusal also rumbles the gamepad. The button last pressed is shown ther
 pad: if it is not the one you pressed, the gamepad is read with another layout. A DualShock 4 on Android versions
 without Sony's layout (seen on Huawei, Android 7: L2 arrived as L1, R2 as R1) is recognised and translated (app 1.64).
 
+The path (app 1.68): a polar program can be shown as the machine does it: the part turns with the chuck by the C angle
+the H4 reports (with the chuck's outline and jaws), the cutter stays on the X slide's line; or fixed, the cutter
+moving round it (button under the drawing). Moves with C are drawn round the centre, as the machine moves, not as
+straight chords.
+
 The link (app 1.65, firmware 1.48): the page and the gamepad keep one lasting connection each to the H4 (WebSocket,
 port 81): the H4 sends its state by itself and the jogs go on it, faster and steadier over a weak WiFi than a new
 connection per request. When it cannot be opened (an older firmware), everything goes over HTTP as before.

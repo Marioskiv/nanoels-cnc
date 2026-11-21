@@ -77,6 +77,22 @@ async function waitIdle(timeoutMs = 60000) {
     await sleep(2500);
     ok(/Idle/i.test(await page.textContent('#cState')), 'the page connects to the H4 on the PC: "' + (await page.textContent('#cState')).trim() + '"');
     ok(!(await page.isVisible('#demoTag')), 'not the demo: the real firmware answers');
+    // the path of a polar program turns with the chuck (app 1.68): parsed with the C moves in pieces, drawn turned by -C
+    {
+      const r = await page.evaluate(() => {
+        drawn = parse('G21 G90\nG0 X10 C0\nG1 X30 F300\nG1 C90 F3000\nM2\n', 'L.ngc');
+        const arcPts = drawn.pts.filter(p => Math.abs(p[0] - 30) < 1e-9).length;
+        tab('program'); sub('program', 'path'); turnView(true);
+        st.c = 90; cSeen = null; drawPath();
+        const turned = $('pathinfo').textContent, btn = $('bTurn').textContent;
+        turnView(false);
+        const fixed = $('pathinfo').textContent;
+        turnView(true);
+        return { arcPts, turned, btn, fixed };
+      });
+      ok(r.arcPts >= 30 && /turns with the chuck \(C 90\.0°\)/.test(r.turned) && /turns with the chuck/.test(r.btn) && /X radius, C angle/.test(r.fixed),
+        'a polar path turns with the chuck: the C move drawn in ' + r.arcPts + ' pieces (not a chord), "' + r.turned + '", the button switches to the fixed view');
+    }
     // the lasting link (firmware 1.48): open, the state comes on it (no /status asked meanwhile), positions move on it
     {
       let statusAsked = 0;
