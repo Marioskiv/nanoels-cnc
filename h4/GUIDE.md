@@ -237,10 +237,15 @@ The page **never scrolls** (but *Settings*, whose pages scroll with the finger):
 rolls it up again (or swipe left / right; the phone's Back key goes to the screen before). Axes are always in the
 order **Z, X, C**, as in the lathe drawing, on the H4's own keys and on the gamepad's sticks. What does not fit is on sub-tabs (e.g. *Run | Files | Path*), on pages (‹ 1/2 ›) or in a pop-up.
 On a tablet turned sideways the parts of a screen sit side by side. **STOP** is always at the top right; beside it the clock (in the app also the tablet's battery and WiFi: the app runs full screen, see *Settings, Screen and jog*). Messages
-also appear for a few seconds; a red dot on *Machine* means a new message, *G-code* shows the progress while a
+also appear for a few seconds; a red dot on *Machine* means a new message, *CNC (G-code)* shows the progress while a
 program runs.
 
-- **Control**: Z / X / C in work coordinates with the machine position under them and a ZERO per axis (it asks
+- **The screen is the H4's mode** (app 1.75 / firmware 1.54): the app opens on **Lathe**, which puts the H4 in a
+  lathe mode; **CNC (G-code)** puts it in GCODE mode, ready for programs. Nothing of G-code is shown on the Lathe
+  screen. A mode changed on the H4's own keys brings the app to the matching screen; when the H4 refuses (something
+  runs) the app stays where it was and says why. *Machine*, *Machine parameters* and *Settings* belong to both.
+- **Control** (*CNC (G-code)*; the program, files and path are opened from its buttons *Files / Path / Program*,
+  with *‹ CNC Control* to come back): Z / X / C in work coordinates with the machine position under them and a ZERO per axis (it asks
   first; on a polar machine X0 must stay the chuck centre); the step (.001 ... 10, or **Cont**) and the **jog
   lock** 🔒; the **jog buttons** X−/X+, Z+/Z−, C+/C− (a tap is one step; with *Cont* the axis moves while the
   button is held and stops when it is released) or a **jog wheel** (tap an axis, turn); START / HOLD, feed and
@@ -323,13 +328,14 @@ program runs.
   where the tool stands. The drawing marks where the operation starts (a green flag with an arrow along the first cut).
   **The zeros stay** where they were touched on the part (Z0 on the face, X0 from the measured Ø): every value is
   measured from them, also after facing or turning, and the H4 keeps them when switched off.
-  **Touch-off guard**: an operation that uses the zeros (Turning, Facing, Thread, Sphere: Z0 and Ø → X0; Parting:
-  Ø → X0) does not START until they were set from this screen since the last event that can spoil them - the first
-  use, **New tool** (button next to the zeros), a **New part** (Z0 on its face; on a part not cut
-  yet *Touch Z0* also moves the part's face there). The buttons still to press are marked and the note under the
-  form says why. A zero changed on the H4 itself (its keys) is noticed (the H4 reports the work and machine
-  positions) and asks once: *The zeros are right*. After an H4 restart the zeros are kept: the note asks to confirm
-  them (*The zeros are right*) or to touch them again. Feed, Constant feed and Taper start where the tool stands and are
+  **ZERO Z / ZERO X** (firmware 1.54): two large buttons show from the H4 whether each zero is set (✓) or still
+  needed (✗). The H4 itself keeps this, so a zero set from the app or from the H4's keys (X / Z, numpad + A) counts
+  the same, on any tablet. An operation that uses the zeros (Turning, Facing, Thread, Sphere: Z0 and Ø → X0;
+  Parting: Ø → X0) does not START while one is needed - the first use, **New tool** (button next to the zeros), a
+  **New part** (Z0 on its face; on a part not cut yet *Touch Z0* also moves the part's face there); the note under
+  the form says which and why. After an H4 restart the zeros are kept: the note asks to confirm them (*The zeros are
+  right*) or to touch them again. On the Lathe screen the arrows ◀ ▶ ▲ ▼ move Z and X exactly as the H4's own arrow
+  keys (held = moves, released = stops). Feed, Constant feed and Taper start where the tool stands and are
   not held.
   **Speed and feed**: under Turning, Facing, Parting, Sphere and Taper the note gives a starting point for the
   material and tool chosen there (aluminium, mild steel, stainless, brass / bronze, plastic; carbide or HSS): the
