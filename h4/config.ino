@@ -215,6 +215,14 @@ void storeMachineConfigAll() {
   cfg.end();
 }
 
+// Firmware 1.50: the machine settings are never replaced by the defaults without saying so. Until 1.49 a stored set
+// that failed the checks (or was written by another settings version) was ignored as a whole, silently: the H4 then
+// ran with the firmware's defaults (the owner's X did not go to HOME after Home All: the default HOME_OFFSET 0).
+// Now the reason is kept here, logged, shown by the app in red, and programs, Home All and jogs are refused
+// (cncStartRefusal) until the settings are saved again from the app.
+char machineConfigProblem[160] = "";
+bool machineConfigStored = false;  // a stored set is in use (false: the firmware's defaults, nothing was ever saved)
+
 // Called first in setup().
 void loadMachineConfig() {
   for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) machineConfigDefaults[i] = configGet(i);
@@ -229,7 +237,12 @@ void loadMachineConfig() {
 #endif
   Preferences cfg;
   if (cfg.begin(MACHINE_CONFIG_NAMESPACE, true)) {
-    if (cfg.getInt("v", 0) == MACHINE_CONFIG_VERSION) {
+    int version = cfg.getInt("v", 0);
+    if (version != 0 && version != MACHINE_CONFIG_VERSION) {
+      snprintf(machineConfigProblem, sizeof(machineConfigProblem), "Machine settings of another version (%d) were not used: "
+          "check every value in the app (Settings, Machine) and save", version);
+    }
+    if (version == MACHINE_CONFIG_VERSION) {
       double values[MACHINE_CONFIG_COUNT];
       for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) {
         const MachineConfigItem& it = MACHINE_CONFIG[i];
@@ -239,9 +252,14 @@ void loadMachineConfig() {
           if (configValid(i, v)) values[i] = v;
         }
       }
-      // A stored set that does not pass the checks is ignored as a whole: the defaults are safe.
-      if (configCrossCheck(values).length() == 0) {
+      // A stored set that does not pass the checks is not used (the defaults are in effect), and that is said.
+      String why = configCrossCheck(values);
+      if (why.length() == 0) {
         for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) configSet(i, values[i]);
+        machineConfigStored = true;
+      } else {
+        snprintf(machineConfigProblem, sizeof(machineConfigProblem), "The saved machine settings were NOT loaded (%s): "
+            "the firmware's defaults are in effect. Check every value in the app (Settings, Machine) and save", why.c_str());
       }
     }
     cfg.end();

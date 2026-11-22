@@ -85,6 +85,7 @@ const char AXES_OFF_TEXT[] = "Axes are off: Axes ON in the app (beside STOP) or 
 
 // Why a G-code program may not start now, or NULL.
 const char* cncStartRefusal() {
+  if (machineConfigProblem[0]) return machineConfigProblem;  // config.ino: the machine settings were not loaded
   if (ALARM_USE && inAlarm) return "Driver alarm or E-stop";
   if (HOME_X_USE && HOME_X_IS_LIMIT && inHomeX) return "X on its switch";
   if (HOME_Z_USE && HOME_Z_IS_LIMIT && inHomeZ) return "Z on its switch";
@@ -374,6 +375,7 @@ void homingRun() {
   else if (isOn || cncBusy() || cncStopRequest) refusal = "Homing: stop the program first";
   else if (ALARM_USE && inAlarm) refusal = "Homing: driver alarm or E-stop";
   else if (emergencyStop != ESTOP_NONE) refusal = "Homing: emergency stop";
+  else if (machineConfigProblem[0]) refusal = machineConfigProblem;  // config.ino: the machine settings were not loaded
   if (refusal != NULL) {
     cncStatusText = refusal;
     cncLog(refusal);

@@ -194,6 +194,10 @@ void handleMdi() {
       server.send(409, "text/plain", String("Home All refused: ") + AXES_OFF_TEXT);
       return;
     }
+    if (machineConfigProblem[0]) {  // config.ino: the saved machine settings were not loaded
+      server.send(409, "text/plain", machineConfigProblem);
+      return;
+    }
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");
       return;
@@ -272,7 +276,10 @@ String statusJson() {
       ",\"movePulseMaxUs\":" + String(moveDiagPulseMaxCycles / (float)cncCpuCyclesPerUs, 2) +
       ",\"loopGapMs\":" + String(loopGapMaxUs / 1000.0, 1) + ",\"loopLong\":" + String(loopGapLongCount) + "}";
   json += ",\"benchN\":" + String(cncBenchCount) + ",\"bench\":\"" + jsonEscape(String(cncBenchText)) + "\"";
-  json += ",\"chk\":" + cncCheckJson(); // the last check: time, where each axis goes, its limits (h4.ino)
+  json += ",\"chk\":" + cncCheckJson();
+  // the machine settings (config.ino): "cfgErr" = not loaded and why (the app shows it in red); "cfgDef" = the firmware's
+  // defaults, nothing was ever saved
+  json += ",\"cfgErr\":\"" + jsonEscape(String(machineConfigProblem)) + "\",\"cfgDef\":" + String(machineConfigStored ? 0 : 1); // the last check: time, where each axis goes, its limits (h4.ino)
   cnc_modes_t modes;
   cnc_gc_get_modes(&modes);
   const char* wcsNames[] = {"G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3"};
@@ -569,6 +576,10 @@ void handleCommand() {
       server.send(409, "text/plain", String("Home All refused: ") + AXES_OFF_TEXT);
       return;
     }
+    if (machineConfigProblem[0]) {  // config.ino: the saved machine settings were not loaded
+      server.send(409, "text/plain", machineConfigProblem);
+      return;
+    }
     if (!homingConfigured()) {
       server.send(409, "text/plain", "No home switch is set up (Machine settings).");
       return;
@@ -579,6 +590,10 @@ void handleCommand() {
   } else if (what == "homecheck") {
     if (emergencyStop != ESTOP_NONE) {
       server.send(409, "text/plain", "Emergency stop: restart the controller.");
+      return;
+    }
+    if (machineConfigProblem[0]) {  // config.ino: the saved machine settings were not loaded
+      server.send(409, "text/plain", machineConfigProblem);
       return;
     }
     if (!homingConfigured()) {
@@ -893,6 +908,11 @@ void handleKey() {
 // lasting link (wslink.ino) as {"t":"jog","x":..,"z":..,"c":..}: both call jogFromApp().
 const char* jogFromApp(float vx, float vz, float vc) {
   if (emergencyStop != ESTOP_NONE) return "Emergency stop: restart the controller.";
+  // config.ino: the saved machine settings were not loaded; stopping (0 0 0) is always taken
+  if (machineConfigProblem[0] && (vx != 0 || vz != 0 || vc != 0)) {
+    webJogRequest(0, 0, 0);
+    return machineConfigProblem;
+  }
   float v[3] = {vx, vz, vc};
   for (int i = 0; i < 3; i++) {
     if (!isfinite(v[i])) v[i] = 0;

@@ -156,11 +156,17 @@ Put your machine's numbers in `h4/my_machine.h` (copy `my_machine.h.example`). I
 so a newer firmware copied over the folder keeps it. Everything can also be changed later on the web page
 (*Machine settings*, stored in the H4; *Defaults from the firmware* goes back to `my_machine.h`).
 
-In the app (app 1.62), each axis page of *Machine settings* calculates the drive: the driver's steps per motor turn,
-the teeth on the motor and on the screw side (and a second belt or gear stage), the screw pitch (degrees per turn
-for a rotary axis); **Calculate** fills in *Motor steps per screw turn* and *Travel per screw turn*. **Fine adjustment
-by measuring**: move the axis by a known amount (e.g. `G1 X20 F300`), measure it, write both, **Correct** (the
-travel per screw turn is corrected). Then *Save and restart*.
+In the app (app 1.69), each axis page of *Machine settings* calculates the drive from three values: the driver's
+steps per motor turn (its DIP switches), the **ratio motor : screw** as teeth (`1:1` direct, `20:30` a 20-tooth motor
+pulley and a 30-tooth screw pulley; two stages `20:48 20:86`), and the screw pitch (degrees per turn of the chuck for
+the rotary axis). The result, steps per mm (or per degree), is shown as you type, and *Motor steps per screw turn* /
+*Travel per screw turn* are filled in. **Fine adjustment by measuring**: move the axis by a known amount (e.g.
+`G1 X20 F300`), measure it, write both, **Correct** (the travel per screw turn is corrected). Then *Save and restart*.
+
+**Saved settings are never replaced silently (firmware 1.50).** If the H4 finds saved machine settings it cannot use
+(they fail a check, or come from another settings version), it runs on the firmware's defaults but says so: a red
+line at the top of the app, and programs, Home All and jogging from the app are refused with that reason until the
+values are checked and saved again in *Machine settings*. The lathe modes are not changed.
 
 | Value | Meaning | From a LinuxCNC `.ini` |
 |---|---|---|

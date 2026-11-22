@@ -271,6 +271,7 @@ def run_checks():
     held_key_checks()
     jog_reverse_checks()
     ws_checks()
+    config_checks()
     connection_checks()
 
 
@@ -532,6 +533,49 @@ def wait_back(timeout=20):
         except Exception:
             time.sleep(0.2)
     return None
+
+
+def config_checks():
+    # firmware 1.50: saved machine settings that do not pass the checks are never replaced by the defaults silently
+    st = status()
+    check(st.get("cfgErr") == "" and st.get("cfgDef") in (0, 1), "the machine settings are loaded (cfgErr empty, cfgDef %s)" % st.get("cfgDef"))
+    items = json.loads(http(B + "/config")[1])["items"]
+    vals = {i["k"]: i["v"] for i in items}
+    # a stored set that fails the checks (Z start speed above its maximum), as a lost or damaged set would be
+    path = os.path.join(BUILD, "data", "prefs", "h4cfg.txt")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("v=1\n")
+        for k, v in vals.items():
+            if isinstance(v, bool):
+                v = 1 if v else 0
+            if isinstance(v, (int, float)):
+                f.write("%s=%.17g\n" % (k, v))
+        f.write("zStart=%d\nzSpeed=%d\n" % (vals["zSpeed"] + 100, vals["zSpeed"]))
+    http(B + "/wifi", "POST", b"mode=direct&appw=12345678")  # (a setting that restarts the H4, the machine set untouched)
+    st = wait_back()
+    err = (st or {}).get("cfgErr", "")
+    check("NOT loaded" in err and "Start speed" in err, "a damaged saved set is not used silently: \"%s\"" % err[:110])
+    code, text = post("/cmd", **{"do": "home"})
+    code2, text2 = post("/jog", x="60", z="0", c="0")
+    time.sleep(0.4)
+    post("/jog", x="0", z="0", c="0")
+    upload("cfg.ngc", "G0 X1\nM2\n")
+    code3, text3 = post("/cmd", **{"do": "start", "name": "cfg.ngc"})
+    end = time.time() + 10
+    st = status()
+    while time.time() < end and "NOT loaded" not in st.get("bench", "") + text3:
+        time.sleep(0.3)
+        st = status()
+    check(code == 409 and "NOT loaded" in text and code2 == 409 and "NOT loaded" in text2 and not st.get("homing") and not st.get("on"),
+          "Home All and a jog are refused with that reason (%d %s | %d %s)" % (code, text[:30], code2, text2[:30]))
+    check("Not started: The saved machine settings were NOT loaded" in st.get("bench", "") and not st.get("on"), "a program is refused with that reason (%s)" % st.get("bench", "")[:80])
+    # saved again from the app (the values as they are): loaded, no message
+    q = "&".join("%s=%s" % (i["k"], (1 if i["v"] else 0) if isinstance(i["v"], bool) else i["v"]) for i in items)
+    code, text = http(B + "/config", "POST", q.encode(), "application/x-www-form-urlencoded")
+    st = wait_back()
+    check(code == 200 and st is not None and st.get("cfgErr") == "" and st.get("cfgDef") == 0,
+          "saved from the app: loaded again, no message (%d %s, cfgDef %s)" % (code, text.strip()[:50], (st or {}).get("cfgDef")))
 
 
 def connection_checks():

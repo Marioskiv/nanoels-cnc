@@ -154,6 +154,8 @@ void safetyConfirmRestart(const char*) {}
 // h4.ino (firmware 1.45): all axes on / off together; a program and Home All refuse while they are off
 bool axesOn = true;
 bool axesAllOn() { return axesOn; }
+// config.ino (firmware 1.50): the saved machine settings were not loaded -> a program and Home All refuse
+char machineConfigProblem[160] = "";
 
 #include "../homing.ino"
 
@@ -230,6 +232,9 @@ int main() {
   axesOn = false;
   check(cncStartRefusal() != NULL && strstr(cncStartRefusal(), "Axes are off") != NULL, "axes off: a program is refused, \"Axes are off ...\"");
   axesOn = true;
+  strcpy(machineConfigProblem, "The saved machine settings were NOT loaded (test)");
+  check(cncStartRefusal() == machineConfigProblem, "machine settings not loaded: a program is refused with that reason");
+  machineConfigProblem[0] = 0;
   check(!strcmp(cncStatusText, "Homed"), "status Homed");
   // A jog with the keys still moving or braking (firmware 1.25): a program may not start until every axis stands still
   // (the keypad task would switch the driver off at the end of its move, under the running program).
