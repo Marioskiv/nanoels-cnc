@@ -165,6 +165,11 @@ others - firmware 1.47) and every axis brakes to a stop by itself 0.3 s after th
 app goes to the background, the screen turns off, the gamepad or the WiFi is lost. The screen stays on while the
 app is open. **This is not an emergency stop**: keep the power-supply switch within reach.
 
+
+**Fine control near the centre (app 1.72):** beyond the dead zone the speed follows a curve, so a small push of a stick
+or trigger moves slowly and full travel still gives the same top speed (70 %: 10 % travel = 3 % speed, 50 % = 24 %).
+Settings, Gamepad, *Fine control near the centre*: 0 = straight as before.
+
 ## Build
 
 GitHub builds the APK (workflow `.github/workflows/android.yml`) on every change of this folder and publishes it

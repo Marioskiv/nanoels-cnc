@@ -389,6 +389,12 @@ async function waitIdle(timeoutMs = 60000) {
       ok(/^(Now|Τώρα): [0-9.]+ steps per (degree|mm)/.test(c.now), 'the page shows what the axis has now: "' + c.now + '"');
       await page.evaluate(() => loadCfg());
     }
+    // 12b. app 1.72: the stick's speed curve beyond the dead zone: a small push slow, full travel the same top speed
+    {
+      const c = await page.evaluate(() => { const d = 0.35, at = n => gpDz(d + n * (1 - d), d); return [at(0.1), at(0.5), at(1), gpDz(0.2, d), -at(1) == gpDz(-1, d)]; });
+      ok(Math.abs(c[0] - 0.0307) < 1e-3 && Math.abs(c[1] - 0.2375) < 1e-3 && c[2] == 1 && c[3] == 0 && c[4],
+        'gamepad fine control: 10 % of the travel = ' + (c[0] * 100).toFixed(1) + ' % speed, 50 % = ' + (c[1] * 100).toFixed(1) + ' %, full = 100 %, dead zone 0');
+    }
     // 13. a gamepad refusal is explained on the screen (app 1.63)
     const gx = await page.evaluate(() => [gpExplain('Home All first'), gpExplain('hold the safety button (L1) to move'), gpExplain('Axes are off: Axes ON in the app (beside STOP) or key A on the H4')]);
     ok(/Home All/.test(gx[0]) && /PS/.test(gx[0]) && /L1/.test(gx[1]) && /Axes|ΑΞΟΝΕΣ|άξονες/.test(gx[2]), 'gamepad refusals explained: "' + gx.join('" | "') + '"');
