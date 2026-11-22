@@ -332,21 +332,40 @@ async function waitIdle(timeoutMs = 60000) {
     // 12. the drive calculated from the teeth, and the fine adjustment by measuring (Settings, Machine: X / C)
     const drv = await page.evaluate(() => {
       const set = (p, v) => { for (const k in v) $('d_' + p + '_' + k).value = v[k]; };
-      set('x', {spr: 1600, t1: 20, t2: 30, t3: '', t4: '', pitch: 2});
-      drvCalc('x');
+      set('x', {spr: 1600, ratio: '20:30', pitch: 2});
+      drvCalc('x', 1);  // (as typing does: filled in at once)
       const x1 = [+$('c_xSteps').value, +$('c_xScrew').value, $('d_x_res').textContent];
       set('x', {ask: 20, got: 19.96});
       drvFine('x');
       const x2 = [+$('c_xSteps').value, +$('c_xScrew').value, $('d_x_res').textContent];
-      set('a', {spr: 3200, t1: 20, t2: 48, t3: 20, t4: 86, pitch: 360});
-      drvCalc('a');
+      set('a', {spr: 3200, ratio: '20:48 20:86', pitch: 360});
+      drvCalc('a', 1);
       const a1 = [+$('c_aSteps').value, +$('c_aScrew').value];
-      return {x1, x2, a1};
+      set('z', {spr: 800, ratio: '1:1', pitch: 2});
+      drvCalc('z', 1);
+      const z1 = [+$('c_zSteps').value, +$('c_zScrew').value];
+      return {x1, x2, a1, z1};
     });
     ok(drv.x1[0] / drv.x1[1] == 1200 && /1200/.test(drv.x1[2]), 'X drive 1600 steps, 20T -> 30T, 2 mm: ' + drv.x1[0] + ' steps per ' + drv.x1[1] + ' mm = 1200 / mm ("' + drv.x1[2].slice(0, 60) + '")');
     ok(Math.abs(drv.x2[0] / drv.x2[1] - 1200 * 20 / 19.96) < 1e-6, 'fine adjustment, 20 asked and 19.96 measured: ' + drv.x2[0] + ' steps per ' + drv.x2[1] + ' mm (' + (drv.x2[0] / drv.x2[1]).toFixed(4) + ' / mm)');
     ok(Math.abs(drv.a1[0] / drv.a1[1] - 33024 / 360) < 1e-9, 'C drive 3200 steps, 20 -> 48, 20 -> 86, 360°: ' + drv.a1[0] + ' steps per ' + drv.a1[1] + ' (91.7333 per degree)');
+    ok(drv.z1[0] / drv.z1[1] == 400, 'Z drive 800 steps, ratio 1:1, 2 mm: ' + drv.z1[0] + ' steps per ' + drv.z1[1] + ' mm = 400 / mm');
     await page.evaluate(() => loadCfg());  // nothing saved: the form back to the H4's values
+    {
+      // app 1.69: the chuck has no screw — its fields say so, 0 degrees calculates nothing, the page shows what it has now
+      const c = await page.evaluate(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        const lab = (id) => (document.querySelector('label[for="' + id + '"]') || {}).textContent || '';
+        const now = $('d_a_res').textContent, before = [$('c_aSteps').value, $('c_aScrew').value];
+        $('d_a_spr').value = 3200; $('d_a_ratio').value = '20:48 20:86'; $('d_a_pitch').value = 0; drvCalc('a');
+        return {steps: lab('c_aSteps'), screw: lab('c_aScrew'), pitch: lab('d_a_pitch'), now, before, after: [$('c_aSteps').value, $('c_aScrew').value], res: $('d_a_res').textContent};
+      });
+      const rot = /chuck/.test(c.pitch);
+      ok(!rot || (/chuck turn/.test(c.steps) && /Degrees per chuck turn/.test(c.screw) && /360/.test(c.pitch)), 'C fields named for the chuck: "' + c.steps + '" / "' + c.screw + '" / "' + c.pitch + '"');
+      ok(c.before.join() == c.after.join() && /pitch|βήμα/.test(c.res), 'C with 0 degrees per turn: nothing changed (' + c.res.slice(0, 50) + ')');
+      ok(/^(Now|Τώρα): [0-9.]+ steps per (degree|mm)/.test(c.now), 'the page shows what the axis has now: "' + c.now + '"');
+      await page.evaluate(() => loadCfg());
+    }
     // 13. a gamepad refusal is explained on the screen (app 1.63)
     const gx = await page.evaluate(() => [gpExplain('Home All first'), gpExplain('hold the safety button (L1) to move'), gpExplain('Axes are off: Axes ON in the app (beside STOP) or key A on the H4')]);
     ok(/Home All/.test(gx[0]) && /PS/.test(gx[0]) && /L1/.test(gx[1]) && /Axes|ΑΞΟΝΕΣ|άξονες/.test(gx[2]), 'gamepad refusals explained: "' + gx.join('" | "') + '"');
