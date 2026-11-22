@@ -156,6 +156,9 @@ bool axesOn = true;
 bool axesAllOn() { return axesOn; }
 // config.ino (firmware 1.50): the saved machine settings were not loaded -> a program and Home All refuse
 char machineConfigProblem[160] = "";
+// h4.ino (firmware 1.53): GCODE counts an axis the other way than the H4's own positions (GCODE_REV_*)
+bool gcRevX = false, gcRevZ = false;
+int gcSign(Axis* a) { return (a == &x && gcRevX) || (a == &z && gcRevZ) ? -1 : 1; }
 
 #include "../homing.ino"
 
@@ -620,6 +623,28 @@ int main() {
     homingRun();  // the noise is gone: Home All again works
     snprintf(buf, sizeof(buf), "then Home All again: homed at the right place (off by %.4f mm)", mm(x, swX.at + x.machineOffset) - HOME_X_OFFSET);
     check(x.homed && fabs(mm(x, swX.at + x.machineOffset) - HOME_X_OFFSET) < 0.01, buf);
+  }
+  // Firmware 1.53, GCODE_REV_X / _Z: the .ini's homing values count as GCODE does, the other way than the H4's own
+  // positions. The switch is then on the H4's plus side of X and the minus side of Z; Home All finds it the same
+  // way, the GCODE machine coordinate (minus the H4's own) of the switch is HOME_OFFSET and the axis ends at HOME;
+  // the soft limits are the .ini's MIN / MAX in GCODE's sense.
+  {
+    machine();
+    gcRevX = gcRevZ = true;
+    swX.at = 30 * 1200; swX.dir = 1;
+    swZ.at = -40 * 400; swZ.dir = -1;
+    homingRun();
+    char buf[240];
+    float sx = -mm(x, swX.at + x.machineOffset), sz = -mm(z, swZ.at + z.machineOffset);
+    float hx = -mm(x, x.pos + x.machineOffset), hz = -mm(z, z.pos + z.machineOffset);
+    snprintf(buf, sizeof(buf), "GCODE counts X and Z the other way: homed, switches at GCODE machine X %.3f Z %.3f, ends at X %.3f Z %.3f",
+             sx, sz, hx, hz);
+    check(x.homed && z.homed && fabsf(sx - HOME_X_OFFSET) < 0.01f && fabsf(sz - HOME_Z_OFFSET) < 0.02f && fabsf(hx) < 0.002f && fabsf(hz) < 0.005f, buf);
+    long lo, hi;
+    softLimitSteps(&x, &lo, &hi);
+    snprintf(buf, sizeof(buf), "and the X soft limits in GCODE's machine coordinates: %.3f .. %.3f", -mm(x, hi + x.machineOffset), -mm(x, lo + x.machineOffset));
+    check(fabsf(-mm(x, hi + x.machineOffset) - LIMIT_X_MIN) < 0.002f && fabsf(-mm(x, lo + x.machineOffset) - LIMIT_X_MAX) < 0.002f, buf);
+    gcRevX = gcRevZ = false;
   }
   printf("homing: %d checks, %d failures\n", checks, failures);
   return failures ? 1 : 0;

@@ -174,6 +174,13 @@ is shown as you type (and what the axis has now when the page opens), and *Motor
 line at the top of the app, and programs, Home All and jogging from the app are refused with that reason until the
 values are checked and saved again in *Machine settings*. The lathe modes are not changed.
 
+**Directions: the lathe modes and GCODE (firmware 1.53).** The H4's lathe modes count Z+ towards the chuck and X+
+towards the centre; LinuxCNC (and ISO) the other way. Set *Invert direction* so that the lathe modes are right (the
+H4's arrow keys: left = towards the chuck, up = towards the centre; turning and threads then go the right way), then
+switch on *GCODE counts X / Z the other way than the lathe modes* on the X and Z pages: G-code, the .ini's homing
+values (HOME_SEARCH_VEL, HOME_OFFSET, HOME, MIN / MAX_LIMIT) and the converter's programs keep LinuxCNC's sense, and
+every button, the gamepad, the H4 keys and the lathe drawing move the axis the same way on the machine.
+
 **Router on the chuck centre (X).** On the X page, *Where the switch is (HOME_OFFSET)* places X 0. Home All, move X
 until the router is exactly on the chuck centre, read *machine X* (Machine, Position; the X page shows it too). New
 HOME_OFFSET = the present HOME_OFFSET minus that reading (e.g. -20 - 4.039 = -24.039); change MIN and MAX by the same

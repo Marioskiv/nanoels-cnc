@@ -939,6 +939,9 @@ void handleKey() {
 const char* latheJogFromApp(float vx, float vz, float vc) {
   if (!isfinite(vx)) vx = 0;
   if (!isfinite(vz)) vz = 0;
+  // the app's directions are GCODE's (GCODE_REV_*: the other way than the H4's own): the same way on the machine
+  vx *= gcSign(&x);
+  vz *= gcSign(&z);
   int code = 0;
   if (vz != 0 && fabsf(vz) >= fabsf(vx)) code = vz > 0 ? B_LEFT : B_RIGHT;
   else if (vx != 0) code = vx > 0 ? B_UP : B_DOWN;
