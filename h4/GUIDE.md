@@ -156,7 +156,8 @@ Put your machine's numbers in `h4/my_machine.h` (copy `my_machine.h.example`). I
 so a newer firmware copied over the folder keeps it. Everything can also be changed later on the web page
 (*Machine settings*, stored in the H4; *Defaults from the firmware* goes back to `my_machine.h`).
 
-In the app (app 1.69), each axis page of *Machine settings* calculates the drive from three values: the driver's
+In the app (app 1.70) the machine settings have a screen of their own, **Machine parameters**: a page per axis (Z, X,
+C) with its drive, motion, home switch and limits, then the H4's other groups. Each axis page calculates the drive from three values: the driver's
 steps per motor turn (its DIP switches), the **ratio motor : screw** as teeth (`1:1` direct, `20:30` a 20-tooth motor
 pulley and a 30-tooth screw pulley; two stages `20:48 20:86`), and the screw pitch (degrees per turn of the chuck for
 the rotary axis: a chuck has no screw, one chuck turn is always 360, never 0). The result, steps per mm (or per degree),
@@ -168,6 +169,16 @@ is shown as you type (and what the axis has now when the page opens), and *Motor
 (they fail a check, or come from another settings version), it runs on the firmware's defaults but says so: a red
 line at the top of the app, and programs, Home All and jogging from the app are refused with that reason until the
 values are checked and saved again in *Machine settings*. The lathe modes are not changed.
+
+**Router on the chuck centre (X).** On the X page, *Where the switch is (HOME_OFFSET)* places X 0. Home All, move X
+until the router is exactly on the chuck centre, read *machine X* (Machine, Position; the X page shows it too). New
+HOME_OFFSET = the present HOME_OFFSET minus that reading (e.g. -20 - 4.039 = -24.039); change MIN and MAX by the same
+amount so the limits stay in place; Save and restart, Home All: X 0 is then the chuck centre.
+
+**GCODE and the lathe modes stay apart (firmware 1.51).** The app never changes the H4's mode by itself. In a lathe
+mode the app's jog (buttons, gamepad) is the H4's own arrow keys (Z and X, the H4's step; the H4 stays in its mode);
+a program, MDI, Home All and a home check are refused until the **GCODE** button (Control screen) or the H4's keys
+choose GCODE. After a firmware update the app waits for the H4 and says when the new version runs and is kept.
 
 | Value | Meaning | From a LinuxCNC `.ini` |
 |---|---|---|

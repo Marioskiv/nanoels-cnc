@@ -152,6 +152,8 @@ def run_checks():
     check(s["fw"] == fw and s["state"] == "Idle", "starts: /status answers, firmware %s, Idle" % s["fw"])
     check(any(line.strip() for line in sim()["lcd"]), "the LCD shows the H4's screen: %s" % sim()["lcd"][0].strip())
 
+    lathe_mode_checks()
+
     # MDI moves with the spindle turning (the default pauses G-code while it stands)
     ctl("/spindle", rpm=500)
     check(mdi("$X")[0] == 200, "MDI $X (moves before Home All)")
@@ -272,7 +274,56 @@ def run_checks():
     jog_reverse_checks()
     ws_checks()
     config_checks()
+    lathe_jog_checks()
     connection_checks()
+
+
+def lathe_mode_checks():
+    # firmware 1.51: the H4 starts in a lathe mode; nothing of GCODE switches it to GCODE by itself any more, and the
+    # app's jog moves it as its own arrow keys do (it stays in its mode)
+    s = status()
+    check(s.get("gcodeMode") == 0, "starts in a lathe mode (gcodeMode %s)" % s.get("gcodeMode"))
+    upload("lm.ngc", "G0 X1\nM2\n")
+    refused = []
+    for what, (code, text) in [("MDI", http(B + "/mdi", "POST", b"line=G0%20X1", "application/x-www-form-urlencoded")),
+                               ("start", post("/cmd", **{"do": "start", "name": "lm.ngc"})),
+                               ("Home All", post("/cmd", **{"do": "home"})),
+                               ("MDI $H", http(B + "/mdi", "POST", b"line=%24H", "application/x-www-form-urlencoded"))]:
+        refused.append("%s %d" % (what, code))
+        check(code == 409 and "lathe mode" in text, "in a lathe mode %s is refused, the mode kept: %d %s" % (what, code, text.strip()[:60]))
+    check(status().get("gcodeMode") == 0, "still in the lathe mode after those")
+    code, text = post("/cmd", **{"do": "gcode"})
+    time.sleep(0.3)
+    check(code == 200 and status().get("gcodeMode") == 1, "the GCODE button: GCODE mode (%d %s)" % (code, text.strip()))
+
+
+def lathe_jog_checks():
+    # the app's jog in a lathe mode (firmware 1.51): the H4's own arrow keys, the mode kept
+    wait_idle()
+    code, text = http(B + "/lathe", "POST", b"mode=0", "application/x-www-form-urlencoded")
+    time.sleep(0.5)
+    check(status().get("gcodeMode") == 0, "back to a lathe mode from the Lathe screen (%d %s)" % (code, text.strip()[:40]))
+    z0 = sim()["motors"]["Z"]
+    end = time.time() + 1.2
+    while time.time() < end:
+        post("/jog", x="0", z="600", c="0")
+        time.sleep(0.1)
+    for _ in range(3):
+        post("/jog", x="0", z="0", c="0")
+        time.sleep(0.1)
+    time.sleep(1.0)
+    z1 = sim()["motors"]["Z"]
+    time.sleep(0.6)
+    z2 = sim()["motors"]["Z"]
+    s = status()
+    check(z1 != z0 and z1 == z2 and s.get("gcodeMode") == 0,
+          "the app's jog in a lathe mode moves Z as the H4's arrow key (motor %d -> %d, then stands), the mode kept (gcodeMode %s)"
+          % (z0, z1, s.get("gcodeMode")))
+    code, text = post("/jog", x="0", z="0", c="600")
+    post("/jog", x="0", z="0", c="0")
+    check(code == 409 and "lathe" in text, "C in a lathe mode: refused (%d %s)" % (code, text.strip()[:50]))
+    post("/cmd", **{"do": "gcode"})
+    time.sleep(0.3)
 
 
 def jog_reverse_checks():
@@ -554,6 +605,8 @@ def config_checks():
         f.write("zStart=%d\nzSpeed=%d\n" % (vals["zSpeed"] + 100, vals["zSpeed"]))
     http(B + "/wifi", "POST", b"mode=direct&appw=12345678")  # (a setting that restarts the H4, the machine set untouched)
     st = wait_back()
+    post("/cmd", **{"do": "gcode"})  # (the H4 may start in a lathe mode)
+    time.sleep(0.3)
     err = (st or {}).get("cfgErr", "")
     check("NOT loaded" in err and "Start speed" in err, "a damaged saved set is not used silently: \"%s\"" % err[:110])
     code, text = post("/cmd", **{"do": "home"})

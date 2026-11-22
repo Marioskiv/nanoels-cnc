@@ -140,6 +140,29 @@ async function waitIdle(timeoutMs = 60000) {
     ok(v('hxUse') == 1 && v('hzUse') == 1 && Math.abs(v('hxOff') + 20) < 1e-6 && Math.abs(v('hzOff') - 10) < 1e-6,
       'settings saved from the page, the H4 restarted with them (hxUse ' + v('hxUse') + ', hxOff ' + v('hxOff') + ', hzOff ' + v('hzOff') + ')');
 
+    // 1a. app 1.70: the machine parameters have a screen of their own, a page per axis (drive, motion, home switch, limits)
+    {
+      const pr = await page.evaluate(() => { tab('params'); parShow('px');
+        const pg = document.querySelector('#psets .spage[data-sp="px"]');
+        return { pages: cfgPages.map(p => p[0]).join(' '), heads: pg ? [...pg.querySelectorAll('h3.cfgh')].map(h => h.textContent).join(' | ') : '', shown: pg && !pg.hidden,
+          off: (document.querySelector('label[for="c_hxOff"]') || {}).textContent || '', help: ($('hxHelp') || {}).textContent || '',
+          inSettings: !!document.querySelector('#slist button[data-k="go:params"]'), oldPages: document.querySelectorAll('#sets .spage[data-sp^="m"]').length };
+      });
+      ok(/^pz px pa g/.test(pr.pages) && pr.shown && /Motion.*Home switch.*Limits/.test(pr.heads), 'Machine parameters: pages ' + pr.pages + '; X page: ' + pr.heads);
+      ok(/HOME_OFFSET/.test(pr.off) && /chuck centre/.test(pr.help) && pr.inSettings && pr.oldPages == 0,
+        'X: "' + pr.off + '" with how to centre the router ("' + pr.help.slice(0, 60) + '..."); Settings only links to it');
+    }
+
+    // 1b. firmware 1.51: the H4 is in a lathe mode; the Control screen says so and its GCODE button switches it
+    await page.evaluate(() => tab('control'));
+    await page.waitForFunction(() => st.gcodeMode === 0 && !document.getElementById('modeBar').hidden, null, { timeout: 10000 }).catch(() => {});
+    const mb = await page.evaluate(() => ({ hidden: $('modeBar').hidden, txt: $('modeTxt').textContent }));
+    const mdiLathe = await page.evaluate(async () => { try { return await post('/mdi', new URLSearchParams({ line: 'G0 X1' })); } catch (e) { return 'ERR ' + e.message; } });
+    ok(!mb.hidden && /lathe|τόρνου/i.test(mb.txt) && /^ERR .*lathe mode/.test(mdiLathe), 'lathe mode: the Control screen says so ("' + mb.txt.slice(0, 50) + '"), MDI refused (' + mdiLathe.slice(0, 50) + ')');
+    await page.click('#modeBar button');
+    await page.waitForFunction(() => st.gcodeMode === 1 && document.getElementById('modeBar').hidden, null, { timeout: 10000 }).catch(() => {});
+    ok(await page.evaluate(() => st.gcodeMode === 1 && $('modeBar').hidden), 'the GCODE button: the H4 in GCODE mode, the note gone');
+
     // 2. Home All from the page with the simulated switches: X switch 20 mm toward minus, Z switch 5 mm toward plus
     //    (motor steps: X runs inverted, so its switch is at +20 mm x steps/mm on the motor)
     const xSw = Math.round(20 * SPM.X), zSw = Math.round(5 * SPM.Z);

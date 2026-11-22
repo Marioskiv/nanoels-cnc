@@ -68,6 +68,10 @@ size_t fsUsedBytes = 0;
 const unsigned long HELD_KEY_TIMEOUT_MS = 500;
 int heldKey = 0;
 unsigned long heldKeyMs = 0;
+// firmware 1.51 (the owner: "the control must be independent of GCODE"): what belongs to GCODE (a program, MDI, Home
+// All, a home check, the app's GCODE jog) runs only in GCODE mode, which is chosen on purpose (the app's GCODE button,
+// /cmd?do=gcode, or the H4's keys); until 1.50 each of them switched the H4 to GCODE by itself, also out of a lathe mode.
+#define NOT_GCODE_TEXT "The H4 is in a lathe mode: choose GCODE first (the GCODE button)"
 
 // One G-code line typed on the page (MDI), run as a one-line program.
 char mdiProgram[200];
@@ -190,6 +194,10 @@ void handleMdi() {
     return;
   }
   if (line.equalsIgnoreCase("$H")) { // Home All, as in Grbl
+    if (mode != MODE_GCODE) {
+      server.send(409, "text/plain", NOT_GCODE_TEXT);
+      return;
+    }
     if (!axesAllOn()) {
       server.send(409, "text/plain", String("Home All refused: ") + AXES_OFF_TEXT);
       return;
@@ -210,11 +218,8 @@ void handleMdi() {
     server.send(400, "text/plain", "One line, up to 190 characters.");
     return;
   }
-  if (mode != MODE_GCODE) setModeFromTask(MODE_GCODE);
-  unsigned long t0 = millis();
-  while (mode != MODE_GCODE && millis() - t0 < 500) vTaskDelay(5);
   if (mode != MODE_GCODE) {
-    server.send(500, "text/plain", "Could not switch to GCODE mode.");
+    server.send(409, "text/plain", NOT_GCODE_TEXT);
     return;
   }
   snprintf(mdiProgram, sizeof(mdiProgram), "%s\n", line.c_str());
@@ -286,6 +291,7 @@ String statusJson() {
   json += ",\"wcs\":\"" + String(wcsNames[constrain(modes.coord, 0, 8)]) + "\"";
   json += ",\"rssi\":" + String(wifiSetupAp ? 0 : WiFi.RSSI());
   json += ",\"fw\":\"" FW_VERSION "\"";
+  json += ",\"fwOk\":" + String(firmwareAccepted ? 1 : 0); // a new firmware is kept after 20 s without a restart (safety.ino)
   json += ",\"api\":1"; // the version of this interface; the app's screen checks it
   json += ",\"fo\":" + String(cncFeedOverrideWanted) + ",\"ro\":" + String(cncRapidOverrideWanted);
   if (!modes.overridesEnabled) json += ",\"ovrOff\":1";
@@ -572,6 +578,10 @@ void handleCommand() {
       server.send(409, "text/plain", "Emergency stop: restart the controller.");
       return;
     }
+    if (mode != MODE_GCODE) {
+      server.send(409, "text/plain", NOT_GCODE_TEXT);
+      return;
+    }
     if (!axesAllOn()) {
       server.send(409, "text/plain", String("Home All refused: ") + AXES_OFF_TEXT);
       return;
@@ -592,6 +602,10 @@ void handleCommand() {
       server.send(409, "text/plain", "Emergency stop: restart the controller.");
       return;
     }
+    if (mode != MODE_GCODE) {
+      server.send(409, "text/plain", NOT_GCODE_TEXT);
+      return;
+    }
     if (machineConfigProblem[0]) {  // config.ino: the saved machine settings were not loaded
       server.send(409, "text/plain", machineConfigProblem);
       return;
@@ -607,6 +621,19 @@ void handleCommand() {
     }
     homeCheckRequest = true;
     server.send(200, "text/plain", "Home check");
+  } else if (what == "gcode") {  // the app's GCODE button: the H4 into GCODE mode, as its own keys do
+    if (isOn || cncBusy() || homingActive || motionActive()) {
+      server.send(409, "text/plain", "The machine is ON or moving: stop it first.");
+      return;
+    }
+    if (mode != MODE_GCODE) setModeFromTask(MODE_GCODE);
+    unsigned long t0 = millis();
+    while (mode != MODE_GCODE && millis() - t0 < 500) vTaskDelay(5);
+    if (mode != MODE_GCODE) {
+      server.send(500, "text/plain", "Could not switch to GCODE mode.");
+      return;
+    }
+    server.send(200, "text/plain", "GCODE mode");
   } else if (what == "pause") {
     if (mode != MODE_GCODE || !isOn) {
       server.send(409, "text/plain", "Nothing runs.");
@@ -629,6 +656,10 @@ void handleCommand() {
       server.send(409, "text/plain", "Emergency stop: restart the controller.");
       return;
     }
+    if (mode != MODE_GCODE) {
+      server.send(409, "text/plain", NOT_GCODE_TEXT);
+      return;
+    }
     String name = server.arg("name");
     String error = "";
     wifiFsBusy = true;
@@ -638,12 +669,8 @@ void handleCommand() {
       server.send(400, "text/plain", error.length() ? error : "Bad name");
       return;
     }
-    if (mode != MODE_GCODE) setModeFromTask(MODE_GCODE);
-    // wait for loop() to switch the mode (it turns isOn off when it does)
-    unsigned long t0 = millis();
-    while (mode != MODE_GCODE && millis() - t0 < 500) vTaskDelay(5);
-    if (mode != MODE_GCODE) {
-      server.send(500, "text/plain", "Could not switch to GCODE mode.");
+    if (mode != MODE_GCODE) {  // (switched away while the file was read)
+      server.send(409, "text/plain", NOT_GCODE_TEXT);
       return;
     }
     gcodeProgramCharIndex = 0;
@@ -906,8 +933,33 @@ void handleKey() {
 // Gamepad of the page: wanted speeds x, z (mm/min) and c (deg/min), repeated about every 100 ms while
 // moving; 0 0 0 (or no request for 0.3 s) stops. 409 with the reason when the H4 refused a jog. The same comes on the
 // lasting link (wslink.ino) as {"t":"jog","x":..,"z":..,"c":..}: both call jogFromApp().
+// In a lathe mode the app's jog (buttons, gamepad) is the H4's own arrow key held down, so the H4 stays in its mode and
+// moves as its keys move it (lathe code unchanged): X+ = UP, X- = DOWN, Z+ = LEFT, Z- = RIGHT (the same step direction
+// as X+ / Z+ in GCODE mode). One axis at a time, as the keys; C is not an axis of the lathe modes.
+const char* latheJogFromApp(float vx, float vz, float vc) {
+  if (!isfinite(vx)) vx = 0;
+  if (!isfinite(vz)) vz = 0;
+  int code = 0;
+  if (vz != 0 && fabsf(vz) >= fabsf(vx)) code = vz > 0 ? B_LEFT : B_RIGHT;
+  else if (vx != 0) code = vx > 0 ? B_UP : B_DOWN;
+  if (code == 0) {
+    releaseHeldKey();
+    return vc != 0 && isfinite(vc) ? "C does not move in the lathe modes: choose GCODE first" : NULL;
+  }
+  if (heldKey == code) {
+    heldKeyMs = millis();  // still held
+    return NULL;
+  }
+  releaseHeldKey();
+  if (!sendKeyEvent(code | 128)) return "Busy";
+  heldKey = code;
+  heldKeyMs = millis();
+  return NULL;
+}
+
 const char* jogFromApp(float vx, float vz, float vc) {
   if (emergencyStop != ESTOP_NONE) return "Emergency stop: restart the controller.";
+  if (mode != MODE_GCODE) return latheJogFromApp(vx, vz, vc);
   // config.ino: the saved machine settings were not loaded; stopping (0 0 0) is always taken
   if (machineConfigProblem[0] && (vx != 0 || vz != 0 || vc != 0)) {
     webJogRequest(0, 0, 0);

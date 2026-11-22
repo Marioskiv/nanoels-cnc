@@ -118,14 +118,61 @@ final class FirmwareUpdate {
             } catch (Exception e) {
                 result = Tr.t(activity, "Failed: ", "Απέτυχε: ") + e.getMessage();
             }
-            final String text = result;
-            final boolean done = ok;
+            if (!ok) {
+                final String text = result;
+                activity.runOnUiThread(() -> {
+                    progress.dismiss();
+                    info(activity, "H4 firmware " + version, text);
+                });
+                return;
+            }
+            // app 1.70: the H4 restarts with the new firmware; it is asked which one runs, and whether it has kept it
+            // (firmware 1.51 "fwOk": kept after 20 s without a restart; an older one cannot say), before "done" is said
+            activity.runOnUiThread(() -> progress.setMessage(Tr.t(activity, "Sent. The H4 restarts with the new firmware: waiting for it...",
+                    "Στάλθηκε. Το H4 επανεκκινεί με το νέο firmware: αναμονή...")));
+            final String outcome = waitForVersion(activity, address, version);
             activity.runOnUiThread(() -> {
                 progress.dismiss();
-                info(activity, "H4 firmware " + version, done ? text + Tr.t(activity, "\n\nThe page reloads in a few seconds.", "\n\nΗ οθόνη ξαναφορτώνει σε λίγα δευτερόλεπτα.") : text);
-                if (done) activity.reloadLater(9000);
+                info(activity, "H4 firmware " + version, outcome);
+                activity.reloadLater(1500);
             });
         }).start();
+    }
+
+    // Asks the H4 every 1.5 s for up to 90 s which firmware runs. Returns the sentence for the owner.
+    static String waitForVersion(MainActivity activity, String address, String version) {
+        String last = null;
+        long t0 = System.currentTimeMillis();
+        while (System.currentTimeMillis() - t0 < 90000) {
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException e) {
+                break;
+            }
+            try {
+                JSONObject st = new JSONObject(get("http://" + address + "/status", 2000));
+                last = st.optString("fw", "");
+                boolean kept = st.optInt("fwOk", 1) == 1;
+                long waited = System.currentTimeMillis() - t0;
+                if (last.equals(version) && kept) {
+                    return Tr.t(activity, "✔ The update is complete: the H4 runs firmware " + version + " now.",
+                            "✔ Η ενημέρωση ολοκληρώθηκε: το H4 τρέχει τώρα το firmware " + version + ".");
+                }
+                if (!last.equals(version) && kept && waited > 30000) break;  // back, kept, and not the new one
+            } catch (Exception e) {
+                // restarting: no answer yet
+            }
+        }
+        if (last == null) {
+            return Tr.t(activity, "✖ The H4 did not answer after its restart. Look at its display; if it runs, open this page again.",
+                    "✖ Το H4 δεν απάντησε μετά την επανεκκίνηση. Δες την οθόνη του· αν δουλεύει, άνοιξε ξανά τη σελίδα.");
+        }
+        if (last.equals(version)) {
+            return Tr.t(activity, "The H4 runs " + version + ", but it has not confirmed it yet: do not switch it off for a minute.",
+                    "Το H4 τρέχει το " + version + ", αλλά δεν το έχει επιβεβαιώσει ακόμα: μην το σβήσεις για ένα λεπτό.");
+        }
+        return Tr.t(activity, "✖ The update did not go through: the H4 still runs firmware " + last + ". Try again.",
+                "✖ Η ενημέρωση δεν πέρασε: το H4 τρέχει ακόμα το firmware " + last + ". Δοκίμασε ξανά.");
     }
 
     private static void info(MainActivity activity, String title, String text) {

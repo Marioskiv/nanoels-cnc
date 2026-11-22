@@ -124,7 +124,9 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 /* pop-up */
 .sheet{position:fixed;inset:0;z-index:8;background:#0009;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.cfgh{margin:6px 0 0;font-size:15px;color:var(--or)}
 .cfgerr{background:#b3261e;color:#fff;padding:10px 14px;font-weight:600;cursor:pointer}
+.modebar{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:8px 12px;border:2px solid var(--or);border-radius:10px;font-weight:600}.modebar span{flex:1}.modebar button{flex:none;padding:8px 18px;font-weight:800}
 .drvres{font-size:1.15em;font-weight:700}
 .drv{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px}
 .conn{position:fixed;left:50%;top:58px;transform:translateX(-50%);z-index:7;width:min(560px,calc(100vw - 24px));background:var(--card);color:var(--fg);border:2px solid #e0a020;border-radius:10px;padding:10px;box-shadow:0 6px 24px #0008}
@@ -241,11 +243,12 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div id="app">
 <header><button type="button" class="navb" id="navBtn" aria-haspopup="true"></button><span class="pill" id="cState">-</span><span class="hinfo"><b id="cWcs">G54</b> · <span id="cUnits">mm</span> <span id="cRssi"></span></span>
 <span class="demo" id="demoTag" hidden>DEMO</span><span class="grow"></span><span class="hdev" id="hDev"></span><button class="haxes" id="hAxes" hidden onclick="axesTap()"></button><button class="hstop" onclick="cmd('stop')">STOP</button></header>
-<div class="cfgerr" id="cfgErr" hidden onclick="tab('settings')"></div>
+<div class="cfgerr" id="cfgErr" hidden onclick="tab('params')"></div>
 <div class="conn" id="conn" hidden><b id="connHead">No connection to the H4</b><div id="connMsg" class="cnmsg"></div>
 <div class="sgrid" id="connBtns"><button onclick="cnSearch(8)">Find the H4</button><button onclick="cnJoin()">Direct with the H4</button><button onclick="cnGo()">Connection settings</button><button onclick="cnManual()">Address by hand</button><button onclick="H4App.demo()">Demo (no H4)</button><button onclick="cnHide()">Hide</button></div></div>
 <main>
 <section class="scr ctl" data-tab="control" id="ctl">
+<div class="modebar" id="modeBar" hidden><span id="modeTxt"></span><button onclick="gcodeMode()">GCODE</button></div>
 <div class="axes" id="axes"></div>
 <div class="chips" id="chips"></div>
 <div class="jog"><div class="pad" id="pad">
@@ -347,7 +350,6 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="fr nope" id="scFullRow"><label for="scFull">Full screen (the tablet's bars hidden)</label><select id="scFull"><option value="1">On</option><option value="0">Off</option></select></div>
 <div class="fr nope" id="scOriRow"><label for="scOri">Screen orientation</label><select id="scOri"><option value="auto">Automatic</option><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>
 <div class="small">Jog lock: the jog buttons and the wheel work only after the lock button &#x1F512; is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with <b>Cont</b> the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.</div></div><div class="pgc"></div></div>
-<div id="cfg"></div>
 <div class="spage" data-sp="wifi"><div class="pg">
 <div id="cnNow"></div>
 <div class="sgrid cn2"><button onclick="cnDirect()">Direct with the H4</button><button onclick="cnScan()">Through the router</button></div>
@@ -373,6 +375,11 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="row nope" id="fwApp"><button onclick="H4App.checkFirmware()">Check for a firmware update (GitHub)</button></div>
 <input type="file" id="fw" accept=".bin"><button onclick="uploadFw()">Update firmware (.bin)</button><div class="small" id="fwmsg"></div></div></div>
 </div></div></section>
+
+<section class="scr" data-tab="params" hidden><div class="sets" id="psets">
+<div class="slist"><div class="pg" id="plist"></div><div class="pgc"></div></div>
+<div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="pTitle"></span></h2>
+<div id="cfg"></div></div></div></section>
 </main>
 <nav class="tabs" id="tabs"></nav>
 </div>
@@ -600,7 +607,14 @@ function axesTap(){if(st.axesOn==1){if(!confirm(cnT('Switch all axes off? The mo
   'Σβήσιμο όλων των αξόνων; Τα μοτέρ μένουν ελεύθερα (γυρίζουν με το χέρι)· τίποτα δεν κινείται μέχρι το ΑΞΟΝΕΣ ON.')))return;cmd('axes','&on=0')}else cmd('axes','&on=1')}
 // firmware 1.50: the machine settings were not loaded (st.cfgErr): in red over every screen until they are saved again
 function cfgErrShow(){const e=$('cfgErr'),t=st.cfgErr||'';e.hidden=!t;if(t)e.textContent='⚠ '+T(t)+' '+(look.lang=='el'?'(πάτα εδώ)':'(press here)')}
-function show(){cfgErrShow();const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
+// app 1.70 / firmware 1.51: the Control screen is GCODE's; in a lathe mode its jog is the H4's own arrow keys (the H4
+// stays in its mode) and a program, MDI and Home All wait for the GCODE button (the app never changes the mode itself)
+function modeShow(){const g=st.gcodeMode!==0,b=$('modeBar');if(!b)return;b.hidden=g;$('chips').style.visibility=g?'':'hidden';if(!g)$('padC').textContent=cnT('step of the H4','βήμα του H4');
+ if(!g)$('modeTxt').textContent=cnT('Lathe mode (ELS): the jog moves Z / X as the H4 arrow keys. For CNC (programs, MDI, Home):','Λειτουργία τόρνου (ELS): το jog κινεί Z / X όπως τα βέλη του H4. Για CNC (προγράμματα, MDI, Home):')}
+async function gcodeMode(){try{msg(await post('/cmd?do=gcode'))}catch(e){msg(e.message)}}
+// the H4 arrow key of an axis direction in a lathe mode (the same step direction as X+ / Z+ in GCODE mode)
+function latheKey(a,d){return a=='Z'?(d>0?57:37):a=='X'?(d>0?47:67):0}
+function show(){cfgErrShow();modeShow();fwWaitShow(1);hxHelpShow();const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -702,7 +716,6 @@ function spu(p){const steps=+cfgVal(p+'Steps');const it=cfg.items.find(i=>i.k==p
 function unitText(it){const rot=it.k[0]=='a'&&cfg.items.find(i=>i.k=='aRot').v;const L=rot?'°':'mm';
  if(it.u=='du')return L;if(it.u.startsWith('v:'))return L+'/s';if(it.u.startsWith('a:'))return L+'/s²';return it.u}
 function toShow(it,v){if(it.u=='du')return +(v/10000).toPrecision(8);if(it.u.startsWith('v:')||it.u.startsWith('a:'))return +(v/spu(it.u[2])).toPrecision(7);return v}
-let cfgGroups=[];
 // Drive of an axis, calculated (firmware settings stay "steps per screw turn" and "travel per screw turn"): the driver's
 // steps per motor turn, the teeth (or gear) on the motor and on the screw side, a second stage if there is one, and the
 // screw pitch (degrees per output turn for a rotary axis). Fine adjustment: a move asked and the distance measured.
@@ -751,16 +764,54 @@ function cfgLabel(it){if(!/^[zxa](Steps|Screw)$/.test(it.k))return it.l;const ro
 // what the axis has now, shown when the page opens
 function drvNow(p){const el=$('d_'+p+'_res'),cs=+(($('c_'+p+'Steps')||{}).value),cd=+(($('c_'+p+'Screw')||{}).value);if(!el||!(cs>0)||!(cd>0))return;
  const rot=drvRot(p);el.textContent=cnT('Now: ','Τώρα: ')+(+(cs/cd).toPrecision(8))+(rot?cnT(' steps per degree',' βήματα ανά μοίρα'):cnT(' steps per mm',' βήματα ανά mm'))}
-function renderCfg(){const groups={};for(const it of cfg.items)(groups[it.g]=groups[it.g]||[]).push(it);let h='';cfgGroups=Object.keys(groups);{const xi=cfgGroups.findIndex(g=>/^X\b/.test(g)),zi=cfgGroups.findIndex(g=>/^Z\b/.test(g));if(xi>=0&&zi>xi){[cfgGroups[xi],cfgGroups[zi]]=[cfgGroups[zi],cfgGroups[xi]]}}
- cfgGroups.forEach((g,gi)=>{h+=`<div class="spage" data-sp="m${gi}" hidden><div class="pg">`;
-  const sk=groups[g].find(i=>/^[zxa]Steps$/.test(i.k));if(sk)h+=drvBlock(sk.k[0]);for(const it of groups[g]){const id='c_'+it.k,u=unitText(it);let inp;
-  if(it.t=='b')inp=`<input type="checkbox" id="${id}" ${it.v?'checked':''}>`;
-  else if(it.t=='a')inp=`<select id="${id}"><option ${it.v=='Z'?'selected':''}>Z</option><option ${it.v=='X'?'selected':''}>X</option></select>`;
-  else inp=`<input type="number" step="any" id="${id}" value="${toShow(it,it.v)}">`;
-  h+=`<div class="fr${it.t=='b'?' chk':''}"><label for="${id}">${cfgLabel(it)}${u?' ('+u+')':''}</label>${inp}</div>`}
-  h+='</div><div class="pgc"></div><div class="row"><button onclick="saveCfg()">Save and restart</button><button onclick="resetCfg()">Defaults</button></div></div>'});
+// Machine parameters (app 1.70): a page per axis (Z, X, C) with its drive, motion, home switch and limits, then the
+// firmware's other groups. The labels say what a value does; the LinuxCNC .ini name stays in brackets.
+let cfgPages=[];
+const CFGP=[['Drive','Μετάδοση'],['Motion','Κίνηση'],['Home switch and Home','Διακόπτης και Home'],['Limits','Όρια'],['Z axis','Άξονας Z'],['X axis','Άξονας X'],
+ ['C axis (chuck)','Άξονας C (τσοκ)'],['Stored in the H4. Save and restart on any page saves all of them.','Αποθηκεύονται στο H4. Το «Αποθήκευση και επανεκκίνηση» σε όποια σελίδα αποθηκεύει όλες.']];
+const CFGL={Use:['Home switch connected','Διακόπτης home συνδεδεμένος'],Nc:['Switch is normally closed (NC; off: NO)','Ο διακόπτης είναι κλειστός σε ηρεμία (NC· όχι: NO)'],
+ Search:['Search speed toward the switch (HOME_SEARCH_VEL; the sign is the direction)','Ταχύτητα αναζήτησης προς τον διακόπτη (HOME_SEARCH_VEL· το πρόσημο = φορά)'],
+ Latch:['Slow speed leaving the switch (HOME_LATCH_VEL, opposite sign)','Αργή ταχύτητα φεύγοντας από τον διακόπτη (HOME_LATCH_VEL, αντίθετο πρόσημο)'],
+ Final:['Speed to the home position (HOME_FINAL_VEL; 0 = maximum)','Ταχύτητα προς τη θέση home (HOME_FINAL_VEL· 0 = μέγιστη)'],
+ Off:['Where the switch is, in machine coordinates (HOME_OFFSET)','Πού βρίσκεται ο διακόπτης, σε συντεταγμένες μηχανής (HOME_OFFSET)'],
+ Home:['Where the axis goes after Home All (HOME)','Πού πηγαίνει ο άξονας μετά το Home All (HOME)'],
+ Lim:['The switch also stops everything (limit switch)','Ο διακόπτης σταματά και τα πάντα (τερματικός)'],
+ LUse:['Soft limits once homed','Όρια λογισμικού μετά το Home'],Min:['Lowest position (MIN_LIMIT, machine coordinates)','Ελάχιστη θέση (MIN_LIMIT, συντεταγμένες μηχανής)'],
+ Max:['Highest position (MAX_LIMIT, machine coordinates)','Μέγιστη θέση (MAX_LIMIT, συντεταγμένες μηχανής)']};
+function cfgAxisOf(it){return /^(Z axis|Home switch and limits Z)/.test(it.g)?'z':/^(X axis|Home switch and limits X)/.test(it.g)?'x':/^A1 axis/.test(it.g)?'a':''}
+function cfgPart(it){const k=it.k;if(/^[zxa](Steps|Screw)$/.test(k))return 0;if(/^a(Act|Rot)$/.test(k))return 0;if(/^h[zx]/.test(k))return 2;if(/^l[zx]/.test(k))return 3;return 1}
+// English in the page, Greek from the dictionary (the page translates itself when the language changes)
+function cfgI18n(pairs){if(typeof I18N!='undefined')for(const [en,el] of pairs)I18N[en]=el}
+function cfgText(it){const m=/^([hl])[zx](Use|Nc|Search|Latch|Final|Off|Home|Lim|Min|Max)$/.exec(it.k);if(m){const L=CFGL[m[1]=='l'&&m[2]=='Use'?'LUse':m[2]];if(L)return L[0]}
+ return cfgLabel(it)}
+function cfgField(it){const id='c_'+it.k,u=unitText(it);let inp;
+ if(it.t=='b')inp=`<input type="checkbox" id="${id}" ${it.v?'checked':''}>`;
+ else if(it.t=='a')inp=`<select id="${id}"><option ${it.v=='Z'?'selected':''}>Z</option><option ${it.v=='X'?'selected':''}>X</option></select>`;
+ else inp=`<input type="number" step="any" id="${id}" value="${toShow(it,it.v)}">`;
+ let h=`<div class="fr${it.t=='b'?' chk':''}"><label for="${id}">${cfgText(it)}${u?' ('+u+')':''}</label>${inp}</div>`;
+ // X: how to put the router on the chuck centre with HOME_OFFSET (the owner does it by hand, 2026-11-22)
+ if(it.k=='hxOff')h+=`<div class="small" id="hxHelp"></div>`;
+ return h}
+// the centre of the chuck and HOME_OFFSET, with this machine's numbers (only text: the owner writes the value)
+function hxHelpShow(){const e=$('hxHelp');if(!e)return;const o=parseFloat(($('c_hxOff')||{}).value),mx=st.mx;
+ let t=cnT('To centre the router on the chuck: Home All, move X until the router is exactly on the chuck centre, read "machine X" (Machine, Position). New HOME_OFFSET = this HOME_OFFSET minus that reading. Change MIN and MAX by the same amount, so the limits stay where they are. Save and restart, Home All: then X 0 is the chuck centre.',
+  'Κεντράρισμα router στο τσοκ: Home All, κίνησε τον X ώσπου το router να είναι ακριβώς στο κέντρο του τσοκ, διάβασε τη «θέση μηχανής X» (Μηχάνημα, Θέση). Νέο HOME_OFFSET = αυτό το HOME_OFFSET μείον εκείνη την ένδειξη. Άλλαξε MIN και MAX κατά το ίδιο ποσό, για να μείνουν τα όρια στη θέση τους. Αποθήκευση και επανεκκίνηση, Home All: τότε X 0 = κέντρο τσοκ.');
+ if(isFinite(o)&&mx!==undefined){const n=+(o-mx).toFixed(3);t+=' '+cnT(`Now: machine X ${mx.toFixed(3)} → if the router is on the centre now, HOME_OFFSET ${o} − ${mx.toFixed(3)} = ${n}.`,`Τώρα: θέση μηχανής X ${mx.toFixed(3)} → αν το router είναι τώρα στο κέντρο, HOME_OFFSET ${o} − ${mx.toFixed(3)} = ${n}.`)}
+ else t+=' '+cnT('(machine X is shown after Home All.)','(η θέση μηχανής X φαίνεται μετά το Home All.)');
+ if(e.textContent!=t)e.textContent=t}
+function renderCfg(){const ax={z:[],x:[],a:[]},groups={};cfgI18n(Object.values(CFGL));cfgI18n(CFGP);
+ for(const it of cfg.items){const a=cfgAxisOf(it);if(a)ax[a].push(it);else(groups[it.g]=groups[it.g]||[]).push(it)}
+ const HEAD=CFGP.slice(0,4);
+ const page=(k,body)=>`<div class="spage" data-sp="${k}" hidden><div class="pg">${body}</div><div class="pgc"></div><div class="row"><button onclick="saveCfg()">Save and restart</button><button onclick="resetCfg()">Defaults</button></div></div>`;
+ let h='';cfgPages=[];
+ for(const [a,name] of [['z',['Z axis','Άξονας Z']],['x',['X axis','Άξονας X']],['a',['C axis (chuck)','Άξονας C (τσοκ)']]]){if(!ax[a].length)continue;
+  let b='';for(let part=0;part<4;part++){const its=ax[a].filter(it=>cfgPart(it)==part);if(!its.length&&part)continue;
+   if(part)b+=`<h3 class="cfgh">${HEAD[part][0]}</h3>`;else b+=drvBlock(a);for(const it of its)b+=cfgField(it)}
+  cfgPages.push(['p'+a,name]);h+=page('p'+a,b)}
+ Object.keys(groups).forEach((g,gi)=>{cfgPages.push(['g'+gi,[g,g]]);h+=page('g'+gi,groups[g].map(cfgField).join(''))});
  $('cfg').innerHTML=h;$('cfg').style.display='contents';
- $('cfg').querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>el.classList.add('changed')));for(const p of 'zxa')drvNow(p);setList()}
+ $('cfg').querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>el.classList.add('changed')));
+ if($('c_hxOff'))$('c_hxOff').addEventListener('input',hxHelpShow);hxHelpShow();for(const p of 'zxa')drvNow(p);parList();setList()}
 async function loadCfg(){try{const r=await fetch('/config');cfg=await r.json();renderCfg()}catch(e){$('cfg').textContent='Could not load the settings.'}}
 async function saveCfg(){if(!cfg)return;const q=new URLSearchParams();
  for(const it of cfg.items){const el=$('c_'+it.k);let v;
@@ -839,7 +890,18 @@ setInterval(cnPanel,1000);
 function withT(p,ms){return new Promise((ok,no)=>{const t=setTimeout(()=>no(new Error(cnT('no answer in ','καμία απάντηση σε ')+Math.round(ms/1000)+' s')),ms);p.then(v=>{clearTimeout(t);ok(v)},e=>{clearTimeout(t);no(e)})})}
 function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmware with '+f.name+'?'))return;const fd=new FormData();fd.append('fw',f,f.name);
  const x=new XMLHttpRequest();x.open('POST','/firmware');x.upload.onprogress=ev=>{$('fwmsg').textContent=Math.round(ev.loaded/ev.total*100)+' %'};
- x.onload=()=>{$('fwmsg').textContent=x.responseText};x.send(fd)}
+ x.onload=()=>{$('fwmsg').textContent=T(x.responseText);if(/^Firmware updated/.test(x.responseText)){fwWait={from:st.fw||'',t:Date.now(),back:false};fwWaitShow()}};x.send(fd)}
+// app 1.70: after an update the H4 is asked which firmware runs and whether it kept it (firmware 1.51 "fwOk", after
+// 20 s without a restart); only then "complete" is said. An older firmware without "fwOk": its version alone.
+let fwWait=null;setInterval(()=>fwWaitShow(0),2000);
+function fwWaitShow(fromStatus){if(!fwWait)return;const w=Date.now()-fwWait.t,el=$('fwmsg');
+ if(fromStatus&&w>5000&&st.fw)fwWait.back=true;  // a status read after the restart
+ const kept=st.fwOk===undefined||st.fwOk===1,done=fwWait.back&&kept&&w>8000;let t=null;
+ if(done&&st.fw!=fwWait.from)t=cnT('✔ The update is complete: the H4 runs firmware '+st.fw+' now (before: '+fwWait.from+').','✔ Η ενημέρωση ολοκληρώθηκε: το H4 τρέχει τώρα το firmware '+st.fw+' (πριν: '+fwWait.from+').');
+ else if(done&&w>30000)t=cnT('The H4 restarted and runs firmware '+st.fw+' (the same as before: the file had this version, or the update did not go through).','Το H4 ξεκίνησε ξανά και τρέχει το firmware '+st.fw+' (ίδιο με πριν: ή το αρχείο είχε αυτή την έκδοση, ή η ενημέρωση δεν πέρασε).');
+ else if(w>90000)t=cnT('✖ The H4 did not come back after the update: look at its display.','✖ Το H4 δεν επανήλθε μετά την ενημέρωση: δες την οθόνη του.');
+ if(t){fwWait=null;el.textContent=t;alert(t);return}
+ el.textContent=cnT('The H4 restarts with the new firmware: waiting for it ('+Math.round(w/1000)+' s)...','Το H4 επανεκκινεί με το νέο firmware: αναμονή ('+Math.round(w/1000)+' s)...')}
 // Gamepad: the layout of the LinuxCNC gamepad.hal. The page sends the wanted speeds to /jog every 100 ms while
 // L1 is held; the H4 turns them into short jogs and stops by itself 0.3 s after the last request.
 // ---------------------------------------------------------------- Language of the screens (Settings, Appearance).
@@ -847,6 +909,9 @@ function uploadFw(){const f=$('fw').files[0];if(!f||!confirm('Update the firmwar
 // patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
 // in the list stays as the H4 sent it.
 const I18N={
+'Firmware updated. Restarting...':'Το firmware γράφτηκε. Επανεκκίνηση...',
+'The H4 is in a lathe mode: choose GCODE first (the GCODE button)':'Το H4 είναι σε λειτουργία τόρνου: πάτα πρώτα GCODE (κουμπί GCODE)',
+'C does not move in the lathe modes: choose GCODE first':'Ο C δεν κινείται στις λειτουργίες τόρνου: πάτα πρώτα GCODE','GCODE mode':'Λειτουργία GCODE',
  // why a G-code program may not start (firmware homing.ino cncStartRefusal / cncAxisMovingRefusal; also the status line)
  'Driver alarm or E-stop':'Alarm driver ή έκτακτη ανάγκη','X on its switch':'Ο X πάνω στον διακόπτη του','Z on its switch':'Ο Z πάνω στον διακόπτη του',
  'Homing':'Home σε εξέλιξη','Home All first':'Πρώτα Home All','Axes are off: Axes ON in the app (beside STOP) or key A on the H4':'Οι άξονες είναι σβηστοί: ΑΞΟΝΕΣ ON στο app (δίπλα στο STOP) ή πλήκτρο A στο H4',
@@ -1152,7 +1217,9 @@ function ctlJogShow(){const wheel=sc.jog=='wheel',list=wheel?STEPS:STEPS.concat(
 function setStep(v){jogStep=v=='cont'?'cont':+v;try{localStorage.setItem('h4step',jogStep)}catch(e){}ctlJogShow()}
 function jogDetent(n){if(!jogOk())return;jogPending+=n;jogSend()}
 // one jog move at a time: the next one goes when a status read after it shows the machine idle again
-async function jogSend(){if(jogBusy||!jogPending||st.running||polls<jogPoll+2)return;const d=+(jogPending*jogStep).toFixed(4);jogPending=0;jogBusy=true;
+async function jogSend(){if(jogBusy||!jogPending||st.running||polls<jogPoll+2)return;
+ if(st.gcodeMode===0){const k=latheKey(jogAxis,jogPending);jogPending=0;if(!k){msg(T('C does not move in the lathe modes: choose GCODE first'));return}
+  jogBusy=true;try{await post('/key?code='+k)}catch(e){msg(e.message)}jogPoll=polls;jogBusy=false;return}const d=+(jogPending*jogStep).toFixed(4);jogPending=0;jogBusy=true;
  const f=jogAxis=='C'?gp.n*gp.c:gp.n;
  try{await post('/mdi',new URLSearchParams({line:'G91 G1 '+jogAxis+d+' F'+f}))}catch(e){msg(e.message);jogPending=0}
  jogPoll=polls;jogBusy=false}
@@ -1163,7 +1230,8 @@ let padHeld=null,padTimer=0;
 function padStop(){if(!padHeld)return;padHeld.classList.remove('down');padHeld=null;clearInterval(padTimer);let n=3;const s=()=>{gpSend(0,0,0);if(--n>0)setTimeout(s,100)};s()}
 document.querySelectorAll('#pad .pb').forEach(b=>{
  b.addEventListener('pointerdown',e=>{e.preventDefault();if(!jogOk())return;const a=b.dataset.a,d=+b.dataset.d;selAxis(a);
-  if(jogStep!='cont'){jogDetent(d);b.classList.add('down');setTimeout(()=>b.classList.remove('down'),150);return}
+  if(st.gcodeMode===0&&a=='C'){msg(T('C does not move in the lathe modes: choose GCODE first'));return}
+  if(jogStep!='cont'&&st.gcodeMode!==0){jogDetent(d);b.classList.add('down');setTimeout(()=>b.classList.remove('down'),150);return}
   b.setPointerCapture(e.pointerId);padStop();padHeld=b;b.classList.add('down');
   const v=d*(a=='C'?gp.n*gp.c:gp.n),send=()=>{lockTouch();gpSend(a=='X'?v:0,a=='Z'?v:0,a=='C'?v:0)};send();padTimer=setInterval(send,100)});
  for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,padStop);
@@ -1208,6 +1276,7 @@ const TABS=[['control','Control','<circle cx="12" cy="12" r="8"/><circle cx="12"
  ['lathe','Lathe','<path d="M3 8h4v8H3zM7 10h11v4H7z"/><path d="M18 9l3 3-3 3"/>'],
  ['program','G-code','<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'],
  ['machine','Machine','<path d="M3 12h4l3-7 4 14 3-7h4"/>'],
+ ['params','Machine parameters','<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'],
  ['settings','Settings','<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>']];
 const TN=TABS.map(t=>t[0]);let curTab='',subs={},setOpen='';
 // The screens are chosen from a list that rolls down under the button in the header and rolls up again.
@@ -1233,7 +1302,7 @@ function tab(t,noHist){if(!TN.includes(t))t='control';if(window.ddClose)ddClose(
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
   if(t=='machine'){logRead=logSeen;tabBadges()}
   try{localStorage.setItem('h4tab',t)}catch(e){}if(!noHist)try{history.pushState({t},'','#'+t)}catch(e){}}
- if(t!='settings')setShow('',true);sub(t,subs[t],true);pagers();navShow();if(t=='program')requestAnimationFrame(drawPath)}
+ if(t!='settings')setShow('',true);if(t!='params')parShow('',true);else if(!parOpen)parShow('',true);sub(t,subs[t],true);pagers();navShow();if(t=='program')requestAnimationFrame(drawPath)}
 function sub(t,p,quiet){const bar=document.querySelector(`.subtabs[data-s="${t}"]`);if(!bar)return;const sec=bar.parentElement;
  const all=[...bar.children].map(b=>b.dataset.p);if(!all.includes(p))p=all[0];subs[t]=p;try{localStorage.setItem('h4subs',JSON.stringify(subs))}catch(e){}
  [...bar.children].forEach(b=>b.classList.toggle('on',b.dataset.p==p));sec.querySelectorAll('.pane').forEach(x=>x.hidden=x.dataset.p!=p);
@@ -1241,7 +1310,7 @@ function sub(t,p,quiet){const bar=document.querySelector(`.subtabs[data-s="${t}"
 document.querySelectorAll('.subtabs button').forEach(b=>b.onclick=()=>sub(b.parentElement.dataset.s,b.dataset.p));
 // Settings: a list; a page opens on its own (Back closes it), or next to the list on a wide screen.
 // The list follows the chosen language (the pages themselves are bilingual or English).
-function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο':'Gamepad']].concat(cfgGroups.map((g,i)=>['m'+i,(el?'Μηχάνημα: ':'Machine: ')+tr(g)])).concat([['wifi',el?'Σύνδεση (WiFi)':'Connection (WiFi)'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]).concat(isApp&&H4App.exitLog?[['applog',el?'Ημερολόγιο app':'App log']]:[]);
+function setList(){const el=look.lang=='el',L=[['look',el?'Εμφάνιση · γλώσσα · Τόρνος Z / X':'Appearance · language · Lathe Z / X'],['screen',el?'Οθόνη και jog':'Screen and jog'],['pad',el?'Χειριστήριο':'Gamepad']].concat([['go:params',el?'Παράμετροι μηχανής (άξονες, διακόπτες, Home) →':'Machine parameters (axes, switches, Home) →']]).concat([['wifi',el?'Σύνδεση (WiFi)':'Connection (WiFi)'],['fw','Firmware']]).concat(isApp&&H4App.checkAppUpdate?[['app',el?'Ενημέρωση app':'App update']]:[]).concat(isApp&&H4App.exitLog?[['applog',el?'Ημερολόγιο app':'App log']]:[]);
  $('slist').innerHTML=L.map(([k,n])=>`<button data-k="${k}" onclick="setTap('${k}')"><span>${n}</span><span>&rsaquo;</span></button>`).join('')+'<div class="small" id="verLine"></div>';verShow();setShow(setOpen,true)}
 // the versions, always in view in Settings: this app (the screen) and the H4's firmware
 function verShow(){const e=$('verLine');if(!e)return;let a='-';try{if(isApp&&H4App.version)a=H4App.version()}catch(x){}
@@ -1253,14 +1322,24 @@ let alView='full';function appLogShow(){document.querySelectorAll('#alSeg button
 function appLogCopy(){let ok=false;try{ok=H4App.copyLog()}catch(e){}msg(ok?T('Copied: paste it into the chat.'):T('Could not copy.'))}
 document.querySelectorAll('#alSeg button').forEach(b=>b.onclick=()=>{alView=b.dataset.v;appLogShow()});
 // A tap on the setting that is open closes it again (owner, 2026-11-05): on a wide screen its whole card goes too.
-function setTap(k){if(setOpen==k){setClosed=true;setShow('',true)}else{setClosed=false;setShow(k)}}
+function setTap(k){if(k=='go:params'){tab('params');return}if(setOpen==k){setClosed=true;setShow('',true)}else{setClosed=false;setShow(k)}}
 let setClosed=false;
 function setShow(k,noHist){if(k=='applog')setTimeout(appLogShow);const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches;if(!k&&wide&&!setClosed)k='look';
  if(k&&!noHist&&!wide&&!setOpen)try{history.pushState({t:'settings',s:k},'','#settings')}catch(e){}
- setOpen=k;$('sets').classList.toggle('open',!!k);$('sets').classList.toggle('shut',!k);document.querySelectorAll('.spage').forEach(p=>p.hidden=p.dataset.sp!=k);
+ setOpen=k;$('sets').classList.toggle('open',!!k);$('sets').classList.toggle('shut',!k);document.querySelectorAll('#sets .spage').forEach(p=>p.hidden=p.dataset.sp!=k);
  document.querySelectorAll('#slist button').forEach(b=>b.classList.toggle('on',b.dataset.k==k));
  const b=document.querySelector(`#slist button[data-k="${k}"]`);if(b)$('sTitle').textContent=b.firstChild.textContent;pagers()}
-addEventListener('popstate',e=>{const s=e.state||{};sheetClose();if(s.s)setShow(s.s,true);else setShow('',true);tab(s.t||location.hash.slice(1)||'control',true)});
+// Machine parameters (app 1.70): the same list + page as Settings, a screen of its own (owner, 2026-11-22)
+let parOpen='',parClosed=false;
+function parTap(k){if(parOpen==k){parClosed=true;parShow('',true)}else{parClosed=false;parShow(k)}}
+function parShow(k,noHist){const wide=matchMedia('(orientation:landscape) and (min-width:700px)').matches,first=(cfgPages[0]||[])[0];if(!k&&wide&&!parClosed&&curTab=='params')k=first||'';
+ if(k&&!noHist&&!wide&&!parOpen)try{history.pushState({t:'params',p:k},'','#params')}catch(e){}
+ parOpen=k;$('psets').classList.toggle('open',!!k);$('psets').classList.toggle('shut',!k);document.querySelectorAll('#psets .spage').forEach(p=>p.hidden=p.dataset.sp!=k);
+ document.querySelectorAll('#plist button').forEach(b=>b.classList.toggle('on',b.dataset.k==k));
+ const b=document.querySelector(`#plist button[data-k="${k}"]`);if(b)$('pTitle').textContent=b.firstChild.textContent;pagers()}
+function parList(){$('plist').innerHTML=cfgPages.map(([k,n])=>`<button data-k="${k}" onclick="parTap('${k}')"><span>${n[0]}</span><span>&rsaquo;</span></button>`).join('')
+ +`<div class="small">Stored in the H4. Save and restart on any page saves all of them.</div>`;parShow(parOpen,true)}
+addEventListener('popstate',e=>{const s=e.state||{};sheetClose();if(s.s)setShow(s.s,true);else setShow('',true);if(s.p)parShow(s.p,true);else parShow('',true);tab(s.t||location.hash.slice(1)||'control',true)});
 let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs button[data-t="'+q+'"]');
  const m=b('machine'),p=b('program');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
  if(unread&&!d){d=document.createElement('i');d.className='dot';m.appendChild(d)}if(!unread&&d)d.remove();
@@ -1281,7 +1360,7 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
 // then presses ON through the H4's key queue: the H4 itself moves the tool to the start and runs the mode.
 // H4 conventions (as its display): Z grows to the left (towards the chuck); X grows towards the centre, so with
 // X0 on the centre line the outside of the part is negative (X = -Ø/2).
-const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',settings:'Settings'},
+const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',params:'Machine parameters',settings:'Settings'},
   rpm:'Spindle',rpmu:'rpm',ang:'Chuck',chz:'0° here',chzDone:'Chuck angle: 0° here.',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
@@ -1314,7 +1393,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    dnom:'Part Ø now (measured) mm',dbore:'Hole Ø now (measured) mm',dthr:'Final Ø (bottom of the thread) mm',rx:'Radius X mm',big:'Large Ø',bigchuck:'to the chuck',bigface:'at the face',male:'Male',female:'Female',
    passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',
    infeed:'Infeed',radial:'Radial',flank:'Flank 29.5°',preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex (dome)',concave:'Concave (cove)',ext:'External',int:'Internal'}},
- el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',settings:'Ρυθμίσεις'},
+ el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',params:'Παράμετροι μηχανής',settings:'Ρυθμίσεις'},
   rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Τσοκ',chz:'0° εδώ',chzDone:'Γωνία τσοκ: 0° εδώ.',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
