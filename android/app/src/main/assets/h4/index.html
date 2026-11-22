@@ -327,6 +327,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="fr"><label for="gpDL">Left stick dead zone (%)</label><input type="number" id="gpDL" min="0" max="90" step="1"></div>
 <div class="fr"><label for="gpDR">Right stick dead zone (%)</label><input type="number" id="gpDR" min="0" max="90" step="1"></div>
 <div class="fr"><label for="gpDT">L2 / R2 dead zone (%)</label><input type="number" id="gpDT" min="0" max="90" step="1"></div>
+<div class="fr"><label for="gpFC">Fine control near the centre (%; 0 = straight, top speed unchanged)</label><input type="number" id="gpFC" min="0" max="95" step="5"></div>
 <div class="small">Where the sticks and triggers are now. Grey = dead zone (nothing moves there); green = this would move. Raise the dead zone until a released stick stays in the grey.</div>
 <div id="gpAx"></div>
 <div class="small" id="gpHead">Each button: what it does alone, and what it does while the safety button (Hold to move) is held.</div>
@@ -911,6 +912,7 @@ function fwWaitShow(fromStatus){if(!fwWait)return;const w=Date.now()-fwWait.t,el
 // patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
 // in the list stays as the H4 sent it.
 const I18N={
+'Fine control near the centre (%; 0 = straight, top speed unchanged)':'Λεπτός έλεγχος κοντά στο κέντρο (%· 0 = ευθεία, η μέγιστη ταχύτητα δεν αλλάζει)',
 'The machine parameters of this firmware (my_machine.h, from LinuxCNC) were stored in the H4.':'Οι παράμετροι μηχανής αυτού του firmware (my_machine.h, από το LinuxCNC) αποθηκεύτηκαν στο H4.',
 'Firmware updated. Restarting...':'Το firmware γράφτηκε. Επανεκκίνηση...',
 'The H4 is in a lathe mode: choose GCODE first (the GCODE button)':'Το H4 είναι σε λειτουργία τόρνου: πάτα πρώτα GCODE (κουμπί GCODE)',
@@ -1069,7 +1071,7 @@ const GPA=[['','—'],['enable','Hold to move (safety)'],['fast','Fast (while he
  ['resume','Resume / continue'],['home','Home All'],['z0','Touch off Z0 here'],['unlock','Unlock ($X)'],['fup','Feed +10 %'],['fdn','Feed −10 %'],['f100','Feed 100 %']];
 const GPA1=['','enable','fast','cp','cm','stop','pause','unlock','fup','fdn','f100'],GPA2=['','stop','pause','resume','home','z0','unlock','fup','fdn','f100'];
 const GPMAP={l1:['enable',''],r1:['fast',''],l2:['cp',''],r2:['cm',''],options:['stop','stop'],ps:['unlock',''],share:['','home'],up:['fup',''],down:['fdn','z0'],left:['f100','']};
-const GPD={n:400,f:1000,c:6,ix:false,iz:false,ic:false,sl:'z',sr:'x',dl:35,dr:45,dt:5,map:GPMAP};let gp=JSON.parse(JSON.stringify(GPD));
+const GPD={n:400,f:1000,c:6,ix:false,iz:false,ic:false,sl:'z',sr:'x',dl:35,dr:45,dt:5,fc:70,map:GPMAP};let gp=JSON.parse(JSON.stringify(GPD));
 try{Object.assign(gp,JSON.parse(localStorage.getItem('h4gamepad')||'{}'))}catch(e){}
 if(!gp.map||typeof gp.map!='object')gp.map=JSON.parse(JSON.stringify(GPMAP));
 // what is wrong with a map ('' = fine)
@@ -1088,7 +1090,7 @@ $('gpBad').parentElement.addEventListener('change',e=>{const t=e.target.closest(
  const bad=gpCheck(m);if(bad){$('gpBad').textContent=T(bad);gpForm();$('gpBad').textContent=T(bad);return}   // refused: the old map stays
  gp.map=m;gpSave();gpForm()});
 function gpDefaults(){gp.map=JSON.parse(JSON.stringify(GPMAP));gp.sl='z';gp.sr='x';$('gpSL').value='z';$('gpSR').value='x';gpSave();gpForm()}
-const GPF={gpN:'n',gpF:'f',gpC:'c',gpIX:'ix',gpIZ:'iz',gpIC:'ic',gpSL:'sl',gpSR:'sr',gpDL:'dl',gpDR:'dr',gpDT:'dt'};const GPDZ=['dl','dr','dt'];
+const GPF={gpN:'n',gpF:'f',gpC:'c',gpIX:'ix',gpIZ:'iz',gpIC:'ic',gpSL:'sl',gpSR:'sr',gpDL:'dl',gpDR:'dr',gpDT:'dt',gpFC:'fc'};const GPDZ=['dl','dr','dt','fc'];
 for(const id in GPF){const el=$(id),k=GPF[id];if(el.type=='checkbox')el.checked=!!gp[k];else el.value=gp[k];
  el.addEventListener('change',()=>{const v=parseFloat(el.value);
   gp[k]=el.type=='checkbox'?el.checked:el.tagName=='SELECT'?el.value:GPDZ.includes(k)?(isNaN(v)?GPD[k]:Math.min(90,Math.max(0,Math.round(v)))):(v||GPD[k]);
@@ -1106,7 +1108,9 @@ gpForm();
 const gpApp=isApp;function gpToApp(){if(gpApp)try{H4App.settings(JSON.stringify(gp))}catch(e){}}
 if(gpApp){$('fwApp').classList.remove('nope');$('gpapp').hidden=false;window.h4AppGamepad=t=>{$('gpstate').textContent=T(t)};window.h4AppPadMsg=t=>msg(gpExplain(t));gpToApp()}
 let gpPrev=[],gpLast=0,gpBusy=false,gpMoving=false,gpStops=0,gpErr='',gpPad=null;
-function gpDz(v,d){const a=Math.abs(v);return a<=d?0:Math.sign(v)*(a-d)/(1-d)}
+// app 1.72: beyond the dead zone a curve, (1 - k) n + k n^3 (k = "Fine control near the centre"): the top speed stays,
+// a small push moves slowly (the same in GamepadJog.java)
+function gpDz(v,d){const a=Math.abs(v);if(a<=d)return 0;const n=Math.min(1,(a-d)/(1-d)),k=Math.min(.95,Math.max(0,(gp.fc!=null?gp.fc:GPD.fc)/100));return Math.sign(v)*((1-k)*n+k*n*n*n)}
 function gpRumble(){try{gpPad&&gpPad.vibrationActuator&&gpPad.vibrationActuator.playEffect('dual-rumble',{duration:200,strongMagnitude:.5,weakMagnitude:.5})}catch(e){}}
 function gpLinkAnswer(m){if(!m.ok){const t=m.e||'refused';if(t!=gpErr){gpErr=t;msg(T('Jog: ')+t);gpRumble()}}else gpErr=''}
 async function gpSend(x,z,c){gpLast=performance.now();

@@ -48,6 +48,11 @@ class GamepadJog {
     // dead zones (defaults; the page's Gamepad box sets them, in %): left stick, right stick, L2 / R2
     private static final float DEAD_L = 0.35f, DEAD_R = 0.45f, DEAD_TRIGGER = 0.05f;
     private volatile float deadL = DEAD_L, deadR = DEAD_R, deadT = DEAD_TRIGGER;
+    // app 1.72 (the owner: "finer control when I move very little, the speed must not change"): beyond the dead zone the
+    // speed follows a curve, (1 - k) x n + k x n^3 of the stick's travel n: full travel = the same top speed, a small
+    // push = a small fraction of it (k 0.7: 10 % travel = 3 % speed, 50 % = 24 %). 0 = straight as before 1.72.
+    private static final float FINE = 0.7f;
+    private static volatile float fine = FINE;
 
     private final MainActivity activity;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -187,6 +192,8 @@ class GamepadJog {
             deadL = dead(o, "dl", DEAD_L);
             deadR = dead(o, "dr", DEAD_R);
             deadT = dead(o, "dt", DEAD_TRIGGER);
+            double fc = o.optDouble("fc", Double.NaN);
+            fine = Double.isNaN(fc) ? FINE : (float) Math.min(0.95, Math.max(0, fc / 100));
             JSONObject m = o.optJSONObject("map");
             if (m != null) {
                 Map<String, String[]> n = new HashMap<>();
@@ -337,7 +344,8 @@ class GamepadJog {
     private static float dz(float v, float d) {
         float a = Math.abs(v);
         if (a <= d) return 0;
-        return Math.signum(v) * (a - d) / (1 - d);
+        float n = Math.min(1f, (a - d) / (1 - d));
+        return Math.signum(v) * ((1 - fine) * n + fine * n * n * n);
     }
 
     private final Runnable tick = new Runnable() {
