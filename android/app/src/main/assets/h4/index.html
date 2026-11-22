@@ -618,15 +618,17 @@ function cfgErrShow(){const e=$('cfgErr'),t=st.cfgErr||'';e.hidden=!t;if(t)e.tex
 // lathe mode (the H4 refuses while something runs, and says why). A mode changed on the H4's keys brings the app to
 // its screen. Machine, Machine parameters and Settings belong to both.
 const CNC_TABS=['control','program'];
-let modeSeen=null,modeAsked=0;
+let modeSeen=null,modeWant=null,modeAsked=0;
 async function modeFollowScreen(t){if(DEMO||st.gcodeMode===undefined)return;
  const wantG=CNC_TABS.includes(t)?1:t=='lathe'?0:null;if(wantG===null||wantG===st.gcodeMode)return;
- modeAsked=Date.now();
- try{await post(wantG?'/cmd?do=gcode':'/lathe?mode=0')}catch(e){msg(e.message);modeAsked=0;tab(st.gcodeMode?'control':'lathe')}}  // refused: back to the H4's screen
+ modeWant=wantG;modeAsked=Date.now();
+ try{await post(wantG?'/cmd?do=gcode':'/lathe?mode=0')}catch(e){msg(e.message);modeWant=null;tab(st.gcodeMode?'control':'lathe')}}  // refused: back to the H4's screen
 function screenFollowMode(){if(st.gcodeMode===undefined)return;const g=st.gcodeMode;
+ // the app's own change is on its way: wait until the H4 reports it (at most 3 s)
+ if(modeWant!==null){if(g!==modeWant&&Date.now()-modeAsked<3000){modeSeen=g;return}modeWant=null}
  const wrong=(g&&curTab=='lathe')||(!g&&CNC_TABS.includes(curTab));
- // the first status, or a mode changed on the H4 (not while the app's own change is on its way)
- if(wrong&&(modeSeen===null||(g!==modeSeen&&Date.now()-modeAsked>2500)))tab(g?'control':'lathe');
+ // the first status, or a mode changed on the H4 (its keys)
+ if(wrong&&(modeSeen===null||g!==modeSeen))tab(g?'control':'lathe');
  modeSeen=g}
 // firmware 1.52: this start stored the machine's own values (a firmware built with my_machine.h, the LinuxCNC .ini)
 let cfgMySaid=false;function cfgMyShow(){if(!st.cfgMy||cfgMySaid)return;cfgMySaid=true;msg(T('The machine parameters of this firmware (my_machine.h, from LinuxCNC) were stored in the H4.'));if(cfg)loadCfg()}
