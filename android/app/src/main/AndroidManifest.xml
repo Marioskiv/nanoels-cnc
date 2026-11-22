@@ -34,13 +34,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- the app can be chosen as the tablet's home screen (Android settings, Default apps, Home / Launcher):
-                 the tablet then starts in it and the Home key comes back to it -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+            <!-- app 1.73: no longer offered as the tablet's home screen (HOME, app 1.42 - 1.72). App updates stuck at
+                 "Installing..." on the owner's Huawei from 1.42 on (1.41 installed at once): a home app that is
+                 replaced is started again by Android at once, in the middle of its own install. "Open when the
+                 tablet starts" (BootReceiver) stays. -->
         </activity>
         <receiver
             android:name=".BootReceiver"

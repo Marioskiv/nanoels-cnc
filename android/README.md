@@ -59,10 +59,11 @@ updated) is written to *Settings, App log*. From app 1.50 also what the user cho
 closed without a choice), a newer version kept quiet by an earlier Later, a failed check (no internet) and a failed or
 refused download, so the log shows why a tablet stayed at an older version.
 
-**As the tablet's home screen (from app 1.42).** H4 CNC can be chosen as the home screen (Android settings, Apps,
-Default apps, Home / Launcher; or press Home once and choose H4 CNC, Always): the tablet starts in it and the Home key
-comes back to it. To go back: the same setting, the maker's home screen (e.g. Huawei Home); the status bar (a swipe
-from the top) still reaches Android's settings.
+**No longer a home screen (app 1.73).** From 1.42 to 1.72 H4 CNC could be chosen as the tablet's home screen. App
+updates then stuck at "Installing..." on a Huawei tablet (Android 7): Android starts a home app again at once when it
+is replaced, in the middle of its own install. From 1.73 it is an ordinary app (the tablet's own home screen comes
+back by itself); *Open when the tablet starts* stays. An update also closes the app as soon as Android's installer
+screen is open, so nothing of the old version waits in front; the new version opens by itself.
 
 **Opens when the tablet starts (from app 1.42).** After the tablet is switched on the app opens by itself (Android's
 BOOT_COMPLETED; Android has no setting of its own for this). *Settings, Screen and jog, Open when the tablet starts*
