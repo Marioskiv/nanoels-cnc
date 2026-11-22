@@ -480,6 +480,15 @@ final class UpdateCheck {
                     .putLong("installAt", System.currentTimeMillis()).commit();
             ExitWatch.event(activity, version + " handed to Android (installer screen, own task)", "η " + version + " δόθηκε στο Android (οθόνη εγκατάστασης, χωριστή)");
             activity.startActivity(i);
+            // app 1.73: this app then closes, as one leaves the Files app: nothing of it is in front or waiting while
+            // Android replaces it (the owner: "maybe it is stuck because the app stays open"). The new version opens
+            // by itself (UpdatedReceiver); if Android's screen is cancelled, the app is simply opened again.
+            activity.web().postDelayed(() -> {
+                try {
+                    activity.finishAndRemoveTask();
+                } catch (Exception ignored) {
+                }
+            }, 1200);
         } catch (Exception e) {
             tell(activity, Tr.t(activity, "Android's installer did not open: ", "Ο εγκαταστάτης του Android δεν άνοιξε: ") + e.getMessage());
         }
