@@ -222,17 +222,53 @@ void storeMachineConfigAll() {
 // (cncStartRefusal) until the settings are saved again from the app.
 char machineConfigProblem[160] = "";
 bool machineConfigStored = false;  // a stored set is in use (false: the firmware's defaults, nothing was ever saved)
+bool machineConfigFromMyMachine = false;  // this start stored the my_machine.h values (firmware 1.52)
 
 // Called first in setup().
 void loadMachineConfig() {
   for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) machineConfigDefaults[i] = configGet(i);
 #ifdef HAS_MY_MACHINE
   {
-    // First start with my_machine.h: its values are stored at once, so later updates keep them.
+    // A firmware built with my_machine.h (the machine's LinuxCNC values) stores them whenever they are new to this H4:
+    // at its first start, and again each time my_machine.h has other values than the last ones it stored (firmware
+    // 1.52, the owner: "with an update all the machine's parameters must go in, as in LinuxCNC"). A fingerprint of
+    // the my_machine.h values is kept ("mh"); corrections made later in the app stay until my_machine.h changes.
+    // Until 1.51 they were stored only when nothing was stored yet, so an H4 that had a set already kept it.
+    uint32_t mh = 2166136261u;  // FNV-1a over the values
+    for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) {
+      double d = machineConfigDefaults[i];
+      const uint8_t* b = (const uint8_t*)&d;
+      for (size_t k = 0; k < sizeof(d); k++) mh = (mh ^ b[k]) * 16777619u;
+    }
     Preferences check;
-    bool stored = check.begin(MACHINE_CONFIG_NAMESPACE, true) && check.getInt("v", 0) == MACHINE_CONFIG_VERSION;
+    bool open = check.begin(MACHINE_CONFIG_NAMESPACE, true);
+    bool same = open && check.getInt("v", 0) == MACHINE_CONFIG_VERSION && (uint32_t)check.getUInt("mh", 0) == mh;
+    // the scale of an axis changes: positions and stops kept in steps would be wrong (as a save from the app does)
+    bool scale = false;
+    if (open && !same) {
+      const char* keys[] = {"encPpr", "zSteps", "zScrew", "xSteps", "xScrew", "aSteps", "aScrew"};
+      for (const char* k : keys) {
+        int i = configIndex(k);
+        if (check.isKey(k) && check.getDouble(k, 0) != machineConfigDefaults[i]) scale = true;
+      }
+    }
     check.end();
-    if (!stored) storeMachineConfigAll();
+    if (!same) {
+      storeMachineConfigAll();
+      Preferences put;
+      if (put.begin(MACHINE_CONFIG_NAMESPACE, false)) {
+        put.putUInt("mh", mh);
+        put.end();
+      }
+      if (scale) {
+        Preferences pref;
+        if (pref.begin(PREF_NAMESPACE, false)) {
+          pref.clear();
+          pref.end();
+        }
+      }
+      machineConfigFromMyMachine = true;
+    }
   }
 #endif
   Preferences cfg;

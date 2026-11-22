@@ -23,6 +23,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends g++-multilib
           python3 h4/test/h4sim/scenario_test.py /tmp/h4sim 18180
           python3 h4/test/h4sim/lathe_test.py /tmp/h4sim 18680
+          python3 h4/test/h4sim/mymachine_test.py /tmp/h4sim-mm 18780
       - uses: actions/upload-artifact@v4
         if: always()
         with:
