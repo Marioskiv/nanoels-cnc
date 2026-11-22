@@ -38,6 +38,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"zRest", 'b', (void*)&NEEDS_REST_Z, 0, 1, "Z axis", "Disable the driver when stopped (open loop)", ""},
   {"zTravel", 'l', (void*)&MAX_TRAVEL_MM_Z, 1, 100000, "Z axis", "Longest manual travel", "mm"},
   {"zBl", 'l', (void*)&BACKLASH_DU_Z, 0, 100000, "Z axis", "Backlash", "du"},
+  {"zGcRev", 'b', (void*)&GCODE_REV_Z, 0, 1, "Z axis", "GCODE counts Z the other way than the lathe modes (LinuxCNC / ISO: Z- towards the chuck)", ""},
 
   {"xSteps", 'l', (void*)&MOTOR_STEPS_X, 1, 1000000, "X axis", "Motor steps per screw turn", "steps"},
   {"xScrew", 'l', (void*)&SCREW_X_DU, 1, 10000000, "X axis", "Travel per screw turn", "du"},
@@ -48,6 +49,7 @@ const MachineConfigItem MACHINE_CONFIG[] = {
   {"xRest", 'b', (void*)&NEEDS_REST_X, 0, 1, "X axis", "Disable the driver when stopped (open loop)", ""},
   {"xTravel", 'l', (void*)&MAX_TRAVEL_MM_X, 1, 100000, "X axis", "Longest manual travel", "mm"},
   {"xBl", 'l', (void*)&BACKLASH_DU_X, 0, 100000, "X axis", "Backlash", "du"},
+  {"xGcRev", 'b', (void*)&GCODE_REV_X, 0, 1, "X axis", "GCODE counts X the other way than the lathe modes (LinuxCNC / ISO: X+ away from the centre)", ""},
 
   {"aAct", 'b', (void*)&ACTIVE_A1, 0, 1, "A1 axis (C)", "Connected (terminal A1)", ""},
   {"aRot", 'b', (void*)&ROTARY_A1, 0, 1, "A1 axis (C)", "Rotary (degrees)", ""},
@@ -199,6 +201,8 @@ String configCrossCheck(const double* values) {
 }
 
 void configDerived() {
+  cncDirSign[CNC_X] = GCODE_REV_X ? -1 : 1;  // the step interrupt's copy (h4.ino)
+  cncDirSign[CNC_Z] = GCODE_REV_Z ? -1 : 1;
   ENCODER_STEPS_INT = ENCODER_PPR * 2;
   ENCODER_STEPS_FLOAT = ENCODER_STEPS_INT;
   RPM_BULK = ENCODER_STEPS_INT;

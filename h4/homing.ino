@@ -39,8 +39,9 @@ bool switchActive(Axis* a) {
   return a == &x ? inHomeX : (a == &z ? inHomeZ : false);
 }
 
+// in the H4's own sense (GCODE_REV_*: the .ini's values count as GCODE does)
 float homeSearchVel(Axis* a) {
-  return a == &x ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL;
+  return gcSign(a) * (a == &x ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL);
 }
 
 // Soft limits of an axis in its pos steps; false when they do not apply (not used or not homed).
@@ -50,6 +51,11 @@ bool softLimitSteps(Axis* a, long* lo, long* hi) {
   float spm = axisStepsPerMm(a);
   float mn = a == &x ? LIMIT_X_MIN : LIMIT_Z_MIN;
   float mx = a == &x ? LIMIT_X_MAX : LIMIT_Z_MAX;
+  if (gcSign(a) < 0) {  // GCODE_REV_*: the limits are GCODE's machine coordinates; here the H4's own positions
+    float t = mn;
+    mn = -mx;
+    mx = -t;
+  }
   *lo = lround(mn * spm) - a->machineOffset;
   *hi = lround(mx * spm) - a->machineOffset;
   return true;
@@ -352,8 +358,10 @@ bool homingOne(Axis* a, const char* searching) {
   bool useLimits = isX ? LIMIT_X_USE : LIMIT_Z_USE;
   float span = isX ? LIMIT_X_MAX - LIMIT_X_MIN : LIMIT_Z_MAX - LIMIT_Z_MIN;
   float travel = useLimits && span > 0 ? span + 10 : (isX ? MAX_TRAVEL_MM_X : MAX_TRAVEL_MM_Z) * 1.2 + 20;
-  bool ok = homeAxis(a, isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL, isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL,
-      isX ? HOME_X_FINAL_VEL : HOME_Z_FINAL_VEL, isX ? HOME_X_OFFSET : HOME_Z_OFFSET, isX ? HOME_X_HOME : HOME_Z_HOME, travel);
+  // GCODE_REV_*: the .ini's directions and coordinates count as GCODE does; homeAxis works in the H4's own sense
+  int sg = gcSign(a);
+  bool ok = homeAxis(a, sg * (isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL), sg * (isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL),
+      isX ? HOME_X_FINAL_VEL : HOME_Z_FINAL_VEL, sg * (isX ? HOME_X_OFFSET : HOME_Z_OFFSET), sg * (isX ? HOME_X_HOME : HOME_Z_HOME), travel);
   if (!ok && !homingAbort) {
     static char text[120];
     snprintf(text, sizeof(text), "Homing %c: %s", isX ? 'X' : 'Z', homingFailText ? homingFailText : "switch not found");
@@ -412,9 +420,10 @@ const char* homeCheckFailText = NULL;
 bool homeCheckAxis(Axis* a, float* deltaMm) {
   bool isX = a == &x;
   float spm = axisStepsPerMm(a);
-  float search = isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL;
-  float latch = isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL;
-  float offset = isX ? HOME_X_OFFSET : HOME_Z_OFFSET;
+  int sg = gcSign(a);  // GCODE_REV_*: in the H4's own sense, as Home All
+  float search = sg * (isX ? HOME_X_SEARCH_VEL : HOME_Z_SEARCH_VEL);
+  float latch = sg * (isX ? HOME_X_LATCH_VEL : HOME_Z_LATCH_VEL);
+  float offset = sg * (isX ? HOME_X_OFFSET : HOME_Z_OFFSET);
   int dir = search > 0 ? 1 : -1;
   const float nearMm = 2;
   long start = a->pos;
@@ -447,7 +456,7 @@ bool homeCheckAxis(Axis* a, float* deltaMm) {
     } else {
       ok = homingMoveUntil(a, dir, latch, true, nearMm * 3);
     }
-    if (ok) *deltaMm = (homingHitPos - expected) / spm;
+    if (ok) *deltaMm = sg * (homingHitPos - expected) / spm;
     else if (!homingAbort && !homeCheckFailText) homeCheckFailText = "the switch was not found within 4 mm after its point: Home All again";
   }
   if (!homingAbort) {  // back to where the axis was
@@ -533,5 +542,5 @@ void taskHoming(void* param) {
 
 // Machine coordinate of an axis in mm (or degrees), for the page.
 float machinePosMm(Axis* a) {
-  return (a->pos + a->machineOffset) / axisStepsPerMm(a);
+  return gcSign(a) * (a->pos + a->machineOffset) / axisStepsPerMm(a);  // as GCODE counts it (GCODE_REV_*)
 }

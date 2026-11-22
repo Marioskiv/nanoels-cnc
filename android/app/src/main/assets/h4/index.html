@@ -912,6 +912,8 @@ function fwWaitShow(fromStatus){if(!fwWait)return;const w=Date.now()-fwWait.t,el
 // patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
 // in the list stays as the H4 sent it.
 const I18N={
+'GCODE counts X the other way than the lathe modes (LinuxCNC / ISO: X+ away from the centre)':'Το GCODE μετρά τον X αντίθετα από τον τόρνο (LinuxCNC / ISO: X+ μακριά από το κέντρο)',
+'GCODE counts Z the other way than the lathe modes (LinuxCNC / ISO: Z- towards the chuck)':'Το GCODE μετρά τον Z αντίθετα από τον τόρνο (LinuxCNC / ISO: Z− προς το τσοκ)',
 'Fine control near the centre (%; 0 = straight, top speed unchanged)':'Λεπτός έλεγχος κοντά στο κέντρο (%· 0 = ευθεία, η μέγιστη ταχύτητα δεν αλλάζει)',
 'The machine parameters of this firmware (my_machine.h, from LinuxCNC) were stored in the H4.':'Οι παράμετροι μηχανής αυτού του firmware (my_machine.h, από το LinuxCNC) αποθηκεύτηκαν στο H4.',
 'Firmware updated. Restarting...':'Το firmware γράφτηκε. Επανεκκίνηση...',

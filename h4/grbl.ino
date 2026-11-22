@@ -102,8 +102,8 @@ void grblStatus(int ch) {
   else if (cncBusy() || stepperIsRunning(&x) || stepperIsRunning(&z)) state = "Run";
   else if (mode == MODE_GCODE && cncStartRefusal() != NULL && strcmp(cncStartRefusal(), "Home All first") == 0) state = "Alarm";
   char buf[200];
-  float wx = (x.pos + x.originPos) / cncStepsPerUnit(CNC_X) * grblUnit(&x);
-  float wz = (z.pos + z.originPos) / cncStepsPerUnit(CNC_Z) * grblUnit(&z);
+  float wx = gcSign(&x) * (x.pos + x.originPos) / cncStepsPerUnit(CNC_X) * grblUnit(&x);  // as GCODE counts it
+  float wz = gcSign(&z) * (z.pos + z.originPos) / cncStepsPerUnit(CNC_Z) * grblUnit(&z);
   int n = snprintf(buf, sizeof(buf), "<%s|WPos:%.3f,0.000,%.3f", state, wx, wz);
   if (a1.active) n += snprintf(buf + n, sizeof(buf) - n, ",%.3f", (a1.pos + a1.originPos) / cncStepsPerUnit(CNC_C));
   n += snprintf(buf + n, sizeof(buf) - n, "|Bf:%d,%d|FS:%.0f,%d", cnc_plan_blocks_free(),
@@ -511,9 +511,9 @@ void webJogAxes(cnc_jog_axes_t* ax) {
   bool limits = CNC_RESPECT_STOPS || softLimitsActive();
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    ax->pos[i] = a->pos;
+    ax->pos[i] = cncToGcode(a, a->pos);  // GCODE_REV_*: as the planner counts it
     ax->backlash[i] = a->backlashSteps;
-    ax->slack[i] = a->backlashSteps > 0 ? a->pos - a->motorPos : 0;
+    ax->slack[i] = cncSlackGcode(a);
     long lo = (!CNC_RESPECT_STOPS || a->rightStop == LONG_MIN) ? INT32_MIN : a->rightStop;
     long hi = (!CNC_RESPECT_STOPS || a->leftStop == LONG_MAX) ? INT32_MAX : a->leftStop;
     long slo, shi;
@@ -522,11 +522,13 @@ void webJogAxes(cnc_jog_axes_t* ax) {
       if (shi < hi) hi = shi;
     }
     if (!limits || !a->active) {
-      lo = INT32_MIN;
-      hi = INT32_MAX;
+      ax->lo[i] = INT32_MIN;
+      ax->hi[i] = INT32_MAX;
+    } else {
+      if (lo == INT32_MIN) lo = LONG_MIN;
+      if (hi == INT32_MAX) hi = LONG_MAX;
+      cncRangeToGcode(a, lo, hi, &ax->lo[i], &ax->hi[i]);
     }
-    ax->lo[i] = lo;
-    ax->hi[i] = hi;
   }
 }
 

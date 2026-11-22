@@ -34,6 +34,12 @@ long SPEED_START_X = MOTOR_STEPS_X; // Initial speed of a motor, steps / second.
 long ACCELERATION_X = 10 * MOTOR_STEPS_X; // Acceleration of a motor, steps / second ^ 2.
 long SPEED_MANUAL_MOVE_X = 3 * MOTOR_STEPS_X; // Maximum speed of a motor during manual move, steps / second.
 bool INVERT_X = true; // change (true/false) if the carriage moves e.g. "left" when you press "right".
+// Firmware 1.53: in GCODE mode X and / or Z count the other way than the lathe modes (as LinuxCNC / ISO: X+ away from
+// the centre, Z- towards the chuck, while the H4's lathe modes have Z+ towards the chuck and X+ towards the centre).
+// INVERT_* then makes the lathe modes (keys, ELS, threads) move the right way, and GCODE still runs its programs as
+// LinuxCNC did. false: GCODE counts as the lathe modes (as before 1.53).
+bool GCODE_REV_X = false;
+bool GCODE_REV_Z = false;
 bool NEEDS_REST_X = false; // Set to false for all kinds of drivers or X will be unlocked when not moving.
 long MAX_TRAVEL_MM_X = 100; // Cross slide doesn't allow to travel more than this in one go, 10cm
 long BACKLASH_DU_X = 1500; // 0.15mm backlash in deci-microns (10^-7 of a meter)
@@ -174,7 +180,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.52"
+#define FW_VERSION "1.53"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -945,7 +951,8 @@ long stepsToDu(Axis* a, long steps) {
 }
 
 long getAxisPosDu(Axis* a) {
-  return stepsToDu(a, a->pos + a->originPos);
+  // GCODE mode shows the axis as GCODE counts it (GCODE_REV_*); the lathe modes as before
+  return stepsToDu(a, a->pos + a->originPos) * (mode == MODE_GCODE ? gcSign(a) : 1);
 }
 
 long getAxisStopDiffDu(Axis* a) {
@@ -1720,6 +1727,48 @@ IRAM_ATTR Axis* cncAxis(int i) {
   return i == CNC_X ? &x : (i == CNC_Z ? &z : &a1);
 }
 
+// Firmware 1.53, GCODE_REV_*: +1, or -1 when GCODE counts an axis the other way than the H4's own (lathe) positions.
+// Every value that goes between the axes (a->pos, motorPos, stops, limits, origins, machine offsets: the H4's own
+// sense) and the interpreter / planner / jog (GCODE's sense) goes through these. For a reversed axis with backlash
+// the planner's take-up side (the minus side in its own sense) is the H4's plus side: its tool position is the
+// H4's minus the backlash (cncToGcode), so that both describe the same motor and the same play; the step interrupt
+// then counts the tool as the H4's own moves do (see cncIsr).
+int8_t cncDirSign[CNC_N_AXIS] = {1, 1, 1};
+int gcSign(Axis* a) {
+  return (a == &x && GCODE_REV_X) || (a == &z && GCODE_REV_Z) ? -1 : 1;
+}
+long cncShift(Axis* a) {
+  return gcSign(a) < 0 ? a->backlashSteps : 0;
+}
+// a position (pos, stop, limit) between the two senses
+long cncToGcode(Axis* a, long p) {
+  return gcSign(a) < 0 ? -p + cncShift(a) : p;
+}
+long cncFromGcode(Axis* a, long p) {
+  return gcSign(a) < 0 ? -(p - cncShift(a)) : p;
+}
+// a machine offset (machine = pos + offset in each sense)
+long cncOffsetToGcode(Axis* a, long mo) {
+  return gcSign(a) < 0 ? -mo - cncShift(a) : mo;
+}
+// the take-up state as the planner counts it: 0 .. backlash, how far the motor is on its minus side
+long cncSlackGcode(Axis* a) {
+  if (a->backlashSteps <= 0) return 0;
+  long s = gcSign(a) < 0 ? a->motorPos - a->pos + a->backlashSteps : a->pos - a->motorPos;
+  return s < 0 ? 0 : (s > a->backlashSteps ? a->backlashSteps : s);
+}
+// a range of positions (stops, limits; LONG_MIN / LONG_MAX = none) in the planner's sense, as int32 for it
+void cncRangeToGcode(Axis* a, long lo, long hi, int32_t* glo, int32_t* ghi) {
+  if (gcSign(a) < 0) {
+    long l = hi == LONG_MAX ? LONG_MIN : cncToGcode(a, hi);
+    long h = lo == LONG_MIN ? LONG_MAX : cncToGcode(a, lo);
+    lo = l;
+    hi = h;
+  }
+  *glo = lo <= INT32_MIN ? INT32_MIN : (lo >= INT32_MAX ? INT32_MAX : (int32_t)lo);
+  *ghi = hi >= INT32_MAX ? INT32_MAX : (hi <= INT32_MIN ? INT32_MIN : (int32_t)hi);
+}
+
 // The step interrupt works as FluidNC's "timed" stepping engine (and Grbl): the step computed by the previous
 // interrupt is put out at the very start of this one, so its timing does not depend on how long the computation
 // takes; the next step is computed while the pulse lasts and only the rest of the pulse length is waited; the
@@ -1791,9 +1840,16 @@ static uint64_t IRAM_ATTR cncStepTick(uint64_t countValue, uint64_t alarmValue) 
       if (!(cncPending.step & (1 << i))) continue;
       Axis* a = cncAxis(i);
       int d = (cncPending.dirNeg & (1 << i)) ? -1 : 1;
+      if (cncDirSign[i] < 0) {
+        // GCODE counts this axis the other way (GCODE_REV_*): the H4's own rule for the tool behind the play, as its
+        // manual moves count it (stepper loop): the same steps the planner gave, its take-up steps included
+        d = -d;
+        if (d > 0 ? a->motorPos >= a->pos : a->motorPos <= a->pos - a->backlashSteps) a->pos += d;
+      } else if (!(cncPending.motorOnly & (1 << i))) {
+        a->pos += d;  // a backlash take-up step moves the motor only
+      }
       a->motorPos += d;
       a->posGlobal += d;
-      if (!(cncPending.motorOnly & (1 << i))) a->pos += d;  // a backlash take-up step moves the motor only
       a->stepStartUs = nowUs;
     }
     cncDiagSteps = cncDiagSteps + 1;
@@ -1838,6 +1894,7 @@ static uint64_t IRAM_ATTR cncStepTick(uint64_t countValue, uint64_t alarmValue) 
       if (!(cncPending.step & (1 << i))) continue;
       Axis* a = cncAxis(i);
       bool positive = !(cncPending.dirNeg & (1 << i));
+      if (cncDirSign[i] < 0) positive = !positive;  // GCODE_REV_*: the H4's own direction
       // a->direction is the cache that setDir() uses: keep it true so manual moves set the pin correctly later.
       if (!a->directionInitialized || a->direction != positive) {
         if (!holdDone) {
@@ -1935,13 +1992,16 @@ void cncCheckStore(const char* name, const cnc_bench_t& r) {
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
     float spu = cncStepsPerUnit(i);
-    c.lo[i] = (r.minSteps[i] + a->originPos) / spu;
-    c.hi[i] = (r.maxSteps[i] + a->originPos) / spu;
+    // work coordinate = (planner position - shift) + sign x origin (GCODE_REV_*: the H4's origin counted the other way)
+    long w = gcSign(a) * a->originPos - cncShift(a);
+    c.lo[i] = (r.minSteps[i] + w) / spu;
+    c.hi[i] = (r.maxSteps[i] + w) / spu;
     long lo, hi;
     c.hasLim[i] = softLimitSteps(a, &lo, &hi);  // homing.ino
     if (c.hasLim[i]) {
-      c.limLo[i] = (lo + a->originPos) / spu;
-      c.limHi[i] = (hi + a->originPos) / spu;
+      float l1 = gcSign(a) * (lo + a->originPos) / spu, l2 = gcSign(a) * (hi + a->originPos) / spu;
+      c.limLo[i] = l1 < l2 ? l1 : l2;
+      c.limHi[i] = l1 < l2 ? l2 : l1;
     }
   }
   cncCheck = c;
@@ -2245,7 +2305,7 @@ void cncG54FromAxes() {
   cnc_gc_get_offsets(&o);
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    o.coord[0][i] = (-a->originPos + a->machineOffset) / cncStepsPerUnit(i);
+    o.coord[0][i] = gcSign(a) * (-a->originPos + a->machineOffset) / cncStepsPerUnit(i);
   }
   cnc_gc_set_offsets(&o);
 }
@@ -2255,7 +2315,7 @@ void cncG54ToAxes() {
   cnc_gc_get_offsets(&o);
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    a->originPos = -(lround(o.coord[0][i] * cncStepsPerUnit(i)) - a->machineOffset);
+    a->originPos = -(lround(gcSign(a) * o.coord[0][i] * cncStepsPerUnit(i)) - a->machineOffset);
   }
 }
 
@@ -2297,21 +2357,22 @@ void cncSyncFromAxes(bool keepModes) {
   memset(&m, 0, sizeof(m));
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    pos[i] = a->pos;
-    mOffset[i] = a->machineOffset;
-    // After a move down, moveAxis() leaves the motor backlashSteps below the tool.
-    neg[i] = a->backlashSteps > 0 && a->motorPos != a->pos;
+    pos[i] = cncToGcode(a, a->pos);
+    mOffset[i] = cncOffsetToGcode(a, a->machineOffset);
+    // After a move down, moveAxis() leaves the motor backlashSteps below the tool (in the planner's sense: cncSlackGcode).
+    neg[i] = a->backlashSteps > 0 && (gcSign(a) > 0 ? a->motorPos != a->pos : cncSlackGcode(a) == a->backlashSteps);
     m.name[i] = a->name;
     m.active[i] = a->active;
     m.rotary[i] = a->rotational;
     m.backlashSteps[i] = a->backlashSteps;
-    m.minSteps[i] = (!CNC_RESPECT_STOPS || a->rightStop == LONG_MIN) ? INT32_MIN : a->rightStop;
-    m.maxSteps[i] = (!CNC_RESPECT_STOPS || a->leftStop == LONG_MAX) ? INT32_MAX : a->leftStop;
+    long smin = (!CNC_RESPECT_STOPS || a->rightStop == LONG_MIN) ? LONG_MIN : a->rightStop;
+    long smax = (!CNC_RESPECT_STOPS || a->leftStop == LONG_MAX) ? LONG_MAX : a->leftStop;
     long lo, hi;
     if (softLimitSteps(a, &lo, &hi)) { // homing.ino
-      if (lo > m.minSteps[i]) m.minSteps[i] = lo;
-      if (hi < m.maxSteps[i]) m.maxSteps[i] = hi;
+      if (lo > smin) smin = lo;
+      if (hi < smax) smax = hi;
     }
+    cncRangeToGcode(a, smin, smax, &m.minSteps[i], &m.maxSteps[i]);
   }
   m.checkLimits = CNC_RESPECT_STOPS || softLimitsActive();
   m.arcTolerance = CNC_ARC_TOLERANCE;
@@ -2328,7 +2389,7 @@ void cncSyncFromAxes(bool keepModes) {
   // a backlash take-up that a STOP cut short: the next take-up is only what is left
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    if (a->backlashSteps > 0) cnc_gc_set_slack(i, a->pos - a->motorPos);
+    if (a->backlashSteps > 0) cnc_gc_set_slack(i, cncSlackGcode(a));
   }
   cncG54FromAxes();
 }
@@ -2390,8 +2451,8 @@ bool cncThread() {
   int32_t target[CNC_N_AXIS];
   float leadMm;
   cnc_gc_thread(target, &leadMm);
-  long xDiff = target[CNC_X] - x.pos;
-  long zDiff = target[CNC_Z] - z.pos;
+  long xDiff = cncFromGcode(&x, target[CNC_X]) - x.pos;  // GCODE_REV_*: back to the H4's own sense
+  long zDiff = cncFromGcode(&z, target[CNC_Z]) - z.pos;
   Axis* lead = zDiff != 0 ? &z : (xDiff != 0 ? &x : NULL);
   if (lead == NULL) return true;
   long leadDiff = lead == &z ? zDiff : xDiff;
@@ -2511,15 +2572,15 @@ bool cncRunFromStart(uint32_t n) {
   char names[CNC_N_AXIS];
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    pos[i] = a->pos;
-    mOffset[i] = a->machineOffset;
-    neg[i] = a->backlashSteps > 0 && a->motorPos != a->pos;
+    pos[i] = cncToGcode(a, a->pos);
+    mOffset[i] = cncOffsetToGcode(a, a->machineOffset);
+    neg[i] = a->backlashSteps > 0 && (gcSign(a) > 0 ? a->motorPos != a->pos : cncSlackGcode(a) == a->backlashSteps);
     names[i] = a->name;
   }
   cnc_gc_sync(pos, mOffset, neg);
   for (int i = 0; i < CNC_N_AXIS; i++) {
     Axis* a = cncAxis(i);
-    if (a->backlashSteps > 0) cnc_gc_set_slack(i, a->pos - a->motorPos);
+    if (a->backlashSteps > 0) cnc_gc_set_slack(i, cncSlackGcode(a));
   }
   char moves[3][96];
   cnc_runfrom_approach(&r, names, a1.active, CNC_RESUME_PLUNGE_FEED, moves);
