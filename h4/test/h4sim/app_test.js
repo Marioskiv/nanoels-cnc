@@ -351,6 +351,21 @@ async function waitIdle(timeoutMs = 60000) {
     ok(Math.abs(drv.a1[0] / drv.a1[1] - 33024 / 360) < 1e-9, 'C drive 3200 steps, 20 -> 48, 20 -> 86, 360°: ' + drv.a1[0] + ' steps per ' + drv.a1[1] + ' (91.7333 per degree)');
     ok(drv.z1[0] / drv.z1[1] == 400, 'Z drive 800 steps, ratio 1:1, 2 mm: ' + drv.z1[0] + ' steps per ' + drv.z1[1] + ' mm = 400 / mm');
     await page.evaluate(() => loadCfg());  // nothing saved: the form back to the H4's values
+    {
+      // app 1.69: the chuck has no screw — its fields say so, 0 degrees calculates nothing, the page shows what it has now
+      const c = await page.evaluate(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        const lab = (id) => (document.querySelector('label[for="' + id + '"]') || {}).textContent || '';
+        const now = $('d_a_res').textContent, before = [$('c_aSteps').value, $('c_aScrew').value];
+        $('d_a_spr').value = 3200; $('d_a_ratio').value = '20:48 20:86'; $('d_a_pitch').value = 0; drvCalc('a');
+        return {steps: lab('c_aSteps'), screw: lab('c_aScrew'), pitch: lab('d_a_pitch'), now, before, after: [$('c_aSteps').value, $('c_aScrew').value], res: $('d_a_res').textContent};
+      });
+      const rot = /chuck/.test(c.pitch);
+      ok(!rot || (/chuck turn/.test(c.steps) && /Degrees per chuck turn/.test(c.screw) && /360/.test(c.pitch)), 'C fields named for the chuck: "' + c.steps + '" / "' + c.screw + '" / "' + c.pitch + '"');
+      ok(c.before.join() == c.after.join() && /pitch|βήμα/.test(c.res), 'C with 0 degrees per turn: nothing changed (' + c.res.slice(0, 50) + ')');
+      ok(/^(Now|Τώρα): [0-9.]+ steps per (degree|mm)/.test(c.now), 'the page shows what the axis has now: "' + c.now + '"');
+      await page.evaluate(() => loadCfg());
+    }
     // 13. a gamepad refusal is explained on the screen (app 1.63)
     const gx = await page.evaluate(() => [gpExplain('Home All first'), gpExplain('hold the safety button (L1) to move'), gpExplain('Axes are off: Axes ON in the app (beside STOP) or key A on the H4')]);
     ok(/Home All/.test(gx[0]) && /PS/.test(gx[0]) && /L1/.test(gx[1]) && /Axes|ΑΞΟΝΕΣ|άξονες/.test(gx[2]), 'gamepad refusals explained: "' + gx.join('" | "') + '"');

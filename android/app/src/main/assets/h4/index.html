@@ -715,8 +715,9 @@ function drvBlock(p){const m=drvMem[p]||{},rot=drvRot(p),u=rot?'°':'mm',f=(id,l
  let ratio=m.ratio;if(ratio==null&&m.t1)ratio=m.t1+':'+m.t2+(m.t3?' '+m.t3+':'+m.t4:'');
  return `<div class="drv"><b>Drive of the axis</b><div class="small">Write the three, the H4 does the rest: the steps per ${u} below are filled in at once.</div>`
   +f('spr','Driver steps per motor turn (DIP switches)',m.spr,'1600')
-  +f('ratio','Ratio motor : '+(rot?'axis':'screw')+' (1:1, 20:30; two stages 20:48 20:86)',ratio,'1:1','text')
-  +f('pitch',rot?'Degrees per turn of the axis':'Screw pitch (mm per turn)',m.pitch!=null?m.pitch:(rot?360:''),rot?'360':'2')
+  +f('ratio',rot?'Ratio motor : chuck (1:1, 20:30; two stages 20:48 20:86)':'Ratio motor : screw (1:1, 20:30; two stages 20:48 20:86)',ratio,'1:1','text')
+  +f('pitch',rot?'Degrees per chuck turn (always 360)':'Screw pitch (mm per turn)',m.pitch!=null&&m.pitch>0?m.pitch:(rot?360:''),rot?'360':'2')
+  +(rot?`<div class="small">${cnT('A rotary axis has no screw: one chuck turn is 360°. Do not write 0.','Ο περιστροφικός άξονας δεν έχει βίδα: μία στροφή του τσοκ = 360°. Μη γράψεις 0.')}</div>`:'')
   +`<div class="drvres" id="d_${p}_res"></div>`
   +`<b>Fine adjustment by measuring</b>`+f('ask','Move asked ('+u+')',m.ask,rot?'360':'20')+f('got','Move measured ('+u+')','',rot?'359.8':'19.96')
   +`<button onclick="drvFine('${p}')">Correct</button><div class="small">Move the axis by a known amount (e.g. G1 X20 F300), measure it, write both, press Correct, then Save and restart.</div></div>`}
@@ -743,16 +744,23 @@ function drvFine(p){drvKeep(p);const ask=drvNum(p,'ask'),got=drvNum(p,'got');if(
  if(got/ask<0.5||got/ask>2){$('d_'+p+'_res').textContent=cnT('More than twice off: check the driver steps and the teeth first.','Διαφορά πάνω από 2 φορές: έλεγξε πρώτα βήματα driver και δόντια.');return}
  const steps=+$('c_'+p+'Steps').value,du=+$('c_'+p+'Screw').value*10000;let k=1;while(k<100000&&Math.abs(du*got/ask*k-Math.round(du*got/ask*k))>1e-3)k++;
  drvSet(p,steps*k,Math.round(du*got/ask*k),cnT('Corrected by ','Διόρθωση κατά ')+(+((got/ask-1)*100).toFixed(3))+' %')}
+// app 1.69: the two values the drive block fills in, named for what they are on this axis (a chuck has no screw)
+function cfgLabel(it){if(!/^[zxa](Steps|Screw)$/.test(it.k))return it.l;const rot=drvRot(it.k[0]),st=/Steps$/.test(it.k);
+ return rot?(st?'Motor steps per chuck turn (calculated above)':'Degrees per chuck turn (calculated above)')
+  :(st?'Motor steps per screw turn (calculated above)':'Travel per screw turn (calculated above)')}
+// what the axis has now, shown when the page opens
+function drvNow(p){const el=$('d_'+p+'_res'),cs=+(($('c_'+p+'Steps')||{}).value),cd=+(($('c_'+p+'Screw')||{}).value);if(!el||!(cs>0)||!(cd>0))return;
+ const rot=drvRot(p);el.textContent=cnT('Now: ','Τώρα: ')+(+(cs/cd).toPrecision(8))+(rot?cnT(' steps per degree',' βήματα ανά μοίρα'):cnT(' steps per mm',' βήματα ανά mm'))}
 function renderCfg(){const groups={};for(const it of cfg.items)(groups[it.g]=groups[it.g]||[]).push(it);let h='';cfgGroups=Object.keys(groups);{const xi=cfgGroups.findIndex(g=>/^X\b/.test(g)),zi=cfgGroups.findIndex(g=>/^Z\b/.test(g));if(xi>=0&&zi>xi){[cfgGroups[xi],cfgGroups[zi]]=[cfgGroups[zi],cfgGroups[xi]]}}
  cfgGroups.forEach((g,gi)=>{h+=`<div class="spage" data-sp="m${gi}" hidden><div class="pg">`;
   const sk=groups[g].find(i=>/^[zxa]Steps$/.test(i.k));if(sk)h+=drvBlock(sk.k[0]);for(const it of groups[g]){const id='c_'+it.k,u=unitText(it);let inp;
   if(it.t=='b')inp=`<input type="checkbox" id="${id}" ${it.v?'checked':''}>`;
   else if(it.t=='a')inp=`<select id="${id}"><option ${it.v=='Z'?'selected':''}>Z</option><option ${it.v=='X'?'selected':''}>X</option></select>`;
   else inp=`<input type="number" step="any" id="${id}" value="${toShow(it,it.v)}">`;
-  h+=`<div class="fr${it.t=='b'?' chk':''}"><label for="${id}">${it.l}${u?' ('+u+')':''}</label>${inp}</div>`}
+  h+=`<div class="fr${it.t=='b'?' chk':''}"><label for="${id}">${cfgLabel(it)}${u?' ('+u+')':''}</label>${inp}</div>`}
   h+='</div><div class="pgc"></div><div class="row"><button onclick="saveCfg()">Save and restart</button><button onclick="resetCfg()">Defaults</button></div></div>'});
  $('cfg').innerHTML=h;$('cfg').style.display='contents';
- $('cfg').querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>el.classList.add('changed')));setList()}
+ $('cfg').querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>el.classList.add('changed')));for(const p of 'zxa')drvNow(p);setList()}
 async function loadCfg(){try{const r=await fetch('/config');cfg=await r.json();renderCfg()}catch(e){$('cfg').textContent='Could not load the settings.'}}
 async function saveCfg(){if(!cfg)return;const q=new URLSearchParams();
  for(const it of cfg.items){const el=$('c_'+it.k);let v;
@@ -868,7 +876,7 @@ const I18N={
  'Jog with':'Jog με','Buttons':'Κουμπιά','Wheel':'Τροχό','Off':'Όχι','On':'Ναι','Screen orientation':'Προσανατολισμός οθόνης','Automatic':'Αυτόματα','Landscape':'Οριζόντια','Portrait':'Κάθετα',
  'Jog lock: the jog buttons and the wheel work only after the lock button 🔒 is pressed, and lock again 15 s after the last move. With the buttons, a tap moves one step; with':'Κλείδωμα jog: τα κουμπιά jog και ο τροχός δουλεύουν μόνο αφού πατηθεί η κλειδαριά 🔒, και κλειδώνουν ξανά 15 s μετά την τελευταία κίνηση. Με τα κουμπιά, ένα πάτημα κινεί ένα βήμα· με',
  'the axis moves while the button is held, at the jog speed of the gamepad settings, and stops when it is released.':'ο άξονας κινείται όσο κρατάς το κουμπί, με την ταχύτητα jog του χειριστηρίου, και σταματά μόλις το αφήσεις.',
- 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Gamepad:':'Χειριστήριο:','Drive: calculated from the teeth':'Μετάδοση: υπολογισμός από τα δόντια','Drive of the axis':'Μετάδοση του άξονα','Write the three, the H4 does the rest: the steps per mm below are filled in at once.':'Γράψε τα τρία, τα υπόλοιπα τα βγάζει μόνο του: τα βήματα ανά mm συμπληρώνονται αμέσως.','Write the three, the H4 does the rest: the steps per ° below are filled in at once.':'Γράψε τα τρία, τα υπόλοιπα τα βγάζει μόνο του: τα βήματα ανά μοίρα συμπληρώνονται αμέσως.','Driver steps per motor turn (DIP switches)':'Βήματα driver ανά στροφή μοτέρ (DIP διακόπτες)','Ratio motor : screw (1:1, 20:30; two stages 20:48 20:86)':'Λόγος μοτέρ : βίδα (1:1, 20:30· δύο στάδια 20:48 20:86)','Ratio motor : axis (1:1, 20:30; two stages 20:48 20:86)':'Λόγος μοτέρ : άξονα (1:1, 20:30· δύο στάδια 20:48 20:86)','Driver steps per motor turn':'Βήματα driver ανά στροφή μοτέρ',
+ 'Save and restart':'Αποθήκευση και επανεκκίνηση','Direct with the H4':'Απευθείας με το H4','Gamepad:':'Χειριστήριο:','Drive: calculated from the teeth':'Μετάδοση: υπολογισμός από τα δόντια','Drive of the axis':'Μετάδοση του άξονα','Ratio motor : chuck (1:1, 20:30; two stages 20:48 20:86)':'Λόγος μοτέρ : τσοκ (1:1, 20:30· δύο στάδια 20:48 20:86)','Degrees per chuck turn (always 360)':'Μοίρες ανά στροφή τσοκ (πάντα 360)','Motor steps per chuck turn (calculated above)':'Βήματα μοτέρ ανά στροφή τσοκ (υπολογίζεται πάνω)','Degrees per chuck turn (calculated above)':'Μοίρες ανά στροφή τσοκ (υπολογίζεται πάνω)','Motor steps per screw turn (calculated above)':'Βήματα μοτέρ ανά στροφή βίδας (υπολογίζεται πάνω)','Travel per screw turn (calculated above)':'Διαδρομή ανά στροφή βίδας (υπολογίζεται πάνω)','Write the three, the H4 does the rest: the steps per mm below are filled in at once.':'Γράψε τα τρία, τα υπόλοιπα τα βγάζει μόνο του: τα βήματα ανά mm συμπληρώνονται αμέσως.','Write the three, the H4 does the rest: the steps per ° below are filled in at once.':'Γράψε τα τρία, τα υπόλοιπα τα βγάζει μόνο του: τα βήματα ανά μοίρα συμπληρώνονται αμέσως.','Driver steps per motor turn (DIP switches)':'Βήματα driver ανά στροφή μοτέρ (DIP διακόπτες)','Ratio motor : screw (1:1, 20:30; two stages 20:48 20:86)':'Λόγος μοτέρ : βίδα (1:1, 20:30· δύο στάδια 20:48 20:86)','Ratio motor : axis (1:1, 20:30; two stages 20:48 20:86)':'Λόγος μοτέρ : άξονα (1:1, 20:30· δύο στάδια 20:48 20:86)','Driver steps per motor turn':'Βήματα driver ανά στροφή μοτέρ',
  'Teeth on the motor (1st belt / gear)':'Δόντια στο μοτέρ (1ος ιμάντας / γρανάζι)','Teeth on the screw side (1st belt / gear)':'Δόντια προς τη βίδα (1ος ιμάντας / γρανάζι)','2nd stage: teeth on the motor side (empty = none)':'2ο στάδιο: δόντια από τη μεριά του μοτέρ (κενό = κανένα)',
  '2nd stage: teeth on the screw side':'2ο στάδιο: δόντια προς τη βίδα','Screw pitch (mm per turn)':'Βήμα βίδας (mm ανά στροφή)','Degrees per turn of the axis':'Μοίρες ανά στροφή του άξονα','Calculate':'Υπολογισμός',
  'Fine adjustment by measuring':'Μικρορύθμιση με μέτρηση','Move asked (mm)':'Κίνηση που ζήτησα (mm)','Move measured (mm)':'Κίνηση που μέτρησα (mm)','Move asked (°)':'Κίνηση που ζήτησα (°)','Move measured (°)':'Κίνηση που μέτρησα (°)','Correct':'Διόρθωση',
