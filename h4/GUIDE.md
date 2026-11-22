@@ -170,6 +170,14 @@ is shown as you type (and what the axis has now when the page opens), and *Motor
 line at the top of the app, and programs, Home All and jogging from the app are refused with that reason until the
 values are checked and saved again in *Machine settings*. The lathe modes are not changed.
 
+**From a LinuxCNC machine (app 1.71).** *Import from a LinuxCNC .ini* (Machine parameters, under the list) reads the
+`.ini` on the tablet and puts its values into the fields: STEP_SCALE (steps per mm / degree), MAX_VELOCITY,
+MAX_ACCELERATION, BACKLASH, travel, HOME_SEARCH/LATCH/FINAL_VEL, HOME_OFFSET, HOME, MIN/MAX_LIMIT, HOME_SEQUENCE (Z
+first) and STEPLEN / DIRSETUP / DIRHOLD; joints follow `[TRAJ] COORDINATES` (trivkins). A list shows every change;
+nothing is stored until *Save and restart*, so the values can be corrected first. Not taken (the H4 is wired
+otherwise): the direction of each axis, normally open / closed switches and the driver alarm: check them on the
+machine.
+
 **Router on the chuck centre (X).** On the X page, *Where the switch is (HOME_OFFSET)* places X 0. Home All, move X
 until the router is exactly on the chuck centre, read *machine X* (Machine, Position; the X page shows it too). New
 HOME_OFFSET = the present HOME_OFFSET minus that reading (e.g. -20 - 4.039 = -24.039); change MIN and MAX by the same

@@ -153,6 +153,30 @@ async function waitIdle(timeoutMs = 60000) {
         'X: "' + pr.off + '" with how to centre the router ("' + pr.help.slice(0, 60) + '..."); Settings only links to it');
     }
 
+    // 1c. app 1.71: Import from a LinuxCNC .ini (an XZC trivkins machine; nothing is saved by the import)
+    {
+      const ini = ['[KINS]', 'JOINTS = 3', 'KINEMATICS = trivkins coordinates=XZC', '[TRAJ]', 'COORDINATES = XZC',
+        '[AXIS_X]', 'MAX_VELOCITY = 12.0', 'MAX_ACCELERATION = 100.0', '[JOINT_0]', 'TYPE = LINEAR', 'HOME = 0.0', 'STEPLEN = 5000', 'DIRSETUP = 10000',
+        'DIRHOLD = 10000', 'STEP_SCALE = -1200.0', 'MIN_LIMIT = -22.039', 'MAX_LIMIT = 108.961', 'HOME_OFFSET = -24.039', 'HOME_SEARCH_VEL = -3',
+        'HOME_LATCH_VEL = 0.5', 'HOME_FINAL_VEL = 5', 'HOME_SEQUENCE = 2', '[AXIS_Z]', 'MAX_VELOCITY = 25.0', 'MAX_ACCELERATION = 100.0',
+        '[JOINT_1]', 'TYPE = LINEAR', 'STEP_SCALE = 400.0', 'BACKLASH = 0.3', 'MIN_LIMIT = -590.0', 'MAX_LIMIT = 7.0', 'HOME_OFFSET = 10.0',
+        'HOME_SEARCH_VEL = 3', 'HOME_LATCH_VEL = -2.5', 'HOME_FINAL_VEL = 5', 'HOME_SEQUENCE = 1', '[AXIS_C]', 'MAX_VELOCITY = 360.0',
+        'MAX_ACCELERATION = 720.0', '[JOINT_2]', 'TYPE = ANGULAR', 'STEP_SCALE = -91.733333', 'MIN_LIMIT = -99999.0', 'MAX_LIMIT = 99999.0'].join('\n');
+      await page.evaluate(() => { tab('params'); });
+      await page.setInputFiles('#iniFile', { name: 'machine.ini', mimeType: 'text/plain', buffer: Buffer.from(ini) });
+      await page.waitForFunction(() => !document.getElementById('sheet').hidden && /\.ini|LinuxCNC/.test(document.getElementById('shTitle').textContent), null, { timeout: 5000 }).catch(() => {});
+      const im = await page.evaluate(() => { const v = k => +$('c_' + k).value, c = k => $('c_' + k).checked;
+        return { x: v('xSteps') / v('xScrew'), z: v('zSteps') / v('zScrew'), a: v('aSteps') / v('aScrew'), xs: v('xSpeed'), as: v('aSpeed'), zb: v('zBl'),
+          hx: [c('hxUse'), v('hxSearch'), v('hxLatch'), v('hxOff'), v('lxMin'), v('lxMax')], hz: [v('hzOff'), v('lzMin'), v('lzMax')], first: c('hZFirst'),
+          pulse: [v('cncPulse'), v('cncDir'), v('cncHold')], rows: document.querySelectorAll('#shBody tr').length, body: $('shBody').textContent }; });
+      ok(Math.abs(im.x - 1200) < 1e-6 && Math.abs(im.z - 400) < 1e-6 && Math.abs(im.a - 33024 / 360) < 1e-6 && im.xs == 12 && im.as == 360 && im.zb == 0.3,
+        '.ini import: X ' + im.x + ' / mm, Z ' + im.z + ' / mm, C ' + im.a.toFixed(6) + ' / deg, X 12 mm/s, C 360 deg/s, Z backlash 0.3');
+      ok(im.hx.join() == 'true,-3,0.5,-24.039,-22.039,108.961' && im.hz.join() == '10,-590,7' && im.first && im.pulse.join() == '5,10,10',
+        '.ini import: homes, limits, Z first, step timing (' + im.hx.join(' ') + ' | ' + im.hz.join(' ') + ' | ' + im.pulse.join(' ') + ')');
+      ok(im.rows > 5 && /NOT saved/.test(im.body) && /Invert direction/.test(im.body), '.ini import: a list of ' + im.rows + ' changes, nothing saved, directions / NO-NC / alarm left to check');
+      await page.evaluate(() => { sheetClose(); return loadCfg(); });
+    }
+
     // 1b. firmware 1.51: the H4 is in a lathe mode; the Control screen says so and its GCODE button switches it
     await page.evaluate(() => tab('control'));
     await page.waitForFunction(() => st.gcodeMode === 0 && !document.getElementById('modeBar').hidden, null, { timeout: 10000 }).catch(() => {});

@@ -377,7 +377,8 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 </div></div></section>
 
 <section class="scr" data-tab="params" hidden><div class="sets" id="psets">
-<div class="slist"><div class="pg" id="plist"></div><div class="pgc"></div></div>
+<div class="slist"><div class="pg" id="plist"></div><div class="pgc"></div>
+<button onclick="$('iniFile').click()">Import from a LinuxCNC .ini</button><input type="file" id="iniFile" hidden onchange="iniImport(this)"></div>
 <div class="spanel card"><h2><button class="sback" onclick="history.back()">&lsaquo; Back</button><span id="pTitle"></span></h2>
 <div id="cfg"></div></div></div></section>
 </main>
@@ -813,6 +814,50 @@ function renderCfg(){const ax={z:[],x:[],a:[]},groups={};cfgI18n(Object.values(C
  $('cfg').querySelectorAll('input,select').forEach(el=>el.addEventListener('change',()=>el.classList.add('changed')));
  if($('c_hxOff'))$('c_hxOff').addEventListener('input',hxHelpShow);hxHelpShow();for(const p of 'zxa')drvNow(p);parList();setList()}
 async function loadCfg(){try{const r=await fetch('/config');cfg=await r.json();renderCfg()}catch(e){$('cfg').textContent='Could not load the settings.'}}
+// Import from a LinuxCNC .ini (app 1.71, the owner: "the parameters of the .ini into the H4, I only correct a little"):
+// the file is read on this tablet, the values go into the fields of Machine parameters (nothing is saved): a list
+// shows each change, then "Save and restart" stores them. Joints follow [TRAJ] COORDINATES (trivkins: X Z C =
+// JOINT_0 1 2). Taken: STEP_SCALE (steps per mm / degree), MAX_VELOCITY, MAX_ACCELERATION, BACKLASH, travel,
+// HOME_* and MIN / MAX_LIMIT, HOME_SEQUENCE (Z first), STEPLEN / DIRSETUP / DIRHOLD. Not taken (the H4 is wired
+// otherwise): the direction signs, normally open / closed switches, the driver alarm - checked on the machine.
+function iniParse(t){const S={};let cur='';for(let l of String(t).split(/\r?\n/)){l=l.replace(/^\s+|\s+$/g,'');if(!l||l[0]=='#'||l[0]==';')continue;
+ const m=/^\[([^\]]+)\]$/.exec(l);if(m){cur=m[1].trim().toUpperCase();S[cur]=S[cur]||{};continue}
+ const e=l.indexOf('=');if(e>0&&cur){const k=l.slice(0,e).trim().toUpperCase();if(!(k in S[cur]))S[cur][k]=l.slice(e+1).trim()}}return S}
+function iniValues(S){const out={},why=[];const num=v=>{const x=parseFloat(v);return isFinite(x)?x:undefined};
+ const coords=((S.TRAJ||{}).COORDINATES||(/coordinates=([A-Za-z]+)/i.exec((S.KINS||{}).KINEMATICS||'')||[])[1]||'').replace(/\s+/g,'').toUpperCase();
+ if(!coords)return {out,why:['no [TRAJ] COORDINATES']};
+ const pre={X:'x',Z:'z',C:'a',A:'a',B:'a'};let pulse=0,dset=0,dhold=0,seq={};
+ [...coords].forEach((L,i)=>{const p=pre[L];if(!p||out[p+'Steps']!==undefined)return;const J=S['JOINT_'+i]||{},A=S['AXIS_'+L]||{},g=k=>num(J[k]!==undefined?J[k]:A[k]);
+  const ss=Math.abs(g('STEP_SCALE')||0);
+  if(ss>0){const it=cfg.items.find(q=>q.k==p+'Screw'),el=$('c_'+p+'Screw');let du=Math.round((el?+el.value:it.v/10000)*10000)||(p=='a'?3600000:20000);
+   let k=1,st=ss*du/10000;while(k<1000&&Math.abs(st*k-Math.round(st*k))>0.01)k++;out[p+'Steps']=Math.round(st*k);out[p+'Screw']=du*k/10000}
+  const v=num(A.MAX_VELOCITY!==undefined?A.MAX_VELOCITY:J.MAX_VELOCITY),a=num(A.MAX_ACCELERATION!==undefined?A.MAX_ACCELERATION:J.MAX_ACCELERATION);
+  if(v>0)out[p+'Speed']=v;if(a>0)out[p+'Acc']=a;
+  const bl=g('BACKLASH');if(bl>=0)out[p+'Bl']=bl;
+  const mn=g('MIN_LIMIT'),mx=g('MAX_LIMIT');
+  if(p!='a'){if(mn!==undefined&&mx!==undefined&&mx>mn)out[p+'Travel']=Math.ceil(mx-mn);
+   const sv=g('HOME_SEARCH_VEL');if(sv!==undefined){out['h'+p+'Use']=sv!=0;if(sv!=0){out['h'+p+'Search']=sv;const lv=g('HOME_LATCH_VEL');if(lv!==undefined)out['h'+p+'Latch']=lv;
+    const fv=g('HOME_FINAL_VEL');if(fv!==undefined)out['h'+p+'Final']=fv;const ho=g('HOME_OFFSET');if(ho!==undefined)out['h'+p+'Off']=ho;const hh=g('HOME');if(hh!==undefined)out['h'+p+'Home']=hh}}
+   if(mn!==undefined&&mx!==undefined&&mx>mn){out['l'+p+'Use']=true;out['l'+p+'Min']=mn;out['l'+p+'Max']=mx}
+   const sq=g('HOME_SEQUENCE');if(sq!==undefined)seq[p]=sq}
+  else{out.aAct=true;out.aRot=(J.TYPE||'').toUpperCase()!='LINEAR'}
+  pulse=Math.max(pulse,g('STEPLEN')||0);dset=Math.max(dset,g('DIRSETUP')||0);dhold=Math.max(dhold,g('DIRHOLD')||0)});
+ if(seq.z!==undefined&&seq.x!==undefined)out.hZFirst=seq.z<seq.x;
+ if(pulse>0)out.cncPulse=Math.max(1,Math.ceil(pulse/1000));if(dset>0)out.cncDir=Math.ceil(dset/1000);if(dhold>0)out.cncHold=Math.ceil(dhold/1000);
+ return {out,why}}
+function iniImport(inp){const f=inp.files&&inp.files[0];inp.value='';if(!f||!cfg)return;const r=new FileReader();
+ r.onload=()=>{const {out,why}=iniValues(iniParse(r.result));const rows=[];
+  // the drive first: the speeds in mm/s are turned into steps with the new steps per mm when they are saved
+  const keys=Object.keys(out).sort((a,b)=>/(Steps|Screw)$/.test(b)-/(Steps|Screw)$/.test(a));
+  for(const k of keys){const el=$('c_'+k);if(!el)continue;const it=cfg.items.find(q=>q.k==k),v=out[k];let before,after;
+   if(el.type=='checkbox'){before=el.checked?'✔':'—';after=v?'✔':'—';if(el.checked!=!!v){el.checked=!!v;el.classList.add('changed')}else continue}
+   else{const nv=+(+v).toPrecision(8);before=el.value;after=String(nv);if(Math.abs(+el.value-nv)<1e-9)continue;el.value=nv;el.classList.add('changed')}
+   rows.push(`<tr><td>${T(it.g)}</td><td>${T(cfgText(it))}</td><td>${before}</td><td>→ <b>${after}</b></td></tr>`)}
+  for(const p of 'zxa')drvNow(p);hxHelpShow();
+  const head=why.length?'<p class="bad">'+why.join(', ')+'</p>':'';
+  sheet(T('Import from a LinuxCNC .ini'),head+(rows.length?`<div class="small">${T('Put into the fields, NOT saved yet: check them on the pages, correct what you want, then Save and restart.')}</div><table class="small">${rows.join('')}</table>`:`<div>${T('Nothing to change: the fields already have these values.')}</div>`)
+   +`<div class="small bad">${T('Not taken from the .ini (the H4 is wired otherwise): the direction of each axis (Invert direction), switch NO / NC, the driver alarm. Check them on the machine with a short move and on the Inputs.')}</div>`)};
+ r.readAsText(f)}
 async function saveCfg(){if(!cfg)return;const q=new URLSearchParams();
  for(const it of cfg.items){const el=$('c_'+it.k);let v;
   if(it.t=='b')v=el.checked?1:0;else if(it.t=='a')v=el.value;
@@ -909,6 +954,10 @@ function fwWaitShow(fromStatus){if(!fwWait)return;const w=Date.now()-fwWait.t,el
 // patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
 // in the list stays as the H4 sent it.
 const I18N={
+'Import from a LinuxCNC .ini':'Εισαγωγή από .ini του LinuxCNC',
+'Put into the fields, NOT saved yet: check them on the pages, correct what you want, then Save and restart.':'Μπήκαν στα πεδία, ΔΕΝ αποθηκεύτηκαν ακόμα: δες τα στις σελίδες, διόρθωσε ό,τι θέλεις, μετά Αποθήκευση και επανεκκίνηση.',
+'Nothing to change: the fields already have these values.':'Τίποτα να αλλάξει: τα πεδία έχουν ήδη αυτές τις τιμές.',
+'Not taken from the .ini (the H4 is wired otherwise): the direction of each axis (Invert direction), switch NO / NC, the driver alarm. Check them on the machine with a short move and on the Inputs.':'Δεν παίρνονται από το .ini (το H4 συνδέεται αλλιώς): η φορά κάθε άξονα (Αντιστροφή φοράς), διακόπτες NO / NC, το alarm των drivers. Έλεγξέ τα στο μηχάνημα με μια μικρή κίνηση και στις Εισόδους.',
 'Firmware updated. Restarting...':'Το firmware γράφτηκε. Επανεκκίνηση...',
 'The H4 is in a lathe mode: choose GCODE first (the GCODE button)':'Το H4 είναι σε λειτουργία τόρνου: πάτα πρώτα GCODE (κουμπί GCODE)',
 'C does not move in the lathe modes: choose GCODE first':'Ο C δεν κινείται στις λειτουργίες τόρνου: πάτα πρώτα GCODE','GCODE mode':'Λειτουργία GCODE',
