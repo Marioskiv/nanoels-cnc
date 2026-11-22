@@ -614,7 +614,9 @@ function modeShow(){const g=st.gcodeMode!==0,b=$('modeBar');if(!b)return;b.hidde
 async function gcodeMode(){try{msg(await post('/cmd?do=gcode'))}catch(e){msg(e.message)}}
 // the H4 arrow key of an axis direction in a lathe mode (the same step direction as X+ / Z+ in GCODE mode)
 function latheKey(a,d){return a=='Z'?(d>0?57:37):a=='X'?(d>0?47:67):0}
-function show(){cfgErrShow();modeShow();fwWaitShow(1);hxHelpShow();const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
+// firmware 1.52: this start stored the machine's own values (a firmware built with my_machine.h, the LinuxCNC .ini)
+let cfgMySaid=false;function cfgMyShow(){if(!st.cfgMy||cfgMySaid)return;cfgMySaid=true;msg(T('The machine parameters of this firmware (my_machine.h, from LinuxCNC) were stored in the H4.'));if(cfg)loadCfg()}
+function show(){cfgMyShow();cfgErrShow();modeShow();fwWaitShow(1);hxHelpShow();const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -909,6 +911,7 @@ function fwWaitShow(fromStatus){if(!fwWait)return;const w=Date.now()-fwWait.t,el
 // patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
 // in the list stays as the H4 sent it.
 const I18N={
+'The machine parameters of this firmware (my_machine.h, from LinuxCNC) were stored in the H4.':'Οι παράμετροι μηχανής αυτού του firmware (my_machine.h, από το LinuxCNC) αποθηκεύτηκαν στο H4.',
 'Firmware updated. Restarting...':'Το firmware γράφτηκε. Επανεκκίνηση...',
 'The H4 is in a lathe mode: choose GCODE first (the GCODE button)':'Το H4 είναι σε λειτουργία τόρνου: πάτα πρώτα GCODE (κουμπί GCODE)',
 'C does not move in the lathe modes: choose GCODE first':'Ο C δεν κινείται στις λειτουργίες τόρνου: πάτα πρώτα GCODE','GCODE mode':'Λειτουργία GCODE',

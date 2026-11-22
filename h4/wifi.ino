@@ -284,7 +284,7 @@ String statusJson() {
   json += ",\"chk\":" + cncCheckJson();
   // the machine settings (config.ino): "cfgErr" = not loaded and why (the app shows it in red); "cfgDef" = the firmware's
   // defaults, nothing was ever saved
-  json += ",\"cfgErr\":\"" + jsonEscape(String(machineConfigProblem)) + "\",\"cfgDef\":" + String(machineConfigStored ? 0 : 1); // the last check: time, where each axis goes, its limits (h4.ino)
+  json += ",\"cfgErr\":\"" + jsonEscape(String(machineConfigProblem)) + "\",\"cfgDef\":" + String(machineConfigStored ? 0 : 1) + ",\"cfgMy\":" + String(machineConfigFromMyMachine ? 1 : 0); // the last check: time, where each axis goes, its limits (h4.ino)
   cnc_modes_t modes;
   cnc_gc_get_modes(&modes);
   const char* wcsNames[] = {"G54", "G55", "G56", "G57", "G58", "G59", "G59.1", "G59.2", "G59.3"};
@@ -1189,8 +1189,10 @@ void handleConfigSave() {
   Preferences cfg;
   bool ok = cfg.begin(MACHINE_CONFIG_NAMESPACE, false);
   if (ok) {
-    cfg.clear();
+    uint32_t mh = cfg.getUInt("mh", 0);  // which my_machine.h values were stored last (config.ino): kept, so a
+    cfg.clear();                         // correction made here is not replaced by them at the next start
     if (!reset) {
+      if (mh) cfg.putUInt("mh", mh);
       cfg.putInt("v", MACHINE_CONFIG_VERSION);
       for (int i = 0; i < MACHINE_CONFIG_COUNT; i++) {
         // every value, not only the changed ones: a firmware update with other defaults keeps this machine's values

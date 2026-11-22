@@ -152,7 +152,11 @@ only power).
 
 ## 5 Your machine's values
 
-Put your machine's numbers in `h4/my_machine.h` (copy `my_machine.h.example`). It is not part of the repository,
+Put your machine's numbers in `h4/my_machine.h` (copy `my_machine.h.example`). A firmware built with it stores
+those numbers in the H4 whenever they are new to it (firmware 1.52): at the first start, and again after an update
+whose `my_machine.h` has other numbers - also over values stored before. Corrections made later in the app stay
+until `my_machine.h` itself changes. The public firmware (built without `my_machine.h`) never touches the stored
+values. It is not part of the repository,
 so a newer firmware copied over the folder keeps it. Everything can also be changed later on the web page
 (*Machine settings*, stored in the H4; *Defaults from the firmware* goes back to `my_machine.h`).
 
