@@ -335,9 +335,10 @@ program runs.
   **New part** (Z0 on its face; on a part not cut yet *Touch Z0* also moves the part's face there); the note under
   the form says which and why. After an H4 restart the zeros are kept: the note asks to confirm them (*The zeros are
   right*) or to touch them again. On the Lathe screen the **jog box** is the one of the CNC screen (see section 10), without C.
-  Stops left by an operation are shown above it with **Clear stops** (a jog button clears them first). **SYN** (the
-  original H4): a stop cleared while Z stands on it in Feed with a pitch set leaves Z waiting for the spindle, so the
-  thread stays in step - turn the chuck by hand (at most one turn), the screen says so. Feed, Constant feed and Taper start where the tool stands and are
+  Stops left by an operation are shown above it with **Clear stops** (a jog button clears them first). Since firmware
+  1.57 there is no **SYN** wait after a stop is cleared (the original H4 held Z until the spindle turned back into
+  step): Z moves at once and Feed takes the spindle from where Z stands (the old thread phase is not kept; the
+  operations' own passes still wait for the spindle). Feed, Constant feed and Taper start where the tool stands and are
   not held.
   **Speed and feed**: under Turning, Facing, Parting, Sphere and Taper the note gives a starting point for the
   material and tool chosen there (aluminium, mild steel, stainless, brass / bronze, plastic; carbide or HSS): the

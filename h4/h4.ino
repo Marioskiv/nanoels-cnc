@@ -180,7 +180,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.56"
+#define FW_VERSION "1.57"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -3375,6 +3375,11 @@ void setup() {
   savedShowTacho = showTacho = pref.getBool(PREF_SHOW_TACHO);
   savedMoveStep = moveStep = pref.getLong(PREF_MOVE_STEP, MOVE_STEP_1);
   setModeFromLoop(savedMode = pref.getInt(PREF_MODE));
+  // 1.57: a SYN stored by an older firmware in the gearbox (Feed) mode would hold Z after the update: let it go as above
+  if (spindlePosSync != 0 && savedMode == MODE_NORMAL && dupr != 0) {
+    spindlePosSync = 0;
+    spindlePosAvg = spindlePos = spindleFromPos(&z, z.pos);
+  }
   savedMeasure = measure = pref.getInt(PREF_MEASURE);
   savedConeRatio = coneRatio = pref.getFloat(PREF_CONE_RATIO, coneRatio);
   savedTurnPasses = turnPasses = pref.getInt(PREF_TURN_PASSES, turnPasses);
@@ -3921,10 +3926,13 @@ void leaveStop(Axis* a, long oldStop) {
   if (mode == MODE_CONE) {
     // To avoid rushing to a far away position if standing on limit.
     markOrigin();
-  } else if (mode == MODE_NORMAL && a == getPitchAxis() && a->pos == oldStop) {
-    // Spindle is most likely out of sync with the stepper because
-    // it was spinning while the lead screw was on the stop.
-    spindlePosSync = spindleModulo(spindlePos - spindleFromPos(a, a->pos));
+  } else if (mode == MODE_NORMAL && a == getPitchAxis() && a->pos == oldStop && dupr != 0) {
+    // Spindle is most likely out of sync with the stepper because it was spinning while the lead screw was on the
+    // stop. The original H4 then held the axis (SYN) until the spindle turned back into step, so a thread would go on
+    // in the same groove. Firmware 1.57 (Marios: "Z does not move, I want this gone"): the gearbox takes the spindle
+    // from here at once, as the original did when SYN ended - no jump, the axis moves at once, the thread's old phase
+    // is not kept. The lathe operations' own passes still wait for the spindle (modeTurn), as before.
+    spindlePosAvg = spindlePos = spindleFromPos(a, a->pos);
   }
 }
 

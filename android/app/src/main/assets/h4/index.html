@@ -1737,7 +1737,7 @@ function ltShow(){const L=ltT(),l=st.lathe;if(!l)return;const u=st.inch?'in':'mm
   'XRØ'[2-ltXv()]+' '+(l.xr==null||l.xl==null?L.none:[ltXn(l.xr),ltXn(l.xl)].sort((a,b)=>a-b).map(f).join('…'))].filter(Boolean).join(' · ');
  ltPut('ltNow',(l.measure?L.inch+' ':'')+(m==9?L.gcode:L.now+': '+now));
  // app 1.76: stops left on the H4 (by an operation, or its STOP keys) also stop the arrows - say so, with a button
- $('ltSyn').hidden=!st.syn||m==9;if(st.syn)$('ltSyn').textContent=L.syn;
+ $('ltSyn').hidden=!st.syn||st.on||m==9;if(st.syn)$('ltSyn').textContent=L.syn;  /* 1.57: only an older firmware (or a pass waiting while ON, not shown) */
  const sz=l.zr!=null||l.zl!=null,sx=l.xr!=null||l.xl!=null;$('ltStops').hidden=!(sz||sx)||m==9;
  if(sz||sx){$('ltStopsT').textContent=L.stops.replace('{s}',[sz?'Z '+f(l.zr==null?null:ltZs(l.zr))+'…'+f(l.zl==null?null:ltZs(l.zl)):'',sx?'XRØ'[2-ltXv()]+' '+f(l.xr==null?null:ltXn(l.xr))+'…'+f(l.xl==null?null:ltXn(l.xl)):''].filter(Boolean).join(' · '));$('ltStopsB').textContent=L.stopsClr}
  if(st.on&&l.op>ltOpSeen)ltOpSeen=l.op;
