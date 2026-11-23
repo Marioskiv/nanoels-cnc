@@ -168,6 +168,16 @@ async function waitIdle(timeoutMs = 60000) {
     await page.evaluate(() => $('ltStopsB').click());
     await page.waitForFunction(() => st.lathe && st.lathe.zl == null && st.lathe.zr == null && $('ltStops').hidden, null, { timeout: 8000 }).catch(() => {});
     ok(/Z/.test(stx) && await page.evaluate(() => st.lathe.zl == null && $('ltStops').hidden), 'stops shown on the Lathe screen ("' + stx + '"), Clear stops removes them');
+    // app 1.77: the same jog box on the Lathe screen (no C); a step moves Z there and the H4 stays in its lathe mode
+    const jb = await page.evaluate(() => ({ inLathe: !!$('ltJog').querySelector('#pad'), c: getComputedStyle(document.querySelector('#pad .pb[data-a="C"]')).display }));
+    const z0 = await page.evaluate(() => st.z);
+    await page.evaluate(() => { unlocked = true; setStep(1); });
+    const zb = await page.$('#pad .pb[data-a="Z"][data-d="-1"]');
+    await zb.dispatchEvent('pointerdown', { pointerId: 1 }); await zb.dispatchEvent('pointerup', { pointerId: 1 });
+    await page.waitForFunction(z => Math.abs(st.z - z) > 0.9, z0, { timeout: 8000 }).catch(() => {});
+    const jz = await page.evaluate(z => ({ dz: Math.abs(st.z - z), g: st.gcodeMode }), z0);
+    ok(jb.inLathe && jb.c == 'none' && Math.abs(jz.dz - 1) < 0.01 && jz.g === 0,
+      'the jog box on the Lathe screen (C hidden: ' + jb.c + '): step 1 mm moved Z ' + jz.dz.toFixed(3) + ' mm, H4 still in a lathe mode');
     await page.evaluate(() => tab('control'));
     await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
     // a mode changed on the H4 (its keys, here the lathe request) brings the app to that screen
@@ -177,6 +187,7 @@ async function waitIdle(timeoutMs = 60000) {
     await page.evaluate(() => tab('control'));
     await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
     ok(back == 'lathe' && await page.evaluate(() => st.gcodeMode === 1), 'the H4 switched to a lathe mode: the app goes to Lathe (' + back + '); back to CNC');
+    ok(await page.evaluate(() => !!$('ctl').querySelector('#pad') && getComputedStyle(document.querySelector('#pad .pb[data-a="C"]')).display != 'none'), 'back on CNC: the jog box is there again, with C');
 
     // 2. Home All from the page with the simulated switches: X switch 20 mm toward minus, Z switch 5 mm toward plus
     //    (motor steps: X runs inverted, so its switch is at +20 mm x steps/mm on the motor)

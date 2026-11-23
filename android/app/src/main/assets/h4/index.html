@@ -125,7 +125,10 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 .sheet{position:fixed;inset:0;z-index:8;background:#0009;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;gap:10px;overflow:hidden}
 .cncback{display:flex;flex:none}.cncback button{padding:7px 14px;font-weight:700}
-.ltjog{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.ltjog button{padding:9px 2px;font-weight:700;touch-action:none}.ltjog button.down{background:var(--or);color:#000}
+#jogBox{display:contents}  /* on the CNC screen its parts sit in the screen's own grid */
+.ltjog{grid-column:1/-1}.ltjog #jogBox{display:flex;flex-direction:column;gap:6px}.ltjog .jog{min-height:150px}
+.ltjog .pad{grid-template-columns:repeat(3,minmax(0,120px));grid-template-rows:repeat(3,minmax(40px,64px));grid-template-areas:"tl xm tr" "zm c zp" "bl xp br"}
+#jogBox.lathe .pb[data-a="C"],#jogBox.lathe #padCl{display:none}
 .ltstops{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:.85em;color:var(--or)}.ltstops span{flex:1}.ltstops button{padding:6px 8px}
 .ltzb.ok{border-color:var(--ok);color:var(--ok)}
 .cfgh{margin:6px 0 0;font-size:15px;color:var(--or)}
@@ -253,7 +256,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <main>
 <section class="scr ctl" data-tab="control" id="ctl">
 <div class="axes" id="axes"></div>
-<div class="chips" id="chips"></div>
+<div id="jogBox"><div class="chips" id="chips"></div>
 <div class="jog"><div class="pad" id="pad">
 <button class="pb" style="grid-area:zp" data-a="Z" data-d="1">Z+</button><button class="pb" style="grid-area:cp" data-a="C" data-d="1">C+</button>
 <button class="pb" style="grid-area:xm" data-a="X" data-d="-1">X&minus;</button><div class="pc" style="grid-area:c" id="padC"></div>
@@ -261,7 +264,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <button class="pb" style="grid-area:zm" data-a="Z" data-d="-1">Z&minus;</button><button class="pb" style="grid-area:cm" data-a="C" data-d="-1">C&minus;</button></div>
 <div class="wheelbox" id="wheelbox" hidden><button class="round" id="jm">&minus;</button><div class="wheel" id="wheel"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="92" fill="var(--w2)" stroke="var(--wb)"/><g id="ticks"></g>
 <path d="M100 14 A86 86 0 0 1 172 55" fill="none" stroke="var(--or)" stroke-width="4" stroke-linecap="round"/></svg>
-<div class="wcenter"><b id="wAxis">X</b><span id="wStep"></span></div></div><button class="round" id="jp">+</button></div></div>
+<div class="wcenter"><b id="wAxis">X</b><span id="wStep"></span></div></div><button class="round" id="jp">+</button></div></div></div>
 <div class="act"><button class="go" onclick="startSel()">START</button><button class="hold" id="cHold" onclick="cmd(st.state=='Hold'?'resume':'pause')">HOLD</button>
 <button onclick="ovrSheet()">F <b id="foTxt">100%</b></button><button onclick="ovrSheet()">R <b id="roTxt">100%</b></button>
 <button onclick="homeAll()">Home</button><button onclick="macroSheet()">Macros</button><button onclick="mdiSheet()" style="grid-column:span 2">MDI</button>
@@ -278,7 +281,7 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
 <button type="button" class="ltsp ltchk" id="ltChk" onclick="chkToggle()"><b id="ltAngL"></b><span class="v" id="ltAng">-</span></button>
 <button type="button" class="ltsp ltchz" id="ltChz" onclick="chkZero()"></button>
-<div class="ltjog keys" id="ltJog" title="As the H4 arrow keys (the H4's step)"><button class="hold" data-c="57">◀ Z</button><button class="hold" data-c="37">Z ▶</button><button class="hold" data-c="47">X ▲</button><button class="hold" data-c="67">X ▼</button></div><div class="ltstops" id="ltStops" hidden><span id="ltStopsT"></span><button type="button" onclick="ltStopsClear()" id="ltStopsB"></button></div></div>
+<div class="ltjog" id="ltJog"></div><div class="ltstops" id="ltStops" hidden><span id="ltStopsT"></span><button type="button" onclick="ltStopsClear()" id="ltStopsB"></button></div></div>
 <div class="card ltpanel" id="ltForm"></div></div></div>
 <div class="ltbot"><button type="button" class="ltstart" id="ltStart"><span class="fill" id="ltFill"></span><span id="ltStartT"></span></button>
 <div class="ltprog"><div class="bar"><div id="ltBar"></div></div><small id="ltProg"></small><small class="ltnow" id="ltNow"></small></div></div>
@@ -716,18 +719,14 @@ function logShow(){const h=a=>a.length?a.map(t=>`<div class="logl">${t.replace(/
 const HOLD=new Set([47,67,57,37,42,52]);let holdCode=0,holdTimer=0;
 function ltStopsOn(){const l=st.lathe;return !!l&&st.mode!=9&&(l.zr!=null||l.zl!=null||l.xr!=null||l.xl!=null)}
 function ltStopsClear(){return post('/lathe?zl=&zr=&xl=&xr=').catch(e=>msg(e.message))}
-let holdWait=null;  // an arrow pressed while the stops are being cleared: starts once they are, if still held
-function holdStart(c,b){if(b.closest('#ltJog')&&ltStopsOn()&&!st.on){holdWait=b;b.classList.add('down');
- ltStopsClear().then(()=>{if(holdWait===b){holdWait=null;holdStart0(c,b)}});return}holdStart0(c,b)}
-function holdStart0(c,b){holdEnd();holdCode=c;b.classList.add('down');const send=()=>fetch('/key?code='+c+'&hold=1',{method:'POST'}).catch(()=>{});send();holdTimer=setInterval(send,150)}
-function holdEnd(){if(holdWait){holdWait.classList.remove('down');holdWait=null}if(!holdCode)return;clearInterval(holdTimer);fetch('/key?code='+holdCode+'&hold=0',{method:'POST'}).catch(()=>{});holdCode=0;
+function holdStart(c,b){holdEnd();holdCode=c;b.classList.add('down');const send=()=>fetch('/key?code='+c+'&hold=1',{method:'POST'}).catch(()=>{});send();holdTimer=setInterval(send,150)}
+function holdEnd(){if(!holdCode)return;clearInterval(holdTimer);fetch('/key?code='+holdCode+'&hold=0',{method:'POST'}).catch(()=>{});holdCode=0;
  document.querySelectorAll('.keys .down').forEach(b=>b.classList.remove('down'))}
 addEventListener('blur',holdEnd);document.addEventListener('visibilitychange',holdEnd);
 const KEYS=[['↑',47],['↓',67],['←',57],['→',37],['STEP',24],['-',5],['+',64],['ON',17],['OFF',27],['DISPL',14],
  ['GEARS',42],['TURN',52],['FACE',62],['CONE',3],['CUT',13],['THREAD',23],['MODE',33],['MEAS',54],['REV',44],['⌫',32],
  ['STOP L',7],['STOP R',15],['STOP U',6],['STOP D',16],['X0',53],['Z0',43],['A',4],['B',63],['7',11],['8',22],['9',1],['4',2],['5',21],['6',12],['1',41],['2',61],['3',31],['0',51]];
 if($('keys'))$('keys').innerHTML=KEYS.map(([t,c])=>HOLD.has(c)?`<button class="hold" data-c="${c}">${t}</button>`:`<button onclick="key(${c})">${t}</button>`).join('');
-// app 1.75: the Lathe screen's arrows are the H4's own arrow keys held down (the H4's step, the H4's way)
 document.querySelectorAll('.keys .hold').forEach(b=>{const c=+b.dataset.c;
  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);holdStart(c,b)});
  for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,holdEnd);
@@ -1243,7 +1242,7 @@ function homeCheck(){if(confirm('Home check? Each axis goes to its switch again 
 function ctlJogShow(){const wheel=sc.jog=='wheel',list=wheel?STEPS:STEPS.concat(['cont']);
  $('chips').innerHTML=list.map(v=>`<button class="${v==jogStep?'on':''}" onclick="setStep('${v}')">${v=='cont'?'Cont':v<1?String(v).slice(1):v}</button>`).join('')+
   (sc.lock=='1'?`<button class="lk${unlocked?' on':''}" onclick="lockToggle()" title="Jog lock">${unlocked?'&#x1F513;':'&#x1F512;'}</button>`:'');
- $('ctl').classList.toggle('locked',!unlocked);
+ $('jogBox').classList.toggle('locked',!unlocked);
  const u=jogAxis=='C'?'°':(st.inch?' in':' mm'),su=st.inch?' in':' mm';$('wAxis').textContent=jogAxis;$('wAxis').style.color=AXC[jogAxis];
  $('wStep').textContent=jogStep=='cont'?'':'±'+(+jogStep).toFixed(3)+u;
  $('padC').innerHTML=jogStep=='cont'?'hold to<br>move':'step<br>'+jogStep+su}
@@ -1252,7 +1251,9 @@ function jogDetent(n){if(!jogOk())return;jogPending+=n;jogSend()}
 // one jog move at a time: the next one goes when a status read after it shows the machine idle again
 async function jogSend(){if(jogBusy||!jogPending||st.running||polls<jogPoll+2)return;const d=+(jogPending*jogStep).toFixed(4);jogPending=0;jogBusy=true;
  const f=jogAxis=='C'?gp.n*gp.c:gp.n;
- try{await post('/mdi',new URLSearchParams({line:'G91 G1 '+jogAxis+d+' F'+f}))}catch(e){msg(e.message);jogPending=0}
+ try{if(st.gcodeMode===0){if(jogAxis=='C')throw new Error(T('C does not move in the lathe modes: choose GCODE first'));
+   await post('/jogstep?'+new URLSearchParams({axis:jogAxis.toLowerCase(),d,f}))}  // lathe: the H4's own move, no G-code
+  else await post('/mdi',new URLSearchParams({line:'G91 G1 '+jogAxis+d+' F'+f}))}catch(e){msg(e.message);jogPending=0}
  jogPoll=polls;jogBusy=false}
 setInterval(jogSend,150);
 // Jog buttons: a tap is one step on that axis; with Cont the axis moves while the button is held (as the gamepad:
@@ -1260,11 +1261,13 @@ setInterval(jogSend,150);
 let padHeld=null,padTimer=0;
 function padStop(){if(!padHeld)return;padHeld.classList.remove('down');padHeld=null;clearInterval(padTimer);let n=3;const s=()=>{gpSend(0,0,0);if(--n>0)setTimeout(s,100)};s()}
 document.querySelectorAll('#pad .pb').forEach(b=>{
- b.addEventListener('pointerdown',e=>{e.preventDefault();if(!jogOk())return;const a=b.dataset.a,d=+b.dataset.d;selAxis(a);
+ let up=true;b.addEventListener('pointerdown',async e=>{e.preventDefault();if(!jogOk())return;const a=b.dataset.a,d=+b.dataset.d;selAxis(a);up=false;
+  // Lathe screen: stops left by an operation would stop the jog - cleared first (shown above the box until then)
+  if(curTab=='lathe'&&ltStopsOn()&&!st.on){b.classList.add('down');try{b.setPointerCapture(e.pointerId)}catch(x){}await ltStopsClear();b.classList.remove('down');if(up)return}
   if(jogStep!='cont'){jogDetent(d);b.classList.add('down');setTimeout(()=>b.classList.remove('down'),150);return}
   b.setPointerCapture(e.pointerId);padStop();padHeld=b;b.classList.add('down');
   const v=d*(a=='C'?gp.n*gp.c:gp.n),send=()=>{lockTouch();gpSend(a=='X'?v:0,a=='Z'?v:0,a=='C'?v:0)};send();padTimer=setInterval(send,100)});
- for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,padStop);
+ for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>{up=true;padStop()});
  b.addEventListener('contextmenu',e=>e.preventDefault())});
 addEventListener('blur',padStop);document.addEventListener('visibilitychange',padStop);
 (function(){let t='';for(let i=0;i<40;i++){const a=i*9*Math.PI/180,r1=i%5?78:72,x1=100+r1*Math.sin(a),y1=100-r1*Math.cos(a),x2=100+86*Math.sin(a),y2=100-86*Math.cos(a);
@@ -1328,7 +1331,11 @@ document.addEventListener('pointerdown',e=>{if($('tabs').classList.contains('ope
 // app 1.75: the G-code screen (program, files, path) is part of CNC: not in the menu of its own
 $('tabs').innerHTML=TABS.filter(t=>t[0]!='program').map(([t,n,ic])=>`<button data-t="${t}" onclick="tab('${t}')"><svg viewBox="0 0 24 24">${ic}</svg><span>${n}</span></button>`).join('');
 try{subs=JSON.parse(localStorage.getItem('h4subs')||'{}')}catch(e){}
-function tab(t,noHist){if(!TN.includes(t))t='control';if(window.ddClose)ddClose();if(t!=curTab)alog('SCREEN',t);if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
+// app 1.77: one jog box for CNC and Lathe (the same steps, buttons, wheel and speeds); on the Lathe screen without C
+function jogPlace(t){const b=$('jogBox');if(!b)return;
+ if(t=='lathe'){if(b.parentNode!==$('ltJog'))$('ltJog').appendChild(b);b.classList.add('lathe');if(jogAxis=='C')selAxis('Z')}
+ else if(t=='control'){if(b.parentNode!==$('ctl'))$('ctl').insertBefore(b,$('ctl').querySelector('.act'));b.classList.remove('lathe')}}
+function tab(t,noHist){jogPlace(t);if(!TN.includes(t))t='control';if(window.ddClose)ddClose();if(t!=curTab)alog('SCREEN',t);if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
   document.querySelectorAll('main>section').forEach(s=>s.hidden=s.dataset.tab!=t);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t||(t=='program'&&b.dataset.t=='control')));
   modeFollowScreen(t);

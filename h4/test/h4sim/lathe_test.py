@@ -256,11 +256,29 @@ def lathe_jog_checks():
     stopped = abs(z1 - (z_here - 8)) < 0.01
     check(l["zr"] is not None and l["xr"] is not None and stopped,
           "stops of an operation stay after it (zr %s xr %s): the arrow stops at Z %.3f" % (l["zr"], l["xr"], z1))
+    # firmware 1.56: the app's jog box in a lathe mode - a step (G-code's direction and speed) and a held jog
+    m0 = T.sim()["motors"]["Z"]
+    code_s, _ = T.post("/jogstep", axis="z", d=-1, f=400)
+    time.sleep(1.2)
+    moved = T.sim()["motors"]["Z"] - m0
+    check(code_s == 200 and abs(abs(moved) - T.SPM["Z"]) <= 1, "jog box step Z-1 in a lathe mode: the Z motor moved %d steps (%d per mm)"
+          % (moved, T.SPM["Z"]))
+    check(T.post("/jogstep", axis="c", d=1, f=400)[0] == 400, "jog box step on C in a lathe mode: refused (no C in the lathe)")
     code, _ = T.post("/lathe", zl="", zr="", xl="", xr="")
     l = T.status()["lathe"]
     _, z2, _, _ = hold_key(37, 1.0)
     check(code == 200 and l["zr"] is None and l["xl"] is None and z2 < z1 - 5,
           "Clear stops: none left, the arrow goes on past them (Z %.3f -> %.3f)" % (z1, z2))
+    z0 = T.status()["z"]
+    end = time.time() + 2.0
+    while time.time() < end:                  # held as the app's Cont button / the gamepad: 300 mm/min
+        T.post("/jog", x=0, z=300, c=0)
+        time.sleep(0.1)
+    T.post("/jog", x=0, z=0, c=0)
+    time.sleep(0.6)
+    st = T.status()
+    v = abs(st["z"] - z0) / 2.0
+    check(abs(v - 5.0) <= 0.8 and st["mode"] == 0, "jog box held at 300 mm/min in a lathe mode: %.2f mm/s (5), still mode %d" % (v, st["mode"]))
 
 
 def bad_value_checks():

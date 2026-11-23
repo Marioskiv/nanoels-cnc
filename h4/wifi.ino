@@ -946,6 +946,7 @@ void handleLathe() {
 }
 
 void releaseHeldKey() {
+  appHoldSpeed[0] = appHoldSpeed[1] = 0;  // h4.ino: no longer the app's speed
   if (heldKey == 0) return;
   int code = heldKey;
   heldKey = 0;
@@ -990,8 +991,9 @@ void handleKey() {
 // moving; 0 0 0 (or no request for 0.3 s) stops. 409 with the reason when the H4 refused a jog. The same comes on the
 // lasting link (wslink.ino) as {"t":"jog","x":..,"z":..,"c":..}: both call jogFromApp().
 // In a lathe mode the app's jog (buttons, gamepad) is the H4's own arrow key held down, so the H4 stays in its mode and
-// moves as its keys move it (lathe code unchanged): X+ = UP, X- = DOWN, Z+ = LEFT, Z- = RIGHT (the same step direction
-// as X+ / Z+ in GCODE mode). One axis at a time, as the keys; C is not an axis of the lathe modes.
+// nothing of G-code is used: X+ = UP, X- = DOWN, Z+ = LEFT, Z- = RIGHT (the same way on the machine as X+ / Z+ in GCODE
+// mode), at the app's speed (firmware 1.56: as the CNC jog, appHoldSpeed in h4.ino). One axis at a time, as the keys;
+// C is not an axis of the lathe modes.
 const char* latheJogFromApp(float vx, float vz, float vc) {
   if (!isfinite(vx)) vx = 0;
   if (!isfinite(vz)) vz = 0;
@@ -1005,15 +1007,60 @@ const char* latheJogFromApp(float vx, float vz, float vc) {
     releaseHeldKey();
     return vc != 0 && isfinite(vc) ? "C does not move in the lathe modes: choose GCODE first" : NULL;
   }
+  long sp = 0;
+  Axis* a = (code == B_LEFT || code == B_RIGHT) ? &z : &x;
+  if (!isOn) {  // ON (it may follow the spindle): the key exactly as before
+    float v = fabsf(a == &z ? vz : vx) * (measure == MEASURE_METRIC ? 1.0f : 25.4f);  // mm/min
+    sp = max(1L, lround(v / 60.0f * axisStepsPerMm(a)));
+  }
   if (heldKey == code) {
+    appHoldSpeed[a == &x ? 0 : 1] = sp;
     heldKeyMs = millis();  // still held
     return NULL;
   }
   releaseHeldKey();
-  if (!sendKeyEvent(code | 128)) return "Busy";
+  appHoldSpeed[a == &x ? 0 : 1] = sp;  // before the key goes down: its first piece already at this speed
+  if (!sendKeyEvent(code | 128)) {
+    appHoldSpeed[0] = appHoldSpeed[1] = 0;
+    return "Busy";
+  }
   heldKey = code;
   heldKeyMs = millis();
   return NULL;
+}
+
+// app 1.77: one step of the jog box in a lathe mode (its step buttons and wheel): axis x | z, d in the app's units and
+// direction (GCODE's), f per minute. The axis's own move task makes it (appStepMove in h4.ino): stops and soft limits as
+// the keys; nothing of G-code. In GCODE mode the app makes the step with G91 G1 (MDI) instead.
+void handleJogStep() {
+  if (emergencyStop != ESTOP_NONE) {
+    server.send(409, "text/plain", "Emergency stop: restart the controller.");
+    return;
+  }
+  if (mode == MODE_GCODE) {
+    server.send(409, "text/plain", "GCODE mode: the jog step is a G91 G1 move (MDI)");
+    return;
+  }
+  if (isOn) {
+    server.send(409, "text/plain", "The H4 is ON: switch it OFF (or STOP) to jog");
+    return;
+  }
+  String ax = server.arg("axis");
+  Axis* a = ax == "x" ? &x : (ax == "z" ? &z : NULL);
+  if (a == NULL) {
+    server.send(400, "text/plain", ax == "c" ? "C does not move in the lathe modes: choose GCODE first" : "Bad axis");
+    return;
+  }
+  double d = 0, f = 0;
+  if (!webNumber(server.arg("d"), -1000, 1000, &d) || !webNumber(server.arg("f"), 0.001, 100000, &f)) {
+    server.send(400, "text/plain", "Bad step or speed");
+    return;
+  }
+  double k = measure == MEASURE_METRIC ? 1.0 : 25.4;  // in mm
+  int i = a == &x ? 0 : 1;
+  appStepSpeed[i] = max(1L, lround(f * k / 60.0 * axisStepsPerMm(a)));
+  appStepReq[i] += lround(d * k * axisStepsPerMm(a)) * gcSign(a);  // the app's (GCODE's) direction -> the H4's
+  server.send(200, "text/plain", "ok");
 }
 
 const char* jogFromApp(float vx, float vz, float vc) {
@@ -1405,6 +1452,7 @@ void taskWifi(void* param) {
   server.on("/upload", HTTP_POST, handleUploadDone, handleUploadData);
   server.on("/cmd", HTTP_POST, handleCommand);
   server.on("/key", HTTP_POST, handleKey);
+  server.on("/jogstep", HTTP_POST, handleJogStep);
   server.on("/jog", HTTP_POST, handleJog);
   server.on("/wifi", HTTP_GET, handleWifiGet);
   server.on("/wifi", HTTP_POST, handleWifiSave);
