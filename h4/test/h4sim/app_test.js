@@ -161,6 +161,15 @@ async function waitIdle(timeoutMs = 60000) {
     await page.evaluate(() => tab('control'));
     await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
     ok(await page.evaluate(() => st.gcodeMode === 1 && curTab == 'control'), 'CNC screen: the H4 in GCODE mode by itself');
+    // app 1.76: stops left on the H4 are shown on the Lathe screen; Clear stops removes them
+    await fetch(B + '/lathe?mode=0&zl=2&zr=-3&xl=&xr=', { method: 'POST' });
+    await page.waitForFunction(() => curTab == 'lathe' && !$('ltStops').hidden, null, { timeout: 8000 }).catch(() => {});
+    const stx = await page.evaluate(() => $('ltStops').hidden ? '' : $('ltStopsT').textContent);
+    await page.evaluate(() => $('ltStopsB').click());
+    await page.waitForFunction(() => st.lathe && st.lathe.zl == null && st.lathe.zr == null && $('ltStops').hidden, null, { timeout: 8000 }).catch(() => {});
+    ok(/Z/.test(stx) && await page.evaluate(() => st.lathe.zl == null && $('ltStops').hidden), 'stops shown on the Lathe screen ("' + stx + '"), Clear stops removes them');
+    await page.evaluate(() => tab('control'));
+    await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
     // a mode changed on the H4 (its keys, here the lathe request) brings the app to that screen
     await fetch(B + '/lathe?mode=0', { method: 'POST' });
     await page.waitForFunction(() => curTab == 'lathe', null, { timeout: 8000 }).catch(() => {});

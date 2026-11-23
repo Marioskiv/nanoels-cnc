@@ -180,7 +180,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.54"
+#define FW_VERSION "1.55"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -454,7 +454,7 @@ struct Axis {
   long motorPos; // position of the motor in stepper motor steps, same as pos unless moving back, then differs by backlashSteps
   long savedMotorPos; // motorPos saved in Preferences
   bool continuous; // whether current movement is expected to continue until an unknown position
-  int heldSteps; // GCODE mode, keys: steps made since the key went down (0 = the first step of this press)
+  int heldSteps; // keys (smoothHold()): steps made since the key went down (0 = the first step of this press)
 
   long leftStop; // left stop value of pos
   long savedLeftStop; // value saved in Preferences
@@ -1427,21 +1427,26 @@ long getMoveStepForAxis(Axis* a) {
   return (a->rotational && measure != MEASURE_METRIC) ? (moveStep / 25.4) : moveStep;
 }
 
-// GCODE mode, an arrow key held (firmware 1.45): after the first step (a tap still moves exactly one step) the axis runs
-// smoothly at a speed set by the step size, instead of step - pause - step: 0.01 mm 5 %, 0.1 mm 20 %, 1 mm 60 % of the
-// axis's maximum speed. The lathe modes keep the original behaviour.
+// An arrow key held (GCODE since firmware 1.45, the lathe modes since 1.55): after the first step (a tap still moves
+// exactly one step) the axis runs smoothly at a speed set by the step size, instead of step - pause - step: 0.01 mm
+// 5 %, 0.1 mm 20 %, 1 mm 60 % of the axis's maximum speed. In a lathe mode only while the H4 is OFF: a move made while
+// an operation is ON (it may follow the spindle) keeps the original behaviour.
+bool smoothHold() {
+  return mode == MODE_GCODE || !isOn;
+}
+
 long gcodeHoldSpeed(Axis* a) {
   long pct = moveStep >= MOVE_STEP_1 ? 60 : moveStep >= MOVE_STEP_2 ? 20 : 5;
   return max(1L, long(a->speedManualMove) * pct / 100);
 }
 
 long getStepMaxSpeed(Axis* a) {
-  if (mode == MODE_GCODE && (isContinuousStep() || a->heldSteps > 0)) return gcodeHoldSpeed(a);
+  if (smoothHold() && (isContinuousStep() || a->heldSteps > 0)) return gcodeHoldSpeed(a);
   return isContinuousStep() ? a->speedManualMove : min(long(a->speedManualMove), abs(getMoveStepForAxis(a)) * 1000 / STEP_TIME_MS);
 }
 
 void waitForStep(Axis* a) {
-  if (mode == MODE_GCODE && (isContinuousStep() || a->heldSteps++ > 0)) {
+  if (smoothHold() && (isContinuousStep() || a->heldSteps++ > 0)) {
     // held: keep about 50 ms of motion queued, so it runs smoothly and stops soon after the key is let go
     a->speedMax = gcodeHoldSpeed(a);
     long ahead = max(1L, a->speedMax / 20);

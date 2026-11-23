@@ -203,6 +203,64 @@ def run_checks():
     bl = T.BACKLASH["Z"] / spm_z
     check(zmin >= -8 - bl - 0.01 and zmax <= 0 + bl + 0.01,
           "turning: Z stayed between the stops 0 and -8 (%.3f .. %.3f mm, backlash %.2f)" % (zmin, zmax, bl))
+    lathe_jog_checks()  # last: its moves leave Z's backlash taken the other way
+
+
+def hold_key(code, secs):
+    """An arrow key held as the app does (hold=1 every 150 ms), then let go; Z and X (work mm) before and after."""
+    s0 = T.status()
+    end = time.time() + secs
+    while time.time() < end:
+        T.post("/key", code=code, hold=1)
+        time.sleep(0.15)
+    T.post("/key", code=code, hold=0)
+    time.sleep(0.8)
+    s1 = T.status()
+    return s0["z"], s1["z"], s0["x"], s1["x"]
+
+
+def lcd_step():
+    import re
+    m = re.search(r"step ([0-9.]+)", T.sim()["lcd"][0])
+    return float(m.group(1)) if m else None
+
+
+def lathe_jog_checks():
+    """Firmware 1.55: an arrow held in a lathe mode (H4 OFF) runs smoothly as in GCODE - 60 / 20 / 5 % of the axis's
+    manual speed for the steps 1 / 0.1 / 0.01 mm (before: step, 80 ms pause, step: 0.1 and 0.01 mm crawled at 0.6
+    and 0.1 mm/s). Stops left by an operation stop the arrows; cleared (as the app's Clear stops) they do not."""
+    lathe(mode=0, zl="", zr="", xl="", xr="")
+    time.sleep(0.5)
+    v = {}
+    for _ in range(3):
+        st = lcd_step()
+        z0, z1, _, _ = hold_key(57, 2.0)
+        v[st] = abs(z1 - z0) / 2.0
+        T.post("/key", code=24)  # STEP: the next step size
+        time.sleep(0.4)
+    ok = 1.0 in v and 0.1 in v and 0.01 in v
+    if ok:
+        full = v[1.0] / 0.6
+        ok = abs(v[0.1] - 0.2 * full) <= 0.25 * 0.2 * full and abs(v[0.01] - 0.05 * full) <= 0.3 * 0.05 * full
+    check(ok, "a held arrow in a lathe mode runs smoothly: %s mm/s for the steps %s (60 / 20 / 5 %%)"
+          % (" / ".join("%.2f" % v[k] for k in sorted(v, reverse=True)), " / ".join(str(k) for k in sorted(v, reverse=True))))
+    while lcd_step() != 1.0:
+        T.post("/key", code=24)
+        time.sleep(0.3)
+    # stops left by a turning set up as the app does (Z 0 ... -8, X 0 ... -1 from here)
+    z_here, x_here = T.status()["z"], T.status()["x"]
+    setup(mode=4, pitch=0.2, passes=1, starts=1, zl=z_here, zr=z_here - 8, xl=x_here, xr=x_here - 1)
+    setup(mode=0)
+    l = T.status()["lathe"]
+    _, z1, _, _ = hold_key(37, 1.5)
+    stopped = abs(z1 - (z_here - 8)) < 0.01
+    check(l["zr"] is not None and l["xr"] is not None and stopped,
+          "stops of an operation stay after it (zr %s xr %s): the arrow stops at Z %.3f" % (l["zr"], l["xr"], z1))
+    code, _ = T.post("/lathe", zl="", zr="", xl="", xr="")
+    l = T.status()["lathe"]
+    _, z2, _, _ = hold_key(37, 1.0)
+    check(code == 200 and l["zr"] is None and l["xl"] is None and z2 < z1 - 5,
+          "Clear stops: none left, the arrow goes on past them (Z %.3f -> %.3f)" % (z1, z2))
 
 
 def bad_value_checks():
