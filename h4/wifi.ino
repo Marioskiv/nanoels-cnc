@@ -947,7 +947,6 @@ void handleLathe() {
 }
 
 void releaseHeldKey() {
-  appHoldSpeed[0] = appHoldSpeed[1] = 0;  // h4.ino: no longer the app's speed
   if (heldKey == 0) return;
   int code = heldKey;
   heldKey = 0;
@@ -995,39 +994,48 @@ void handleKey() {
 // nothing of G-code is used: X+ = UP, X- = DOWN, Z+ = LEFT, Z- = RIGHT (the same way on the machine as X+ / Z+ in GCODE
 // mode), at the app's speed (firmware 1.56: as the CNC jog, appHoldSpeed in h4.ino). One axis at a time, as the keys;
 // C is not an axis of the lathe modes.
+// Firmware 1.58: Z and X each have their own held arrow (the H4 moves them in two tasks), so the app's jog and the
+// gamepad move both at once in a lathe mode too, as in GCODE mode (before: one axis at a time, the larger one).
+int appKeyZ = 0, appKeyX = 0;  // the arrow the app holds on Z / X (B_LEFT / B_RIGHT, B_UP / B_DOWN), 0 none
+unsigned long appKeyMs = 0;
+
+bool appKeySet(int* held, int code, int axis, long speed) {
+  appHoldSpeed[axis] = code ? speed : 0;
+  if (*held == code) return true;
+  if (*held != 0) {
+    for (int i = 0; i < 10 && !sendKeyEvent(*held); i++) vTaskDelay(5);  // the release must arrive
+    *held = 0;
+  }
+  if (code == 0) return true;
+  if (!sendKeyEvent(code | 128)) {
+    appHoldSpeed[axis] = 0;
+    return false;
+  }
+  *held = code;
+  return true;
+}
+
+void appKeysRelease() {
+  appKeySet(&appKeyZ, 0, 1, 0);
+  appKeySet(&appKeyX, 0, 0, 0);
+}
+
 const char* latheJogFromApp(float vx, float vz, float vc) {
   if (!isfinite(vx)) vx = 0;
   if (!isfinite(vz)) vz = 0;
   // the app's directions are GCODE's (GCODE_REV_*: the other way than the H4's own): the same way on the machine
   vx *= gcSign(&x);
   vz *= gcSign(&z);
-  int code = 0;
-  if (vz != 0 && fabsf(vz) >= fabsf(vx)) code = vz > 0 ? B_LEFT : B_RIGHT;
-  else if (vx != 0) code = vx > 0 ? B_UP : B_DOWN;
-  if (code == 0) {
-    releaseHeldKey();
-    return vc != 0 && isfinite(vc) ? "C does not move in the lathe modes: choose GCODE first" : NULL;
-  }
-  long sp = 0;
-  Axis* a = (code == B_LEFT || code == B_RIGHT) ? &z : &x;
-  if (!isOn) {  // ON (it may follow the spindle): the key exactly as before
-    float v = fabsf(a == &z ? vz : vx) * (measure == MEASURE_METRIC ? 1.0f : 25.4f);  // mm/min
-    sp = max(1L, lround(v / 60.0f * axisStepsPerMm(a)));
-  }
-  if (heldKey == code) {
-    appHoldSpeed[a == &x ? 0 : 1] = sp;
-    heldKeyMs = millis();  // still held
-    return NULL;
-  }
-  releaseHeldKey();
-  appHoldSpeed[a == &x ? 0 : 1] = sp;  // before the key goes down: its first piece already at this speed
-  if (!sendKeyEvent(code | 128)) {
-    appHoldSpeed[0] = appHoldSpeed[1] = 0;
-    return "Busy";
-  }
-  heldKey = code;
-  heldKeyMs = millis();
-  return NULL;
+  int codeZ = vz == 0 ? 0 : (vz > 0 ? B_LEFT : B_RIGHT);
+  int codeX = vx == 0 ? 0 : (vx > 0 ? B_UP : B_DOWN);
+  appKeyMs = millis();
+  // the app's speed (as the CNC jog); while ON (it may follow the spindle) the keys exactly as before
+  float k = measure == MEASURE_METRIC ? 1.0f : 25.4f;  // mm/min
+  long spZ = isOn ? 0 : max(1L, lround(fabsf(vz) * k / 60.0f * axisStepsPerMm(&z)));
+  long spX = isOn ? 0 : max(1L, lround(fabsf(vx) * k / 60.0f * axisStepsPerMm(&x)));
+  bool ok = appKeySet(&appKeyZ, codeZ, 1, spZ) && appKeySet(&appKeyX, codeX, 0, spX);
+  if (!ok) return "Busy";
+  return codeZ == 0 && codeX == 0 && vc != 0 && isfinite(vc) ? "C does not move in the lathe modes: choose GCODE first" : NULL;
 }
 
 // app 1.77: one step of the jog box in a lathe mode (its step buttons and wheel): axis x | z, d in the app's units and
@@ -1481,6 +1489,7 @@ void taskWifi(void* param) {
     wsLoop(); // the app's lasting link (wslink.ino)
     discoveryLoop(); // the app looking for the H4
     if (heldKey != 0 && millis() - heldKeyMs > HELD_KEY_TIMEOUT_MS) releaseHeldKey(); // fail-safe
+    if ((appKeyZ || appKeyX) && millis() - appKeyMs > HELD_KEY_TIMEOUT_MS) appKeysRelease(); // the app's jog: no news for 0.5 s
     if (wifiToggleRequest) { // the SETTINGS key on the H4: own network <-> router
       wifiToggleRequest = false;
       if (!motionActive() && !wifiRestartPending) {

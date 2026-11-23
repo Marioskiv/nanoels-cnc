@@ -296,6 +296,17 @@ def lathe_jog_checks():
     st = T.status()
     v = abs(st["z"] - z0) / 2.0
     check(abs(v - 5.0) <= 0.8 and st["mode"] == 0, "jog box held at 300 mm/min in a lathe mode: %.2f mm/s (5), still mode %d" % (v, st["mode"]))
+    # firmware 1.58: Z and X at once (the gamepad's two sticks), as in GCODE mode - before, only the larger one moved
+    s0 = T.status()
+    end = time.time() + 1.5
+    while time.time() < end:
+        T.post("/jog", x=-200, z=300, c=0)
+        time.sleep(0.1)
+    T.post("/jog", x=0, z=0, c=0)
+    time.sleep(0.6)
+    s1 = T.status()
+    dz, dx = abs(s1["z"] - s0["z"]), abs(s1["x"] - s0["x"])
+    check(dz > 5 and dx > 3, "jog Z and X together in a lathe mode: Z %.2f mm and X %.2f mm in 1.5 s (both move)" % (dz, dx))
 
 
 def bad_value_checks():
