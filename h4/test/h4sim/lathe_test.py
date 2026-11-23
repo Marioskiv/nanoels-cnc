@@ -224,7 +224,7 @@ def lcd_step():
     import re
     end = time.time() + 3
     while True:
-        m = re.search(r"step ([0-9.]+)", " ".join(T.sim()["lcd"]))
+        m = re.search(r"(?:step )?([0-9]*\.?[0-9]+)#", T.sim()["lcd"][0])  # "step 0.1#", or "SYN 1#" when SYN is shown
         if m or time.time() > end:
             return float(m.group(1)) if m else None
         time.sleep(0.2)
@@ -234,7 +234,12 @@ def lathe_jog_checks():
     """Firmware 1.55: an arrow held in a lathe mode (H4 OFF) runs smoothly as in GCODE - 60 / 20 / 5 % of the axis's
     manual speed for the steps 1 / 0.1 / 0.01 mm (before: step, 80 ms pause, step: 0.1 and 0.01 mm crawled at 0.6
     and 0.1 mm/s). Stops left by an operation stop the arrows; cleared (as the app's Clear stops) they do not."""
-    lathe(mode=0, zl="", zr="", xl="", xr="")
+    lathe(mode=0, pitch=0, zl="", zr="", xl="", xr="")
+    # an operation before may have left Z on a stop: clearing it there leaves Z waiting for the spindle (SYN, the
+    # original H4) - a turn of the chuck ends it
+    T.ctl("/spindle", rpm=60)
+    time.sleep(1.3)
+    T.ctl("/spindle", rpm=0)
     time.sleep(0.5)
     v = {}
     for _ in range(3):
