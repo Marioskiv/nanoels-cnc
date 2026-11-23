@@ -124,6 +124,7 @@ bool sendKeyEvent(int e) {
   return true;
 }
 static void vTaskDelay(int) { now += TIMER_HZ / 200; }
+volatile long appHoldSpeed[2] = {0, 0};  // h4.ino (1.56): the app's speed of a held arrow, cleared on release
 #include "key_funcs.inc"
 
 // ---- the test

@@ -334,8 +334,10 @@ program runs.
   Parting: Ø → X0) does not START while one is needed - the first use, **New tool** (button next to the zeros), a
   **New part** (Z0 on its face; on a part not cut yet *Touch Z0* also moves the part's face there); the note under
   the form says which and why. After an H4 restart the zeros are kept: the note asks to confirm them (*The zeros are
-  right*) or to touch them again. On the Lathe screen the arrows ◀ ▶ ▲ ▼ move Z and X exactly as the H4's own arrow
-  keys (held = moves, released = stops). Feed, Constant feed and Taper start where the tool stands and are
+  right*) or to touch them again. On the Lathe screen the **jog box** is the one of the CNC screen (see section 10), without C.
+  Stops left by an operation are shown above it with **Clear stops** (a jog button clears them first). **SYN** (the
+  original H4): a stop cleared while Z stands on it in Feed with a pitch set leaves Z waiting for the spindle, so the
+  thread stays in step - turn the chuck by hand (at most one turn), the screen says so. Feed, Constant feed and Taper start where the tool stands and are
   not held.
   **Speed and feed**: under Turning, Facing, Parting, Sphere and Taper the note gives a starting point for the
   material and tool chosen there (aluminium, mild steel, stainless, brass / bronze, plastic; carbide or HSS): the
@@ -473,7 +475,12 @@ Do it in this order, the motors free to move, nothing in the chuck, a hand on th
   connection.
   In the GCODE mode (firmware 1.45) a tap of an arrow key moves one step (0.01, 0.1 or 1 mm, the STEP key); a key
   held runs smoothly at 5 %, 20 % or 60 % of the axis's maximum speed for those steps and stops soon after it is let
-  go (before: step - pause - step, and 1 mm at the full speed). The lathe modes keep the original behaviour.
+  go (before: step - pause - step, and 1 mm at the full speed). Since firmware 1.56 the same in the lathe modes while
+  the H4 is OFF (ON: the original behaviour, it may follow the spindle).
+- **One jog box for CNC and Lathe** (app 1.77, firmware 1.56): the same step chips, buttons, wheel and speeds (Settings,
+  Gamepad: the normal speed) on both screens; on the Lathe screen without C. In GCODE mode a step is a G91 G1 move;
+  in a lathe mode the H4 makes the same move itself (its manual move, stops and soft limits as its keys), nothing of
+  G-code, and the H4 stays in its lathe mode. The same button moves the same motor the same way in both.
 - PS4 / PS5 gamepad. **What each button does is set in Settings, Gamepad**: for every button an action alone and
   one while the **safety button** (*Hold to move*) is held; which axis each stick moves (left stick left / right,
   right stick up / down). Nothing moves without the safety button; Home All, touch-off Z0 and Resume are offered

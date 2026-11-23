@@ -180,7 +180,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.54"
+#define FW_VERSION "1.56"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -454,7 +454,7 @@ struct Axis {
   long motorPos; // position of the motor in stepper motor steps, same as pos unless moving back, then differs by backlashSteps
   long savedMotorPos; // motorPos saved in Preferences
   bool continuous; // whether current movement is expected to continue until an unknown position
-  int heldSteps; // GCODE mode, keys: steps made since the key went down (0 = the first step of this press)
+  int heldSteps; // keys (smoothHold()): steps made since the key went down (0 = the first step of this press)
 
   long leftStop; // left stop value of pos
   long savedLeftStop; // value saved in Preferences
@@ -1427,23 +1427,74 @@ long getMoveStepForAxis(Axis* a) {
   return (a->rotational && measure != MEASURE_METRIC) ? (moveStep / 25.4) : moveStep;
 }
 
-// GCODE mode, an arrow key held (firmware 1.45): after the first step (a tap still moves exactly one step) the axis runs
-// smoothly at a speed set by the step size, instead of step - pause - step: 0.01 mm 5 %, 0.1 mm 20 %, 1 mm 60 % of the
-// axis's maximum speed. The lathe modes keep the original behaviour.
+// An arrow key held (GCODE since firmware 1.45, the lathe modes since 1.55): after the first step (a tap still moves
+// exactly one step) the axis runs smoothly at a speed set by the step size, instead of step - pause - step: 0.01 mm
+// 5 %, 0.1 mm 20 %, 1 mm 60 % of the axis's maximum speed. In a lathe mode only while the H4 is OFF: a move made while
+// an operation is ON (it may follow the spindle) keeps the original behaviour.
+bool smoothHold() {
+  return mode == MODE_GCODE || !isOn;
+}
+
 long gcodeHoldSpeed(Axis* a) {
   long pct = moveStep >= MOVE_STEP_1 ? 60 : moveStep >= MOVE_STEP_2 ? 20 : 5;
   return max(1L, long(a->speedManualMove) * pct / 100);
 }
 
+// Firmware 1.56: the app's jog box in a lathe mode - the same buttons, steps and speeds as in GCODE mode, done by the
+// H4's own manual moves (nothing of G-code). Held (Cont, the gamepad): the H4's arrow key held down at the app's
+// speed, in pieces of 50 ms of motion so it stops soon after the release. A step (the step buttons, the wheel): one
+// move of that length at the app's speed (/jogstep). Both stop at the H4's stops and the soft limits as the keys do.
+volatile long appHoldSpeed[2] = {0, 0};  // [0] X, [1] Z: steps / s while the app holds an arrow; 0 = not the app
+volatile long appStepReq[2] = {0, 0};    // steps still to move, in the H4's own direction
+volatile long appStepSpeed[2] = {0, 0};  // steps / s for them
+
+int appAxisIndex(Axis* a) {
+  return a == &x ? 0 : (a == &z ? 1 : -1);
+}
+
+long appHold(Axis* a) {
+  int i = appAxisIndex(a);
+  return i < 0 ? 0 : appHoldSpeed[i];
+}
+
+// the speed of a held arrow: the app's when it holds it, else the step size's share of the axis's maximum
+long holdSpeed(Axis* a) {
+  long s = appHold(a);
+  return s > 0 ? min(s, long(a->speedManualMove)) : gcodeHoldSpeed(a);
+}
+
+// one step of the app's jog box (lathe modes), run by the axis's own move task
+void appStepMove(Axis* a) {
+  int i = appAxisIndex(a);
+  long d = appStepReq[i];
+  appStepReq[i] = 0;
+  // as the keys: nothing while ON, nor while the pitch axis waits for the spindle (SYN)
+  if (d == 0 || isOn || mode == MODE_GCODE || emergencyStop != ESTOP_NONE || (spindlePosSync != 0 && a == getPitchAxis())) return;
+  long posCopy = a->pos + a->pendingPos;
+  long t = posCopy + d;
+  if (t > a->leftStop) t = a->leftStop;  // not out of the stops, as the keys
+  else if (t < a->rightStop) t = a->rightStop;
+  long delta = cncClampJog(a, posCopy, t - posCopy);  // soft limits, not further into a pressed home switch
+  if (delta == 0) return;
+  a->movingManually = true;
+  stepperEnable(a, true);
+  a->speedMax = max(1L, min(long(appStepSpeed[i]), long(a->speedManualMove)));
+  stepToFinal(a, posCopy + delta);
+  waitForPendingPos0(a);
+  a->movingManually = false;
+  stepperEnable(a, false);
+  a->speedMax = LONG_MAX;
+}
+
 long getStepMaxSpeed(Axis* a) {
-  if (mode == MODE_GCODE && (isContinuousStep() || a->heldSteps > 0)) return gcodeHoldSpeed(a);
+  if (appHold(a) > 0 || (smoothHold() && (isContinuousStep() || a->heldSteps > 0))) return holdSpeed(a);
   return isContinuousStep() ? a->speedManualMove : min(long(a->speedManualMove), abs(getMoveStepForAxis(a)) * 1000 / STEP_TIME_MS);
 }
 
 void waitForStep(Axis* a) {
-  if (mode == MODE_GCODE && (isContinuousStep() || a->heldSteps++ > 0)) {
+  if (appHold(a) > 0 || (smoothHold() && (isContinuousStep() || a->heldSteps++ > 0))) {
     // held: keep about 50 ms of motion queued, so it runs smoothly and stops soon after the key is let go
-    a->speedMax = gcodeHoldSpeed(a);
+    a->speedMax = holdSpeed(a);
     long ahead = max(1L, a->speedMax / 20);
     while (labs(a->pendingPos) > ahead) taskYIELD();
   } else if (isContinuousStep()) {
@@ -1489,6 +1540,10 @@ int getAndResetPulses(Axis* a) {
 
 void taskMoveZ(void *param) {
   while (emergencyStop == ESTOP_NONE) {
+    if (appStepReq[1] != 0) {
+      appStepMove(&z);
+      continue;
+    }
     int pulseDelta = getAndResetPulses(&z);
     bool left = buttonLeftPressed;
     bool right = buttonRightPressed;
@@ -1560,6 +1615,7 @@ void taskMoveZ(void *param) {
           // When moveStep is e.g. 1 micron and MOTOR_STEPS_Z is 200, make delta non-zero.
           delta = sign;
         }
+        if (pulseDelta == 0 && appHold(&z) > 0) delta = sign * max(1L, holdSpeed(&z) / 20);  // the app: 50 ms pieces
 
         long posCopy = z.pos + z.pendingPos;
         // Don't left-right move out of stops.
@@ -1599,6 +1655,10 @@ void taskMoveZ(void *param) {
 
 void taskMoveX(void *param) {
   while (emergencyStop == ESTOP_NONE) {
+    if (appStepReq[0] != 0) {
+      appStepMove(&x);
+      continue;
+    }
     int pulseDelta = getAndResetPulses(&x);
     bool up = buttonUpPressed || pulseDelta > 0;
     bool down = buttonDownPressed || pulseDelta < 0;
@@ -1629,6 +1689,7 @@ void taskMoveX(void *param) {
         // When moveStep is e.g. 1 micron and MOTOR_STEPS_Z is 200, make delta non-zero.
         delta = sign;
       }
+      if (pulseDelta == 0 && appHold(&x) > 0) delta = sign * max(1L, holdSpeed(&x) / 20);  // the app: 50 ms pieces
 
       long posCopy = x.pos + x.pendingPos;
       if (posCopy + delta > x.leftStop) {

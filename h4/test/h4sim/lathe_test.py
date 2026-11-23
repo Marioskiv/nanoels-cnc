@@ -203,6 +203,107 @@ def run_checks():
     bl = T.BACKLASH["Z"] / spm_z
     check(zmin >= -8 - bl - 0.01 and zmax <= 0 + bl + 0.01,
           "turning: Z stayed between the stops 0 and -8 (%.3f .. %.3f mm, backlash %.2f)" % (zmin, zmax, bl))
+    lathe_jog_checks()  # last: its moves leave Z's backlash taken the other way
+
+
+def hold_key(code, secs):
+    """An arrow key held as the app does (hold=1 every 150 ms), then let go; Z and X (work mm) before and after."""
+    s0 = T.status()
+    end = time.time() + secs
+    while time.time() < end:
+        T.post("/key", code=code, hold=1)
+        time.sleep(0.15)
+    T.post("/key", code=code, hold=0)
+    time.sleep(0.8)
+    s1 = T.status()
+    return s0["z"], s1["z"], s0["x"], s1["x"]
+
+
+def lcd_step():
+    """The H4's step size as its screen shows it ("step 0.1"), or None (waits up to 3 s for the screen)."""
+    import re
+    end = time.time() + 3
+    while True:
+        m = re.search(r"(?:step )?([0-9]*\.?[0-9]+)#", T.sim()["lcd"][0])  # "step 0.1#", or "SYN 1#" when SYN is shown
+        if m or time.time() > end:
+            return float(m.group(1)) if m else None
+        time.sleep(0.2)
+
+
+def lathe_jog_checks():
+    """Firmware 1.55: an arrow held in a lathe mode (H4 OFF) runs smoothly as in GCODE - 60 / 20 / 5 % of the axis's
+    manual speed for the steps 1 / 0.1 / 0.01 mm (before: step, 80 ms pause, step: 0.1 and 0.01 mm crawled at 0.6
+    and 0.1 mm/s). Stops left by an operation stop the arrows; cleared (as the app's Clear stops) they do not."""
+    lathe(mode=0, pitch=0, zl="", zr="", xl="", xr="")
+    # an operation before may have left Z on a stop: clearing it there leaves Z waiting for the spindle (SYN, the
+    # original H4) - a turn of the chuck ends it
+    T.ctl("/spindle", rpm=60)
+    time.sleep(1.3)
+    T.ctl("/spindle", rpm=0)
+    time.sleep(0.5)
+    v = {}
+    for _ in range(3):
+        st = lcd_step()
+        z0, z1, _, _ = hold_key(57, 2.0)
+        v[st] = abs(z1 - z0) / 2.0
+        T.post("/key", code=24)  # STEP: the next step size
+        time.sleep(0.4)
+    ok = 1.0 in v and 0.1 in v and 0.01 in v
+    if ok:
+        full = v[1.0] / 0.6
+        ok = abs(v[0.1] - 0.2 * full) <= 0.25 * 0.2 * full and abs(v[0.01] - 0.05 * full) <= 0.3 * 0.05 * full
+    keys = sorted((k for k in v if k is not None), reverse=True)
+    check(ok, "a held arrow in a lathe mode runs smoothly: %s mm/s for the steps %s (60 / 20 / 5 %%)%s"
+          % (" / ".join("%.2f" % v[k] for k in keys), " / ".join(str(k) for k in keys),
+             "" if ok else " - the H4 screen: %s" % T.sim()["lcd"]))
+    for _ in range(6):
+        if lcd_step() == 1.0:
+            break
+        T.post("/key", code=24)
+        time.sleep(0.3)
+    # stops left by a turning set up as the app does (Z 0 ... -8, X 0 ... -1 from here)
+    z_here, x_here = T.status()["z"], T.status()["x"]
+    setup(mode=4, pitch=0.2, passes=1, starts=1, zl=z_here, zr=z_here - 8, xl=x_here, xr=x_here - 1)
+    setup(mode=0)
+    l = T.status()["lathe"]
+    _, z1, _, _ = hold_key(37, 1.5)
+    stopped = abs(z1 - (z_here - 8)) < 0.01
+    check(l["zr"] is not None and l["xr"] is not None and stopped,
+          "stops of an operation stay after it (zr %s xr %s): the arrow stops at Z %.3f" % (l["zr"], l["xr"], z1))
+    # firmware 1.56: the app's jog box in a lathe mode - a step (G-code's direction and speed) and a held jog
+    code, _ = T.post("/lathe", zl="", zr="", xl="", xr="")
+    l = T.status()["lathe"]
+    # the original H4: a stop cleared under Z in the gearbox mode (pitch set) -> SYN, Z waits for the spindle
+    syn = T.status().get("syn")
+    _, z_syn, _, _ = hold_key(37, 0.6)
+    T.ctl("/spindle", rpm=60)
+    time.sleep(1.3)
+    T.ctl("/spindle", rpm=0)
+    time.sleep(0.3)
+    # SYN only when Z stood exactly on the stop (the original H4); then it must wait and a turn of the chuck end it
+    check(syn == 0 or (syn == 1 and abs(z_syn - z1) < 0.001 and T.status().get("syn") == 0),
+          "stop cleared under Z with a pitch set: SYN %s%s" % (syn, ", Z waited, a turn of the chuck ended it" if syn else
+                                                               " (Z was not exactly on the stop)"))
+    _, z2, _, _ = hold_key(37, 1.0)
+    check(code == 200 and l["zr"] is None and l["xl"] is None and abs(z2 - z1) > 5,
+          "Clear stops: none left, the arrow goes on past them (Z %.3f -> %.3f)" % (z1, z2))
+    m0 = T.sim()["motors"]["Z"]
+    code_s, _ = T.post("/jogstep", axis="z", d=-1, f=400)
+    time.sleep(1.2)
+    moved = T.sim()["motors"]["Z"] - m0
+    check(code_s == 200 and abs(abs(moved) - T.SPM["Z"]) <= 1, "jog box step Z-1 in a lathe mode: the Z motor moved %d steps (%d per mm)"
+          % (moved, T.SPM["Z"]))
+    check(T.post("/jogstep", axis="c", d=1, f=400)[0] == 400, "jog box step on C in a lathe mode: refused (no C in the lathe)")
+    z0 = T.status()["z"]
+    end = time.time() + 2.0
+    while time.time() < end:                  # held as the app's Cont button / the gamepad: 300 mm/min
+        T.post("/jog", x=0, z=300, c=0)
+        time.sleep(0.1)
+    T.post("/jog", x=0, z=0, c=0)
+    time.sleep(0.6)
+    st = T.status()
+    v = abs(st["z"] - z0) / 2.0
+    check(abs(v - 5.0) <= 0.8 and st["mode"] == 0, "jog box held at 300 mm/min in a lathe mode: %.2f mm/s (5), still mode %d" % (v, st["mode"]))
 
 
 def bad_value_checks():
