@@ -174,7 +174,7 @@ async function waitIdle(timeoutMs = 60000) {
     await page.evaluate(() => { unlocked = true; setStep(1); });
     const zb = await page.$('#pad .pb[data-a="Z"][data-d="-1"]');
     await zb.dispatchEvent('pointerdown', { pointerId: 1 }); await zb.dispatchEvent('pointerup', { pointerId: 1 });
-    await page.waitForFunction(z => Math.abs(st.z - z) > 0.9, z0, { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(z => Math.abs(Math.abs(st.z - z) - 1) < 0.005 && st.state == 'Idle', z0, { timeout: 8000 }).catch(() => {});  // the whole step, at rest
     const jz = await page.evaluate(z => ({ dz: Math.abs(st.z - z), g: st.gcodeMode }), z0);
     ok(jb.inLathe && jb.c == 'none' && Math.abs(jz.dz - 1) < 0.01 && jz.g === 0,
       'the jog box on the Lathe screen (C hidden: ' + jb.c + '): step 1 mm moved Z ' + jz.dz.toFixed(3) + ' mm, H4 still in a lathe mode');
