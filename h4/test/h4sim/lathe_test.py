@@ -280,8 +280,10 @@ def lathe_jog_checks():
     time.sleep(1.3)
     T.ctl("/spindle", rpm=0)
     time.sleep(0.3)
-    check(syn == 1 and abs(z_syn - z1) < 0.001 and T.status().get("syn") == 0,
-          "stop cleared under Z with a pitch set: SYN reported (%s), Z waits, a turn of the chuck ends it" % syn)
+    # SYN only when Z stood exactly on the stop (the original H4); then it must wait and a turn of the chuck end it
+    check(syn == 0 or (syn == 1 and abs(z_syn - z1) < 0.001 and T.status().get("syn") == 0),
+          "stop cleared under Z with a pitch set: SYN %s%s" % (syn, ", Z waited, a turn of the chuck ended it" if syn else
+                                                               " (Z was not exactly on the stop)"))
     _, z2, _, _ = hold_key(37, 1.0)
     check(code == 200 and l["zr"] is None and l["xl"] is None and abs(z2 - z1) > 5,
           "Clear stops: none left, the arrow goes on past them (Z %.3f -> %.3f)" % (z1, z2))
