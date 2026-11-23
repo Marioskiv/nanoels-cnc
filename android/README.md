@@ -14,6 +14,9 @@ nothing of G-code shown), *CNC (G-code)* puts the H4 in GCODE mode with the prog
 the H4's keys moves the app to that screen. The lathe zeros (ZERO Z / ZERO X, ✓ or ✗) are kept by the H4, so a zero
 from the H4's keys counts as one from the app.
 
+Since app 1.77 (firmware 1.56) the CNC and Lathe screens share **one jog box** (the same steps, buttons, wheel and
+speeds); in a lathe mode the H4 makes the moves itself, without G-code, and C is not shown.
+
 ## Install
 
 1. On the phone open **https://github.com/Marioskiv/nanoels-cnc/releases/latest/download/H4CNC.apk** (always the
