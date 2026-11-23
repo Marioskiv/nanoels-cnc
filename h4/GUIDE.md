@@ -110,6 +110,11 @@ GND is the `GND` of the Encoder terminal (use a small terminal strip for the swi
 | 5V | supply (usually red) - only for 5 V encoders, at most 100 mA |
 | ENCA / ENCB | the two signal wires (swap them if the angle counts backwards) |
 
+**Which way it counts:** with the lathe turning the way it cuts, the chuck angle on the Lathe screen must go up (*0°
+here*, a quarter turn forward: about 90°). About 270° means it counts backwards: the turning passes then stand still
+and Feed and threads go the wrong way. Swap ENCA and ENCB, or (firmware 1.58) turn on *Machine parameters, Spindle
+encoder, Encoder counts the other way*, which does the same.
+
 An encoder that needs more than 5 V (e.g. 12-24 V open-collector types) gets its own supply; join its 0 V to the
 H4 GND and connect only A and B to the H4. The encoder is needed for the lathe functions, G33 / G76 threading and
 G95; a polar milling machine (chuck turned by the C motor) does not need it.

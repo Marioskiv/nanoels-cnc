@@ -28,6 +28,7 @@ struct MachineConfigItem {
 const MachineConfigItem MACHINE_CONFIG[] = {
   {"encPpr", 'i', (void*)&ENCODER_PPR, 1, 10000, "Spindle encoder", "Encoder pulses per turn (PPR)", ""},
   {"encBl", 'i', (void*)&ENCODER_BACKLASH, 0, 100, "Spindle encoder", "Encoder backlash (counts)", ""},
+  {"encRev", 'b', (void*)&ENCODER_REVERSE, 0, 1, "Spindle encoder", "Encoder counts the other way (instead of swapping its A and B wires)", ""},
 
   {"zSteps", 'l', (void*)&MOTOR_STEPS_Z, 1, 1000000, "Z axis", "Motor steps per screw turn", "steps"},
   {"zScrew", 'l', (void*)&SCREW_Z_DU, 1, 10000000, "Z axis", "Travel per screw turn", "du"},
