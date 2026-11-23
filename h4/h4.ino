@@ -9,6 +9,7 @@
 
 // Define your hardware parameters here.
 int ENCODER_PPR = 600; // 600 step spindle optical rotary encoder. Fractional values not supported.
+bool ENCODER_REVERSE = false; // 1.58: the encoder counts the other way (instead of swapping its A and B wires)
 int ENCODER_BACKLASH = 3; // Numer of impulses encoder can issue without movement of the spindle
 
 // Spindle rotary encoder pins. Swap values if the rotation direction is wrong.
@@ -180,7 +181,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.57"
+#define FW_VERSION "1.58"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -5053,6 +5054,7 @@ void discountFullSpindleTurns() {
 void processSpindleCounter() {
   int16_t count;
   pcnt_get_counter_value(PCNT_UNIT_0, &count);
+  if (ENCODER_REVERSE) count = -count;  // as if A and B were swapped: every use of the spindle sees it the other way
   int delta = count - spindleCount;
   if (delta == 0) {
     return;

@@ -169,6 +169,9 @@ async function waitIdle(timeoutMs = 60000) {
     await page.waitForFunction(() => st.lathe && st.lathe.zl == null && st.lathe.zr == null && $('ltStops').hidden, null, { timeout: 8000 }).catch(() => {});
     ok(/Z/.test(stx) && await page.evaluate(() => st.lathe.zl == null && $('ltStops').hidden), 'stops shown on the Lathe screen ("' + stx + '"), Clear stops removes them');
     // app 1.77: the same jog box on the Lathe screen (no C); a step moves Z there and the H4 stays in its lathe mode
+    const hid = await page.evaluate(() => $('ltJog').hidden);
+    await page.evaluate(() => $('ltJogT').click());   // app 1.79: hidden until Jog is pressed
+    ok(hid && await page.evaluate(() => !$('ltJog').hidden), 'Lathe screen: the jog box hidden at first, shown by Jog');
     const jb = await page.evaluate(() => ({ inLathe: !!$('ltJog').querySelector('#pad'), c: getComputedStyle(document.querySelector('#pad .pb[data-a="C"]')).display }));
     const z0 = await page.evaluate(() => st.z);
     await page.evaluate(() => { unlocked = true; setStep(1); });

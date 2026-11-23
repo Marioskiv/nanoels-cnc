@@ -204,6 +204,7 @@ def run_checks():
     check(zmin >= -8 - bl - 0.01 and zmax <= 0 + bl + 0.01,
           "turning: Z stayed between the stops 0 and -8 (%.3f .. %.3f mm, backlash %.2f)" % (zmin, zmax, bl))
     lathe_jog_checks()  # last: its moves leave Z's backlash taken the other way
+    encoder_reverse_checks()  # restarts the H4 twice
 
 
 def hold_key(code, secs):
@@ -296,6 +297,52 @@ def lathe_jog_checks():
     st = T.status()
     v = abs(st["z"] - z0) / 2.0
     check(abs(v - 5.0) <= 0.8 and st["mode"] == 0, "jog box held at 300 mm/min in a lathe mode: %.2f mm/s (5), still mode %d" % (v, st["mode"]))
+    # firmware 1.58: Z and X at once (the gamepad's two sticks), as in GCODE mode - before, only the larger one moved
+    s0 = T.status()
+    end = time.time() + 1.5
+    while time.time() < end:
+        T.post("/jog", x=-200, z=300, c=0)
+        time.sleep(0.1)
+    T.post("/jog", x=0, z=0, c=0)
+    time.sleep(0.6)
+    s1 = T.status()
+    dz, dx = abs(s1["z"] - s0["z"]), abs(s1["x"] - s0["x"])
+    check(dz > 5 and dx > 3, "jog Z and X together in a lathe mode: Z %.2f mm and X %.2f mm in 1.5 s (both move)" % (dz, dx))
+
+
+def set_config(**vals):
+    """Saves the machine settings as the app does (all of them, some changed); the H4 restarts."""
+    import json, urllib.parse
+    items = json.loads(T.http(T.B + "/config")[1])["items"]
+    q = "&".join("%s=%s" % (i["k"], urllib.parse.quote(str(vals.get(i["k"], i["v"])))) for i in items)
+    code, _ = T.http(T.B + "/config", "POST", q.encode(), "application/x-www-form-urlencoded")
+    T.wait_back()
+    return code
+
+
+def chuck_turned(rpm, secs):
+    """The chuck angle the app reads after "0 here" and turning the spindle forward (the simulated encoder)."""
+    T.ctl("/spindle", rpm=0)
+    time.sleep(0.3)
+    T.post("/cmd", **{"do": "chuckzero"})
+    T.ctl("/spindle", rpm=rpm)
+    time.sleep(secs)
+    T.ctl("/spindle", rpm=0)
+    time.sleep(0.4)
+    return T.status()["chuck"]
+
+
+def encoder_reverse_checks():
+    """Firmware 1.58 (Marios: his encoder counts the other way - a quarter turn forward read 270 deg): the setting
+    "Encoder counts the other way" makes the H4 count as if its A and B wires were swapped, for everything."""
+    a_fwd = chuck_turned(10, 1.5)
+    code = set_config(encRev=1)
+    a_rev = chuck_turned(10, 1.5)
+    check(code == 200 and 60 < a_fwd < 120 and 240 < a_rev < 300,
+          "encoder reversed by the setting: the same quarter turn reads %.1f deg (before %.1f deg)" % (a_rev, a_fwd))
+    code = set_config(encRev=0)
+    a_back = chuck_turned(10, 1.5)
+    check(code == 200 and 60 < a_back < 120, "setting off again: %.1f deg" % a_back)
 
 
 def bad_value_checks():
