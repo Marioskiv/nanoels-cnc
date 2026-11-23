@@ -153,15 +153,21 @@ async function waitIdle(timeoutMs = 60000) {
         'X: "' + pr.off + '" with how to centre the router ("' + pr.help.slice(0, 60) + '..."); Settings only links to it');
     }
 
-    // 1b. firmware 1.51: the H4 is in a lathe mode; the Control screen says so and its GCODE button switches it
+    // 1b. app 1.75: the screen is the H4's mode - Lathe puts the H4 in a lathe mode, CNC (Control) in GCODE mode
+    await page.evaluate(() => tab('lathe'));
+    await page.waitForFunction(() => st.gcodeMode === 0, null, { timeout: 10000 }).catch(() => {});
+    const lm = await page.evaluate(() => ({ g: st.gcodeMode, menu: [...document.querySelectorAll('#tabs button')].map(b => b.dataset.t).join(' '), first: document.querySelector('#tabs button').dataset.t }));
+    ok(lm.g === 0 && lm.first == 'lathe' && !/program/.test(lm.menu), 'Lathe screen: the H4 in a lathe mode; menu ' + lm.menu + ' (G-code inside CNC)');
     await page.evaluate(() => tab('control'));
-    await page.waitForFunction(() => st.gcodeMode === 0 && !document.getElementById('modeBar').hidden, null, { timeout: 10000 }).catch(() => {});
-    const mb = await page.evaluate(() => ({ hidden: $('modeBar').hidden, txt: $('modeTxt').textContent }));
-    const mdiLathe = await page.evaluate(async () => { try { return await post('/mdi', new URLSearchParams({ line: 'G0 X1' })); } catch (e) { return 'ERR ' + e.message; } });
-    ok(!mb.hidden && /lathe|τόρνου/i.test(mb.txt) && /^ERR .*lathe mode/.test(mdiLathe), 'lathe mode: the Control screen says so ("' + mb.txt.slice(0, 50) + '"), MDI refused (' + mdiLathe.slice(0, 50) + ')');
-    await page.click('#modeBar button');
-    await page.waitForFunction(() => st.gcodeMode === 1 && document.getElementById('modeBar').hidden, null, { timeout: 10000 }).catch(() => {});
-    ok(await page.evaluate(() => st.gcodeMode === 1 && $('modeBar').hidden), 'the GCODE button: the H4 in GCODE mode, the note gone');
+    await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
+    ok(await page.evaluate(() => st.gcodeMode === 1 && curTab == 'control'), 'CNC screen: the H4 in GCODE mode by itself');
+    // a mode changed on the H4 (its keys, here the lathe request) brings the app to that screen
+    await fetch(B + '/lathe?mode=0', { method: 'POST' });
+    await page.waitForFunction(() => curTab == 'lathe', null, { timeout: 8000 }).catch(() => {});
+    const back = await page.evaluate(() => curTab);
+    await page.evaluate(() => tab('control'));
+    await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
+    ok(back == 'lathe' && await page.evaluate(() => st.gcodeMode === 1), 'the H4 switched to a lathe mode: the app goes to Lathe (' + back + '); back to CNC');
 
     // 2. Home All from the page with the simulated switches: X switch 20 mm toward minus, Z switch 5 mm toward plus
     //    (motor steps: X runs inverted, so its switch is at +20 mm x steps/mm on the motor)

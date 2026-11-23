@@ -275,6 +275,7 @@ def run_checks():
     ws_checks()
     config_checks()
     lathe_jog_checks()
+    lathe_zero_checks()
     connection_checks()
 
 
@@ -295,6 +296,38 @@ def lathe_mode_checks():
     code, text = post("/cmd", **{"do": "gcode"})
     time.sleep(0.3)
     check(code == 200 and status().get("gcodeMode") == 1, "the GCODE button: GCODE mode (%d %s)" % (code, text.strip()))
+
+
+def lathe_zero_checks():
+    # firmware 1.54: the H4 keeps whether the lathe zeros were set (from the app or the keys alike)
+    T0 = status()
+    check(T0.get("lz") == [0, 0], "lathe zeros at the first start: to be set (lz %s, why %s)" % (T0.get("lz"), T0.get("lzw")))
+    http(B + "/lathe", "POST", b"mode=0", "application/x-www-form-urlencoded")
+    time.sleep(0.4)
+    end = time.time() + 0.6
+    while time.time() < end:  # Z away from 0 with the H4's own arrow key, so the zero is not at the start position
+        http(B + "/key?code=57&hold=1", "POST", b"")
+        time.sleep(0.1)
+    http(B + "/key?code=57&hold=0", "POST", b"")
+    time.sleep(1.0)
+    post("/lathe", **{"do": "z0"})
+    http(B + "/key?code=53", "POST", b"")  # the H4's X key: X zero here
+    time.sleep(0.5)
+    s = status()
+    check(s.get("lz") == [1, 1], "Z0 from the app and X0 from the H4 key both count (lz %s)" % s.get("lz"))
+    post("/lathe", **{"do": "zinv", "z": "1", "x": "1", "why": "tool"})
+    s = status()
+    check(s.get("lz") == [0, 0] and s.get("lzw") == 3, "a new tool: both to be set again (lz %s, why %s)" % (s.get("lz"), s.get("lzw")))
+    post("/lathe", **{"do": "z0"})
+    time.sleep(3.5)  # the H4 saves its zeros a few seconds after a change
+    http(B + "/wifi", "POST", b"mode=direct&appw=12345678")  # (a setting that restarts the H4)
+    s = wait_back()
+    check(s is not None and s.get("lz", [0])[0] == 2 and s.get("lzw") == 1, "after a restart the Z zero kept from before is to be confirmed (lz %s, why %s)" % ((s or {}).get("lz"), (s or {}).get("lzw")))
+    post("/lathe", **{"do": "zok"})
+    s = status()
+    check(s.get("lz", [0])[0] == 1, "confirmed: set (lz %s)" % s.get("lz"))
+    post("/cmd", **{"do": "gcode"})
+    time.sleep(0.3)
 
 
 def lathe_jog_checks():

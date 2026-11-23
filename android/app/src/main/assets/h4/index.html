@@ -124,6 +124,9 @@ canvas{background:#000;border-radius:8px;display:block;margin:auto;max-width:100
 /* pop-up */
 .sheet{position:fixed;inset:0;z-index:8;background:#0009;display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 12px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;width:100%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.cncback{display:flex;flex:none}.cncback button{padding:7px 14px;font-weight:700}
+.ltjog{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.ltjog button{padding:9px 2px;font-weight:700;touch-action:none}.ltjog button.down{background:var(--or);color:#000}
+.ltzb.ok{border-color:var(--ok);color:var(--ok)}
 .cfgh{margin:6px 0 0;font-size:15px;color:var(--or)}
 .cfgerr{background:#b3261e;color:#fff;padding:10px 14px;font-weight:600;cursor:pointer}
 .modebar{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:8px 12px;border:2px solid var(--or);border-radius:10px;font-weight:600}.modebar span{flex:1}.modebar button{flex:none;padding:8px 18px;font-weight:800}
@@ -248,7 +251,6 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="sgrid" id="connBtns"><button onclick="cnSearch(8)">Find the H4</button><button onclick="cnJoin()">Direct with the H4</button><button onclick="cnGo()">Connection settings</button><button onclick="cnManual()">Address by hand</button><button onclick="H4App.demo()">Demo (no H4)</button><button onclick="cnHide()">Hide</button></div></div>
 <main>
 <section class="scr ctl" data-tab="control" id="ctl">
-<div class="modebar" id="modeBar" hidden><span id="modeTxt"></span><button onclick="gcodeMode()">GCODE</button></div>
 <div class="axes" id="axes"></div>
 <div class="chips" id="chips"></div>
 <div class="jog"><div class="pad" id="pad">
@@ -261,7 +263,8 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="wcenter"><b id="wAxis">X</b><span id="wStep"></span></div></div><button class="round" id="jp">+</button></div></div>
 <div class="act"><button class="go" onclick="startSel()">START</button><button class="hold" id="cHold" onclick="cmd(st.state=='Hold'?'resume':'pause')">HOLD</button>
 <button onclick="ovrSheet()">F <b id="foTxt">100%</b></button><button onclick="ovrSheet()">R <b id="roTxt">100%</b></button>
-<button onclick="homeAll()">Home</button><button onclick="macroSheet()">Macros</button><button onclick="mdiSheet()" style="grid-column:span 2">MDI</button></div>
+<button onclick="homeAll()">Home</button><button onclick="macroSheet()">Macros</button><button onclick="mdiSheet()" style="grid-column:span 2">MDI</button>
+<button onclick="tab('program');sub('program','files')">Files</button><button onclick="tab('program');sub('program','path')">Path</button><button onclick="tab('program');sub('program','run')" style="grid-column:span 2">Program</button></div>
 <div class="card cprog"><h2>Program</h2><div><b id="cpName">no program</b></div><div class="bar"><div id="cpBar"></div></div>
 <div class="small"><span id="cpPct">0 %</span> &middot; <code id="cpLine"></code></div><h2>Messages</h2><div class="pg" id="cpLog"></div></div>
 </section>
@@ -273,12 +276,14 @@ button.ddb.on{border-color:var(--or)}button.ddb.on>i{transform:rotate(180deg)}bu
 <div class="ltax" id="ltZb"><span class="l">Z</span><span class="v"><span id="ltZv">-</span><small id="ltZu"></small></span></div>
 <div class="ltax" id="ltXb"><span class="l">X</span><span class="v"><span id="ltXv">-</span><small id="ltXu"></small></span></div>
 <button type="button" class="ltsp ltchk" id="ltChk" onclick="chkToggle()"><b id="ltAngL"></b><span class="v" id="ltAng">-</span></button>
-<button type="button" class="ltsp ltchz" id="ltChz" onclick="chkZero()"></button></div>
+<button type="button" class="ltsp ltchz" id="ltChz" onclick="chkZero()"></button>
+<div class="ltjog keys" id="ltJog" title="As the H4 arrow keys (the H4's step)"><button class="hold" data-c="57">◀ Z</button><button class="hold" data-c="37">Z ▶</button><button class="hold" data-c="47">X ▲</button><button class="hold" data-c="67">X ▼</button></div></div>
 <div class="card ltpanel" id="ltForm"></div></div></div>
 <div class="ltbot"><button type="button" class="ltstart" id="ltStart"><span class="fill" id="ltFill"></span><span id="ltStartT"></span></button>
 <div class="ltprog"><div class="bar"><div id="ltBar"></div></div><small id="ltProg"></small><small class="ltnow" id="ltNow"></small></div></div>
 </section>
 <section class="scr" data-tab="program" hidden>
+<div class="cncback"><button type="button" onclick="tab('control')">&lsaquo; CNC Control</button></div>
 <div class="subtabs" data-s="program"><button data-p="run">Run</button><button data-p="files">Files</button><button data-p="path">Path</button></div>
 <div class="panes">
 <div class="pane card" data-p="run"><h2>Program</h2>
@@ -608,16 +613,26 @@ function axesTap(){if(st.axesOn==1){if(!confirm(cnT('Switch all axes off? The mo
   'Σβήσιμο όλων των αξόνων; Τα μοτέρ μένουν ελεύθερα (γυρίζουν με το χέρι)· τίποτα δεν κινείται μέχρι το ΑΞΟΝΕΣ ON.')))return;cmd('axes','&on=0')}else cmd('axes','&on=1')}
 // firmware 1.50: the machine settings were not loaded (st.cfgErr): in red over every screen until they are saved again
 function cfgErrShow(){const e=$('cfgErr'),t=st.cfgErr||'';e.hidden=!t;if(t)e.textContent='⚠ '+T(t)+' '+(look.lang=='el'?'(πάτα εδώ)':'(press here)')}
-// app 1.70 / firmware 1.51: the Control screen is GCODE's; in a lathe mode its jog is the H4's own arrow keys (the H4
-// stays in its mode) and a program, MDI and Home All wait for the GCODE button (the app never changes the mode itself)
-function modeShow(){const g=st.gcodeMode!==0,b=$('modeBar');if(!b)return;b.hidden=g;$('chips').style.visibility=g?'':'hidden';if(!g)$('padC').textContent=cnT('step of the H4','βήμα του H4');
- if(!g)$('modeTxt').textContent=cnT('Lathe mode (ELS): the jog moves Z / X as the H4 arrow keys. For CNC (programs, MDI, Home):','Λειτουργία τόρνου (ELS): το jog κινεί Z / X όπως τα βέλη του H4. Για CNC (προγράμματα, MDI, Home):')}
-async function gcodeMode(){try{msg(await post('/cmd?do=gcode'))}catch(e){msg(e.message)}}
-// the H4 arrow key of an axis direction in a lathe mode (the same step direction as X+ / Z+ in GCODE mode)
-function latheKey(a,d){return a=='Z'?(d>0?57:37):a=='X'?(d>0?47:67):0}
+// app 1.75 (the owner: "when I choose G-code everything is ready for G-code; otherwise nothing of it, only the lathe"):
+// the screen is the H4's mode. Opening CNC (Control, G-code) puts the H4 in GCODE mode; opening Lathe puts it in a
+// lathe mode (the H4 refuses while something runs, and says why). A mode changed on the H4's keys brings the app to
+// its screen. Machine, Machine parameters and Settings belong to both.
+const CNC_TABS=['control','program'];
+let modeSeen=null,modeWant=null,modeAsked=0;
+async function modeFollowScreen(t){if(DEMO||st.gcodeMode===undefined)return;
+ const wantG=CNC_TABS.includes(t)?1:t=='lathe'?0:null;if(wantG===null||wantG===st.gcodeMode)return;
+ modeWant=wantG;modeAsked=Date.now();
+ try{await post(wantG?'/cmd?do=gcode':'/lathe?mode=0')}catch(e){msg(e.message);modeWant=null;tab(st.gcodeMode?'control':'lathe')}}  // refused: back to the H4's screen
+function screenFollowMode(){if(st.gcodeMode===undefined)return;const g=st.gcodeMode;
+ // the app's own change is on its way: wait until the H4 reports it (at most 3 s)
+ if(modeWant!==null){if(g!==modeWant&&Date.now()-modeAsked<3000){modeSeen=g;return}modeWant=null}
+ const wrong=(g&&curTab=='lathe')||(!g&&CNC_TABS.includes(curTab));
+ // the first status, or a mode changed on the H4 (its keys)
+ if(wrong&&(modeSeen===null||g!==modeSeen))tab(g?'control':'lathe');
+ modeSeen=g}
 // firmware 1.52: this start stored the machine's own values (a firmware built with my_machine.h, the LinuxCNC .ini)
 let cfgMySaid=false;function cfgMyShow(){if(!st.cfgMy||cfgMySaid)return;cfgMySaid=true;msg(T('The machine parameters of this firmware (my_machine.h, from LinuxCNC) were stored in the H4.'));if(cfg)loadCfg()}
-function show(){cfgMyShow();cfgErrShow();modeShow();fwWaitShow(1);hxHelpShow();const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
+function show(){cfgMyShow();cfgErrShow();screenFollowMode();fwWaitShow(1);hxHelpShow();const u=st.inch?' in':' mm';resumeTrack();restartShow();apiCheck();hAxesShow();verShow();diagShow(st.diag);ctlShow();if(curTab=='lathe')ltShow();if(st.fw)$('fwVer').textContent=st.fw;
  if(st.benchN!==undefined){if(benchSeen>=0&&st.benchN!=benchSeen)msg(st.bench);benchSeen=st.benchN}if(st.fo!==undefined){$('fo').textContent=st.fo+(st.ovrOff?' (M49: not applied)':'');$('ro').textContent=st.ro+(st.ovrOff?' (M49: not applied)':'')}
  $('x').textContent=st.x.toFixed(3)+u;$('z').textContent=st.z.toFixed(3)+u;$('c').textContent=st.cActive?st.c.toFixed(3)+'°':'-';
  $('info').textContent='Feed '+st.feed+' /min · spindle '+st.rpm+' rpm · step buffer empties: '+st.underruns+(st.estop?' · EMERGENCY STOP':'')+(st.gcodeMode?'':' · the H4 is not in GCODE mode');
@@ -706,6 +721,7 @@ const KEYS=[['↑',47],['↓',67],['←',57],['→',37],['STEP',24],['-',5],['+'
  ['GEARS',42],['TURN',52],['FACE',62],['CONE',3],['CUT',13],['THREAD',23],['MODE',33],['MEAS',54],['REV',44],['⌫',32],
  ['STOP L',7],['STOP R',15],['STOP U',6],['STOP D',16],['X0',53],['Z0',43],['A',4],['B',63],['7',11],['8',22],['9',1],['4',2],['5',21],['6',12],['1',41],['2',61],['3',31],['0',51]];
 if($('keys'))$('keys').innerHTML=KEYS.map(([t,c])=>HOLD.has(c)?`<button class="hold" data-c="${c}">${t}</button>`:`<button onclick="key(${c})">${t}</button>`).join('');
+// app 1.75: the Lathe screen's arrows are the H4's own arrow keys held down (the H4's step, the H4's way)
 document.querySelectorAll('.keys .hold').forEach(b=>{const c=+b.dataset.c;
  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);holdStart(c,b)});
  for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,holdEnd);
@@ -912,6 +928,8 @@ function fwWaitShow(fromStatus){if(!fwWait)return;const w=Date.now()-fwWait.t,el
 // patterns of texts with numbers in them). The Lathe screen has its own lists (LTT). A text from the H4 that is not
 // in the list stays as the H4 sent it.
 const I18N={
+"As the H4 arrow keys (the H4's step)":'Όπως τα βέλη του H4 (το βήμα του H4)',
+'‹ CNC Control':'‹ Έλεγχος CNC',
 'GCODE counts X the other way than the lathe modes (LinuxCNC / ISO: X+ away from the centre)':'Το GCODE μετρά τον X αντίθετα από τον τόρνο (LinuxCNC / ISO: X+ μακριά από το κέντρο)',
 'GCODE counts Z the other way than the lathe modes (LinuxCNC / ISO: Z- towards the chuck)':'Το GCODE μετρά τον Z αντίθετα από τον τόρνο (LinuxCNC / ISO: Z− προς το τσοκ)',
 'Fine control near the centre (%; 0 = straight, top speed unchanged)':'Λεπτός έλεγχος κοντά στο κέντρο (%· 0 = ευθεία, η μέγιστη ταχύτητα δεν αλλάζει)',
@@ -1226,9 +1244,7 @@ function ctlJogShow(){const wheel=sc.jog=='wheel',list=wheel?STEPS:STEPS.concat(
 function setStep(v){jogStep=v=='cont'?'cont':+v;try{localStorage.setItem('h4step',jogStep)}catch(e){}ctlJogShow()}
 function jogDetent(n){if(!jogOk())return;jogPending+=n;jogSend()}
 // one jog move at a time: the next one goes when a status read after it shows the machine idle again
-async function jogSend(){if(jogBusy||!jogPending||st.running||polls<jogPoll+2)return;
- if(st.gcodeMode===0){const k=latheKey(jogAxis,jogPending);jogPending=0;if(!k){msg(T('C does not move in the lathe modes: choose GCODE first'));return}
-  jogBusy=true;try{await post('/key?code='+k)}catch(e){msg(e.message)}jogPoll=polls;jogBusy=false;return}const d=+(jogPending*jogStep).toFixed(4);jogPending=0;jogBusy=true;
+async function jogSend(){if(jogBusy||!jogPending||st.running||polls<jogPoll+2)return;const d=+(jogPending*jogStep).toFixed(4);jogPending=0;jogBusy=true;
  const f=jogAxis=='C'?gp.n*gp.c:gp.n;
  try{await post('/mdi',new URLSearchParams({line:'G91 G1 '+jogAxis+d+' F'+f}))}catch(e){msg(e.message);jogPending=0}
  jogPoll=polls;jogBusy=false}
@@ -1239,8 +1255,7 @@ let padHeld=null,padTimer=0;
 function padStop(){if(!padHeld)return;padHeld.classList.remove('down');padHeld=null;clearInterval(padTimer);let n=3;const s=()=>{gpSend(0,0,0);if(--n>0)setTimeout(s,100)};s()}
 document.querySelectorAll('#pad .pb').forEach(b=>{
  b.addEventListener('pointerdown',e=>{e.preventDefault();if(!jogOk())return;const a=b.dataset.a,d=+b.dataset.d;selAxis(a);
-  if(st.gcodeMode===0&&a=='C'){msg(T('C does not move in the lathe modes: choose GCODE first'));return}
-  if(jogStep!='cont'&&st.gcodeMode!==0){jogDetent(d);b.classList.add('down');setTimeout(()=>b.classList.remove('down'),150);return}
+  if(jogStep!='cont'){jogDetent(d);b.classList.add('down');setTimeout(()=>b.classList.remove('down'),150);return}
   b.setPointerCapture(e.pointerId);padStop();padHeld=b;b.classList.add('down');
   const v=d*(a=='C'?gp.n*gp.c:gp.n),send=()=>{lockTouch();gpSend(a=='X'?v:0,a=='Z'?v:0,a=='C'?v:0)};send();padTimer=setInterval(send,100)});
  for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,padStop);
@@ -1281,8 +1296,8 @@ function pager(box){if(!box.offsetParent)return;const items=[...box.children];it
 function pagers(){requestAnimationFrame(()=>document.querySelectorAll('.pg').forEach(pager))}
 addEventListener('resize',()=>{pagers();if(curTab=='program')drawPath()});
 // Tabs and sub-tabs: one screen each (the phone's Back key goes to the screen before); the last ones are remembered.
-const TABS=[['control','Control','<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3"/>'],
- ['lathe','Lathe','<path d="M3 8h4v8H3zM7 10h11v4H7z"/><path d="M18 9l3 3-3 3"/>'],
+const TABS=[['lathe','Lathe','<path d="M3 8h4v8H3zM7 10h11v4H7z"/><path d="M18 9l3 3-3 3"/>'],
+ ['control','CNC (G-code)','<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3"/>'],
  ['program','G-code','<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'],
  ['machine','Machine','<path d="M3 12h4l3-7 4 14 3-7h4"/>'],
  ['params','Machine parameters','<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'],
@@ -1300,15 +1315,17 @@ function devShow(){const e=$('hDev');if(!e)return;let d={};try{if(isApp&&H4App.d
 if(!isApp&&navigator.getBattery)navigator.getBattery().then(b=>{const f=()=>{window.devBatt=Math.round(b.level*100)};f();b.addEventListener('levelchange',f)}).catch(()=>{});
 setInterval(devShow,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)devShow()});setTimeout(devShow,300);
 function navName(t){const L=typeof LTT!='undefined'?LTT[look.lang=='el'?'el':'en'].tabs:{};const x=TABS.find(a=>a[0]==t)||TABS[0];return L[x[0]]||x[1]}
-function navShow(){const t=TABS.find(a=>a[0]==curTab)||TABS[0];$('navBtn').innerHTML=`<svg viewBox="0 0 24 24">${t[2]}</svg><span>${navName(t[0])}</span><span class="ar">${$('tabs').classList.contains('open')?'▲':'▼'}</span>`}
+function navShow(){const t=TABS.find(a=>a[0]==(curTab=='program'?'control':curTab))||TABS[0];$('navBtn').innerHTML=`<svg viewBox="0 0 24 24">${t[2]}</svg><span>${navName(t[0])}</span><span class="ar">${$('tabs').classList.contains('open')?'▲':'▼'}</span>`}
 function navOpen(o){const n=$('tabs');if(o)n.style.top=Math.round($('navBtn').getBoundingClientRect().bottom+6)+'px';n.classList.toggle('open',!!o);navShow()}
 $('navBtn').addEventListener('click',e=>{e.stopPropagation();navOpen(!$('tabs').classList.contains('open'))});
 document.addEventListener('pointerdown',e=>{if($('tabs').classList.contains('open')&&!e.target.closest('#tabs,#navBtn'))navOpen(false)},true);
-$('tabs').innerHTML=TABS.map(([t,n,ic])=>`<button data-t="${t}" onclick="tab('${t}')"><svg viewBox="0 0 24 24">${ic}</svg><span>${n}</span></button>`).join('');
+// app 1.75: the G-code screen (program, files, path) is part of CNC: not in the menu of its own
+$('tabs').innerHTML=TABS.filter(t=>t[0]!='program').map(([t,n,ic])=>`<button data-t="${t}" onclick="tab('${t}')"><svg viewBox="0 0 24 24">${ic}</svg><span>${n}</span></button>`).join('');
 try{subs=JSON.parse(localStorage.getItem('h4subs')||'{}')}catch(e){}
 function tab(t,noHist){if(!TN.includes(t))t='control';if(window.ddClose)ddClose();if(t!=curTab)alog('SCREEN',t);if(window.navOpen&&$('tabs').classList.contains('open'))setTimeout(()=>navOpen(false));if(t!=curTab){curTab=t;
   document.querySelectorAll('main>section').forEach(s=>s.hidden=s.dataset.tab!=t);
-  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t||(t=='program'&&b.dataset.t=='control')));
+  modeFollowScreen(t);
   if(t=='machine'){logRead=logSeen;tabBadges()}
   try{localStorage.setItem('h4tab',t)}catch(e){}if(!noHist)try{history.pushState({t},'','#'+t)}catch(e){}}
  if(t!='settings')setShow('',true);if(t!='params')parShow('',true);else if(!parOpen)parShow('',true);sub(t,subs[t],true);pagers();navShow();if(t=='program')requestAnimationFrame(drawPath)}
@@ -1350,11 +1367,11 @@ function parList(){$('plist').innerHTML=cfgPages.map(([k,n])=>`<button data-k="$
  +`<div class="small">Stored in the H4. Save and restart on any page saves all of them.</div>`;parShow(parOpen,true)}
 addEventListener('popstate',e=>{const s=e.state||{};sheetClose();if(s.s)setShow(s.s,true);else setShow('',true);if(s.p)parShow(s.p,true);else parShow('',true);tab(s.t||location.hash.slice(1)||'control',true)});
 let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs button[data-t="'+q+'"]');
- const m=b('machine'),p=b('program');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
+ const m=b('machine'),p=b('control');let d=m.querySelector('.dot');const unread=logRead>=0&&st.log!==undefined&&st.log>logRead&&curTab!='machine';
  if(unread&&!d){d=document.createElement('i');d.className='dot';m.appendChild(d)}if(!unread&&d)d.remove();
  let c=p.querySelector('.pct');const run=st.running&&st.progress!==undefined;if(run&&!c){c=document.createElement('i');c.className='pct';p.appendChild(c)}
  if(run)c.textContent=Math.floor(st.progress*100)+'%';else if(c)c.remove();
- $('navBtn').classList.toggle('bdg',unread||(run&&curTab!='program'))}
+ $('navBtn').classList.toggle('bdg',unread||(run&&curTab!='program'&&curTab!='control'))}
 // swipe left / right changes the screen (never on the jog buttons, the wheel, the drawing, fields or the H4 keys)
 (function(){let x0=null,y0=0,t0=0;addEventListener('touchstart',e=>{const t=e.target;
  x0=t.closest('#pad,.wheelbox,canvas,input,select,.ddb,.dd,textarea,.keys,.lcd,.chips,.sheet')?null:e.touches[0].clientX;y0=e.touches[0].clientY;t0=Date.now()},{passive:true});
@@ -1369,7 +1386,7 @@ let logRead=-1;function tabBadges(){const b=q=>document.querySelector('#tabs but
 // then presses ON through the H4's key queue: the H4 itself moves the tool to the start and runs the mode.
 // H4 conventions (as its display): Z grows to the left (towards the chuck); X grows towards the centre, so with
 // X0 on the centre line the outside of the part is negative (X = -Ø/2).
-const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',params:'Machine parameters',settings:'Settings'},
+const LTT={en:{tabs:{control:'CNC (G-code)',lathe:'Lathe',program:'G-code',h4:'H4 keys',machine:'Machine',params:'Machine parameters',settings:'Settings'},
   rpm:'Spindle',rpmu:'rpm',ang:'Chuck',chz:'0° here',chzDone:'Chuck angle: 0° here.',now:'On the H4 now',start:'HOLD TO START',running:'RUNNING',
   inch:'The lathe screen works in mm: set the H4 to mm.',gcode:'The H4 is in G-code mode: choose a mode above to switch it to the lathe.',
   pass:'pass',passes:'passes',ready:'ready',estimate:'at',stopped:'time: start the spindle to see it',
@@ -1377,7 +1394,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Part:',stepZ:'2 · Zero:',zNote:['tip on the face','tip on the Ø, type it'],partNone:'not set',partVal:'Ø {d} × {l} mm (out of the jaws)',partSet:'Set',partChg:'Change',dro:'Where the tool is now (from the zero)',step2:'3 · Operation: ',z0:'Touch Z0',dia:'Touch Ø → X0',help:'How?',
   helpText:'<b>Z0</b>: touch the face of the part with the tool tip (or take a light facing cut) and press <b>Touch Z0</b>.<br><b>X0</b> is on the centre line: take a light cut on the diameter, do not move X, measure the diameter and press <b>Touch Ø → X0</b> with that number (the tool still touches that diameter). The H4 then knows where the centre is.<br><b>In the forms</b> Z is always a positive number of mm <b>from the face towards the chuck</b>: start 10, length 30 = from 10 to 40 mm into the part. X values are diameters (or radii, Settings, Appearance, Lathe X), measured as with a caliper. The H4\'s own display and the drawing\'s lines show the same place as lathes do (Z −10, or as on the original H4: Settings, Appearance, Lathe Z).<br>First set the <b>Part</b>: its Ø and how far it sticks out of the jaws. The drawing then always shows the whole part at the same scale.<br>The same as the H4 keys Z and A (diameter on the numpad, then A). After a tool change: zero again.',
   zx:'Z: where it cuts (mm from the face)',xx:'X: from which Ø to which Ø',xxr:'X: from which R to which R',cx:'Cut',
-  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',adv:{mat:['Aluminium','Mild steel','Stainless','Brass / bronze','Plastic'],tool:['Carbide','HSS'],rpm:'≈ {n} rpm (Vc {vc} m/min at Ø {d})',cap:'(the lathe\'s 1000 rpm)',feed:'feed roughing {a} / finishing {b} mm/turn',feedPart:'feed {a} - {b} mm/turn',deep:'{a} mm per pass is deep for this material (about {m} mm): {n} passes.',setP:'Set {n} passes',fast:'Feed {f} mm/turn is more than the roughing {a} for this material.'},rc:{btn:'Sequence',title:'Sequence of operations',help:'Fill a form as usual, then add it here as a step (with its tool number). Run: the steps come one at a time into their form; each one starts with START. After a step ended: Next step.',empty:'No steps yet.',add:'+ Add this one ({s})',run:'▶ Run the sequence',save:'Save recipe',clear:'Empty',saved:'Saved recipes:',load:'Load',savedMsg:'Recipe saved.',toolAsk:'Tool number (T)',put:'Save the form into step {k}',editMsg:'Step {k} is in the form: change it, then Sequence → Save the form into step {k}.',now:'Sequence: step {k} of {n} — {s} · tool T{t}',next:'Next step ›',done:'The sequence is finished.',end:'End the sequence',toolMsg:'Put tool T{t} in, then Touch Z0 and Ø → X0.',textHelp:'As text (to keep or move to another tablet): Export, or paste and Import.',exp:'Export',imp:'Import',impBad:'This text is not a recipe.',impMsg:'{n} steps imported: check each one before START.'},ms:{ask:'Measure the Ø you made:',btn:'I measured Ø…',pad:'Measured Ø (mm)',ok:'Measured Ø {d}: on size ({e}).',more:'Measured Ø {d}: {e} mm of Ø still to come off.',cor:'Correction pass',over:'Measured Ø {d}: {e} mm of Ø too much came off. It cannot be put back on this part; for the next part set the final Ø {s}.',corNote:'Correction pass: 1 pass from Ø {a} to Ø {b}; then the {n} passes come back.',tol:'Inside the thread preparation tolerance {lo} – {hi}.',tolOut:'Outside the thread preparation tolerance {lo} – {hi}.'},gd:{tool:'New tool',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set from this screen yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',bootKept:'The H4 restarted: it kept the part\'s zeros. If nothing moved while it was off: The zeros are right; else touch them again.',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
+  diaAsk:'Measured diameter (mm)',zeroDone:'Zero set.',adv:{mat:['Aluminium','Mild steel','Stainless','Brass / bronze','Plastic'],tool:['Carbide','HSS'],rpm:'≈ {n} rpm (Vc {vc} m/min at Ø {d})',cap:'(the lathe\'s 1000 rpm)',feed:'feed roughing {a} / finishing {b} mm/turn',feedPart:'feed {a} - {b} mm/turn',deep:'{a} mm per pass is deep for this material (about {m} mm): {n} passes.',setP:'Set {n} passes',fast:'Feed {f} mm/turn is more than the roughing {a} for this material.'},rc:{btn:'Sequence',title:'Sequence of operations',help:'Fill a form as usual, then add it here as a step (with its tool number). Run: the steps come one at a time into their form; each one starts with START. After a step ended: Next step.',empty:'No steps yet.',add:'+ Add this one ({s})',run:'▶ Run the sequence',save:'Save recipe',clear:'Empty',saved:'Saved recipes:',load:'Load',savedMsg:'Recipe saved.',toolAsk:'Tool number (T)',put:'Save the form into step {k}',editMsg:'Step {k} is in the form: change it, then Sequence → Save the form into step {k}.',now:'Sequence: step {k} of {n} — {s} · tool T{t}',next:'Next step ›',done:'The sequence is finished.',end:'End the sequence',toolMsg:'Put tool T{t} in, then Touch Z0 and Ø → X0.',textHelp:'As text (to keep or move to another tablet): Export, or paste and Import.',exp:'Export',imp:'Import',impBad:'This text is not a recipe.',impMsg:'{n} steps imported: check each one before START.'},ms:{ask:'Measure the Ø you made:',btn:'I measured Ø…',pad:'Measured Ø (mm)',ok:'Measured Ø {d}: on size ({e}).',more:'Measured Ø {d}: {e} mm of Ø still to come off.',cor:'Correction pass',over:'Measured Ø {d}: {e} mm of Ø too much came off. It cannot be put back on this part; for the next part set the final Ø {s}.',corNote:'Correction pass: 1 pass from Ø {a} to Ø {b}; then the {n} passes come back.',tol:'Inside the thread preparation tolerance {lo} – {hi}.',tolOut:'Outside the thread preparation tolerance {lo} – {hi}.'},gd:{tool:'New tool',toolDone:'Touch Z0 and Ø → X0 again with the new tool.',need:'Before START: {w} ({why}).',z:'Touch Z0',x:'Touch Ø → X0',and:' and ',why:{first:'the zeros have not been set yet',boot:'the H4 restarted',part:'a new part: Z0 on its face',tool:'the tool was changed'},changed:'The {a} zero was changed on the H4: are the zeros right?',bootKept:'The H4 restarted: it kept the part\'s zeros. If nothing moved while it was off: The zeros are right; else touch them again.',ok:'The zeros are right',refuse:'Set the zeros first (see the note under the form).'},busy:'Stop the H4 first (OFF).',
   goTo:'At START the H4 moves the tool to Z {z}, {x} by itself, then cuts.',safe:'First the tool goes to the safe place Z {z}, {x} (X first, then Z); after a normal end it goes back there.',safeNeg:'A safe distance cannot be negative.',approach:'TO THE SAFE PLACE',safeStop:'Stopped before the end: move the tool away with the keys.',fromTool:'Starts where the tool stands at START.',
   coneStop:'Stops after {l} mm of Z.',cutZ:'Cuts at the Z where the tool stands now: Z {z}.',x0note:'X0 must be on the centre (Ø → X0).',
   err:{safeX:'The safe Ø must be outside the part (larger for external work, smaller for internal).',safeZ:'The safe Z must be to the right of the start (smaller Z).',same:'Nothing to cut: the start and the end are the same.',dia:'A diameter cannot be negative.',cone:'Ø large must be larger than Ø small.',side:'For this side the final Ø must be {w} than the part Ø.',smaller:'smaller',larger:'larger',val:'Fill every value.',fill:'Fill in: {f}.',part:'First set the Part (button Part above): its Ø and how far it sticks out of the jaws.',len:'The length must be more than 0.',thrM:'For a male thread the final Ø must be smaller than the part Ø.',thrF:'For a female thread the final Ø must be larger than the hole Ø.',sph:'Radius X cannot be more than the part radius (it would pass the centre).'},
@@ -1402,7 +1419,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
    dnom:'Part Ø now (measured) mm',dbore:'Hole Ø now (measured) mm',dthr:'Final Ø (bottom of the thread) mm',rx:'Radius X mm',big:'Large Ø',bigchuck:'to the chuck',bigface:'at the face',male:'Male',female:'Female',
    passes:'Passes',starts:'Starts',dir:'Direction',hand:'Hand',side:'Side',shape:'Shape',
    infeed:'Infeed',radial:'Radial',flank:'Flank 29.5°',preset:'Standard',left:'← to the chuck',right:'→ away',rh:'Right',lh:'Left',convex:'Convex (dome)',concave:'Concave (cove)',ext:'External',int:'Internal'}},
- el:{tabs:{control:'Έλεγχος',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',params:'Παράμετροι μηχανής',settings:'Ρυθμίσεις'},
+ el:{tabs:{control:'CNC (G-code)',lathe:'Τόρνος',program:'G-code',h4:'Πλήκτρα H4',machine:'Μηχάνημα',params:'Παράμετροι μηχανής',settings:'Ρυθμίσεις'},
   rpm:'Στροφές',rpmu:'σ.α.λ.',ang:'Τσοκ',chz:'0° εδώ',chzDone:'Γωνία τσοκ: 0° εδώ.',now:'Τώρα στο H4',start:'ΚΡΑΤΑ ΓΙΑ ΕΚΚΙΝΗΣΗ',running:'ΣΕ ΕΞΕΛΙΞΗ',
   inch:'Η οθόνη τόρνου δουλεύει σε mm: γύρισε το H4 σε mm.',gcode:'Το H4 είναι σε G-code: διάλεξε λειτουργία επάνω για να γυρίσει σε τόρνο.',
   pass:'πέρασμα',passes:'περάσματα',ready:'έτοιμο',estimate:'στις',stopped:'χρόνος: βάλε μπρος την άτρακτο για να φανεί',
@@ -1410,7 +1427,7 @@ const LTT={en:{tabs:{control:'Control',lathe:'Lathe',program:'G-code',h4:'H4 key
   step1:'1 · Κομμάτι:',stepZ:'2 · Μηδέν:',zNote:['μύτη στο πρόσωπο','μύτη στη Ø, γράφεις'],partNone:'δεν ορίστηκε',partVal:'Ø {d} × {l} mm (έξω από σιαγόνες)',partSet:'Όρισε',partChg:'Άλλαξε',dro:'Πού είναι το κοπτικό τώρα (από το μηδέν)',step2:'3 · Κατεργασία: ',z0:'Άγγιγμα Z0',dia:'Άγγιγμα Ø → X0',help:'Πώς;',
   helpText:'<b>Z0</b>: άγγιξε με τη μύτη του κοπτικού το πρόσωπο του κομματιού (ή πάρε ένα λεπτό πάσο προσώπου) και πάτα <b>Άγγιγμα Z0</b>.<br><b>X0</b> είναι στο κέντρο: πάρε ένα λεπτό πάσο στη διάμετρο, μην κουνήσεις τον X, μέτρησε τη διάμετρο με το παχύμετρο και πάτα <b>Άγγιγμα Ø → X0</b> γράφοντας τον αριθμό (το κοπτικό ακουμπά ακόμα αυτή τη διάμετρο). Το H4 ξέρει τότε πού είναι το κέντρο.<br><b>Στις φόρμες</b> το Z είναι πάντα θετικός αριθμός σε mm <b>από το πρόσωπο προς το τσοκ</b>: αρχή 10, μήκος 30 = από τα 10 ως τα 40 mm μέσα στο κομμάτι. Τα X είναι διάμετροι (ή ακτίνες, Ρυθμίσεις, Εμφάνιση, Τόρνος X), όπως τις μετράς με το παχύμετρο. Η οθόνη του H4 και οι γραμμές του σχεδίου γράφουν το ίδιο σημείο όπως οι τόρνοι (Z −10, ή όπως το αρχικό H4: Ρυθμίσεις, Εμφάνιση, Τόρνος Z).<br>Πρώτα όρισε το <b>Κομμάτι</b>: Ø και πόσο βγαίνει έξω από τις σιαγόνες. Το σχέδιο δείχνει τότε πάντα όλο το κομμάτι στην ίδια κλίμακα.<br>Ίδιο με τα πλήκτρα Z και A του H4 (διάμετρος στο αριθμητικό, μετά A). Μετά από αλλαγή κοπτικού: ξανά μηδέν.',
   zx:'Z: πού κόβει (mm από το πρόσωπο)',xx:'X: από ποια Ø σε ποια Ø',xxr:'X: από ποια R σε ποια R',cx:'Κοπή',
-  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',adv:{mat:['Αλουμίνιο','Μαλακός χάλυβας','Ανοξείδωτος','Ορείχαλκος / μπρούντζος','Πλαστικό'],tool:['Καρβίδιο','HSS'],rpm:'≈ {n} σ.α.λ. (Vc {vc} m/min στην Ø {d})',cap:'(όριο τόρνου 1000)',feed:'πρόωση ξεχόνδρισμα {a} / φινίρισμα {b} mm/στροφή',feedPart:'πρόωση {a} - {b} mm/στροφή',deep:'{a} mm ανά πέρασμα είναι βαθύ για αυτό το υλικό (περίπου {m} mm): {n} περάσματα.',setP:'Βάλε {n} περάσματα',fast:'Πρόωση {f} mm/στροφή είναι πάνω από το ξεχόνδρισμα {a} γι αυτό το υλικό.'},rc:{btn:'Σειρά',title:'Σειρά κατεργασιών',help:'Συμπλήρωσε μια φόρμα όπως πάντα και πρόσθεσέ την εδώ ως βήμα (με τον αριθμό κοπτικού). Εκτέλεση: τα βήματα έρχονται ένα-ένα στη φόρμα τους· το καθένα ξεκινά με ΕΚΚΙΝΗΣΗ. Όταν τελειώσει ένα βήμα: Επόμενο βήμα.',empty:'Δεν υπάρχουν βήματα ακόμα.',add:'+ Πρόσθεσε αυτή ({s})',run:'▶ Ξεκίνα τη σειρά',save:'Αποθήκευσε συνταγή',clear:'Άδειασε',saved:'Αποθηκευμένες συνταγές:',load:'Φόρτωσε',savedMsg:'Η συνταγή αποθηκεύτηκε.',toolAsk:'Αριθμός κοπτικού (T)',put:'Αποθήκευσε τη φόρμα στο βήμα {k}',editMsg:'Το βήμα {k} είναι στη φόρμα: άλλαξέ το και μετά Σειρά → Αποθήκευσε τη φόρμα στο βήμα {k}.',now:'Σειρά: βήμα {k} από {n} — {s} · κοπτικό T{t}',next:'Επόμενο βήμα ›',done:'Η σειρά τελείωσε.',end:'Τέλος σειράς',toolMsg:'Βάλε το κοπτικό T{t} και κάνε Άγγιγμα Z0 και Ø → X0.',textHelp:'Ως κείμενο (για φύλαξη ή για άλλο tablet): Εξαγωγή, ή επικόλληση και Εισαγωγή.',exp:'Εξαγωγή',imp:'Εισαγωγή',impBad:'Αυτό το κείμενο δεν είναι συνταγή.',impMsg:'Εισήχθησαν {n} βήματα: έλεγξε το καθένα πριν την ΕΚΚΙΝΗΣΗ.'},ms:{ask:'Μέτρησε την Ø που βγήκε:',btn:'Μέτρησα Ø…',pad:'Μετρημένη Ø (mm)',ok:'Μετρημένη Ø {d}: στη διάσταση ({e}).',more:'Μετρημένη Ø {d}: μένουν {e} mm Ø να φύγουν.',cor:'Πέρασμα διόρθωσης',over:'Μετρημένη Ø {d}: έφυγαν {e} mm Ø παραπάνω. Σε αυτό το κομμάτι δεν διορθώνεται· στο επόμενο βάλε τελική Ø {s}.',corNote:'Πέρασμα διόρθωσης: 1 πέρασμα από Ø {a} σε Ø {b}· μετά επανέρχονται τα {n} περάσματα.',tol:'Μέσα στην ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.',tolOut:'Έξω από την ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.'},gd:{tool:'Νέο κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα από αυτή την οθόνη',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',bootKept:'Το H4 επανεκκίνησε: κράτησε τα μηδέν του κομματιού. Αν δεν κουνήθηκε τίποτα όσο ήταν σβηστό: «Τα μηδέν είναι σωστά»· αλλιώς άγγιξέ τα ξανά.',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
+  diaAsk:'Μετρημένη διάμετρος (mm)',zeroDone:'Το μηδέν ορίστηκε.',adv:{mat:['Αλουμίνιο','Μαλακός χάλυβας','Ανοξείδωτος','Ορείχαλκος / μπρούντζος','Πλαστικό'],tool:['Καρβίδιο','HSS'],rpm:'≈ {n} σ.α.λ. (Vc {vc} m/min στην Ø {d})',cap:'(όριο τόρνου 1000)',feed:'πρόωση ξεχόνδρισμα {a} / φινίρισμα {b} mm/στροφή',feedPart:'πρόωση {a} - {b} mm/στροφή',deep:'{a} mm ανά πέρασμα είναι βαθύ για αυτό το υλικό (περίπου {m} mm): {n} περάσματα.',setP:'Βάλε {n} περάσματα',fast:'Πρόωση {f} mm/στροφή είναι πάνω από το ξεχόνδρισμα {a} γι αυτό το υλικό.'},rc:{btn:'Σειρά',title:'Σειρά κατεργασιών',help:'Συμπλήρωσε μια φόρμα όπως πάντα και πρόσθεσέ την εδώ ως βήμα (με τον αριθμό κοπτικού). Εκτέλεση: τα βήματα έρχονται ένα-ένα στη φόρμα τους· το καθένα ξεκινά με ΕΚΚΙΝΗΣΗ. Όταν τελειώσει ένα βήμα: Επόμενο βήμα.',empty:'Δεν υπάρχουν βήματα ακόμα.',add:'+ Πρόσθεσε αυτή ({s})',run:'▶ Ξεκίνα τη σειρά',save:'Αποθήκευσε συνταγή',clear:'Άδειασε',saved:'Αποθηκευμένες συνταγές:',load:'Φόρτωσε',savedMsg:'Η συνταγή αποθηκεύτηκε.',toolAsk:'Αριθμός κοπτικού (T)',put:'Αποθήκευσε τη φόρμα στο βήμα {k}',editMsg:'Το βήμα {k} είναι στη φόρμα: άλλαξέ το και μετά Σειρά → Αποθήκευσε τη φόρμα στο βήμα {k}.',now:'Σειρά: βήμα {k} από {n} — {s} · κοπτικό T{t}',next:'Επόμενο βήμα ›',done:'Η σειρά τελείωσε.',end:'Τέλος σειράς',toolMsg:'Βάλε το κοπτικό T{t} και κάνε Άγγιγμα Z0 και Ø → X0.',textHelp:'Ως κείμενο (για φύλαξη ή για άλλο tablet): Εξαγωγή, ή επικόλληση και Εισαγωγή.',exp:'Εξαγωγή',imp:'Εισαγωγή',impBad:'Αυτό το κείμενο δεν είναι συνταγή.',impMsg:'Εισήχθησαν {n} βήματα: έλεγξε το καθένα πριν την ΕΚΚΙΝΗΣΗ.'},ms:{ask:'Μέτρησε την Ø που βγήκε:',btn:'Μέτρησα Ø…',pad:'Μετρημένη Ø (mm)',ok:'Μετρημένη Ø {d}: στη διάσταση ({e}).',more:'Μετρημένη Ø {d}: μένουν {e} mm Ø να φύγουν.',cor:'Πέρασμα διόρθωσης',over:'Μετρημένη Ø {d}: έφυγαν {e} mm Ø παραπάνω. Σε αυτό το κομμάτι δεν διορθώνεται· στο επόμενο βάλε τελική Ø {s}.',corNote:'Πέρασμα διόρθωσης: 1 πέρασμα από Ø {a} σε Ø {b}· μετά επανέρχονται τα {n} περάσματα.',tol:'Μέσα στην ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.',tolOut:'Έξω από την ανοχή της προετοιμασίας σπειρώματος {lo} – {hi}.'},gd:{tool:'Νέο κοπτικό',toolDone:'Κάνε ξανά Άγγιγμα Z0 και Ø → X0 με το νέο κοπτικό.',need:'Πριν την ΕΚΚΙΝΗΣΗ: {w} ({why}).',z:'Άγγιγμα Z0',x:'Άγγιγμα Ø → X0',and:' και ',why:{first:'τα μηδέν δεν έχουν οριστεί ακόμα',boot:'το H4 επανεκκίνησε',part:'νέο κομμάτι: Z0 στο πρόσωπό του',tool:'άλλαξε το κοπτικό'},changed:'Το μηδέν {a} άλλαξε από το H4: είναι σωστά τα μηδέν;',bootKept:'Το H4 επανεκκίνησε: κράτησε τα μηδέν του κομματιού. Αν δεν κουνήθηκε τίποτα όσο ήταν σβηστό: «Τα μηδέν είναι σωστά»· αλλιώς άγγιξέ τα ξανά.',ok:'Τα μηδέν είναι σωστά',refuse:'Όρισε πρώτα τα μηδέν (δες τη σημείωση κάτω από τη φόρμα).'},busy:'Σταμάτησε πρώτα το H4 (OFF).',
   goTo:'Στην ΕΚΚΙΝΗΣΗ το H4 πηγαίνει μόνο του το εργαλείο στο Z {z}, {x} και κόβει.',safe:'Πρώτα το κοπτικό πηγαίνει στη θέση ασφαλείας Z {z}, {x} (πρώτα X, μετά Z)· μετά από κανονικό τέλος γυρίζει εκεί.',safeNeg:'Η απόσταση ασφαλείας δεν μπορεί να είναι αρνητική.',approach:'ΣΤΗ ΘΕΣΗ ΑΣΦΑΛΕΙΑΣ',safeStop:'Σταμάτησε πριν το τέλος: απομάκρυνε το κοπτικό με τα πλήκτρα.',fromTool:'Ξεκινά από εκεί που είναι το εργαλείο στην ΕΚΚΙΝΗΣΗ.',
   coneStop:'Σταματά μετά από {l} mm στον Z.',cutZ:'Κόβει στο Z όπου στέκεται τώρα το εργαλείο: Z {z}.',x0note:'Το X0 πρέπει να είναι στο κέντρο (Ø → X0).',
   err:{safeX:'Η ασφαλής Ø πρέπει να είναι έξω από το κομμάτι (μεγαλύτερη στο εξωτερικό, μικρότερη στο εσωτερικό).',safeZ:'Το ασφαλές Z πρέπει να είναι δεξιά από την αρχή (μικρότερο Z).',same:'Δεν έχει τίποτα να κόψει: η αρχή και το τέλος είναι ίδια.',dia:'Η διάμετρος δεν μπορεί να είναι αρνητική.',cone:'Η μεγάλη Ø πρέπει να είναι μεγαλύτερη από τη μικρή.',side:'Γι αυτή την πλευρά η τελική Ø πρέπει να είναι {w} από την Ø του κομματιού.',smaller:'μικρότερη',larger:'μεγαλύτερη',val:'Συμπλήρωσε όλες τις τιμές.',fill:'Συμπλήρωσε: {f}.',part:'Πρώτα όρισε το Κομμάτι (κουμπί Κομμάτι πάνω): Ø και πόσο βγαίνει έξω από τις σιαγόνες.',len:'Το μήκος πρέπει να είναι πάνω από 0.',thrM:'Στο αρσενικό η τελική Ø πρέπει να είναι μικρότερη από την Ø του κομματιού.',thrF:'Στο θηλυκό η τελική Ø πρέπει να είναι μεγαλύτερη από την Ø της τρύπας.',sph:'Η ακτίνα X δεν μπορεί να είναι πάνω από την ακτίνα του κομματιού (θα περνούσε το κέντρο).'},
@@ -1545,7 +1562,7 @@ function ltLabel(f,m){const L=ltT(),t=f[0]=='dnom'&&ltV[m].side==1?L.f.dbore:L.f
 // The form is built once per mode, language or X kind; a change of a value only rewrites that value.
 function ltForm(){const L=ltT(),m=ltCur(),v=ltV[m],F=LTF[m];if(!F)return;const gd=gdState();ltGdKey=JSON.stringify(gd);
  const zero=`<div class="ltstep"><b>${L.step1}</b><span class="ltpv">${ltPart?L.partVal.replace('{d}',ltPart.d).replace('{l}',ltPart.len):L.partNone}</span><button type="button" class="ltpartb${ltNeedPart(m)?' need':''}" data-part="1">${ltPart?L.partChg:L.partSet}</button></div>
-  <div class="ltstep"><b>${L.stepZ}</b><button type="button" data-z="z0"${gd.z?' class="need"':''}>${L.z0}<small>${L.zNote[0]}</small></button><button type="button" data-z="dia"${gd.x?' class="need"':''}>${L.dia}<small>${L.zNote[1]}</small></button><button type="button" data-gd="tool">${L.gd.tool}</button><button type="button" class="lthelpb" data-h="1" title="${L.help}">?</button></div>
+  <div class="ltstep"><b>${L.stepZ}</b><button type="button" data-z="z0" class="ltzb${gd.z?' need':st.lz?' ok':''}">${st.lz&&!gd.z?'✓ ':''}${L.z0}<small>${L.zNote[0]}</small></button><button type="button" data-z="dia" class="ltzb${gd.x?' need':st.lz?' ok':''}">${st.lz&&!gd.x?'✓ ':''}${L.dia}<small>${L.zNote[1]}</small></button><button type="button" data-gd="tool">${L.gd.tool}</button><button type="button" class="lthelpb" data-h="1" title="${L.help}">?</button></div>
   <div class="lthelp"${ltHelp?'':' hidden'}>${L.helpText}</div>`;
  const fld=f=>f[1]=='s'
   ?`<div class="f"><label>${L.f[f[0]]}</label><div class="seg" data-k="${f[0]}">${f[3].map((o,i)=>`<button type="button" data-i="${i}" class="${v[f[0]]===i?'on':''}">${L.f[m==7&&f[0]=='side'?(o=='ext'?'male':'female'):o]}</button>`).join('')}</div></div>`
@@ -1573,9 +1590,9 @@ $('ltForm').addEventListener('click',async e=>{const b=e.target.closest('button'
   T.prep=t?{n:t.n,int:int?1:0,lo:t.lo,hi:t.hi,mid:t.mid,c:t.iso?(int?'6H':'6g'):''}:null;ltPre[4]='';ltSave();ltOp=4;ltForm();if(st.lathe)ltShow();return}
  if(b.dataset.h){ltHelp=!ltHelp;const h=$('ltForm').querySelector('.lthelp');if(h)h.hidden=!ltHelp;return}
  if(b.dataset.z){if(st.on){msg(L.busy);return}
-  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);for(const k of [4,5,6,8])if(ltV[k].side!=1)ltV[k].dstock=d;if(ltV[7].side!=1&&!ltV[7].thr)ltV[7].dnom=d;ltSave();await gdTouched('x');if(ltPart&&!ltPart.cut){ltPart.d=d;ltPart.ro=ltPart.ro.map(()=>d/2);partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
+  if(b.dataset.z=='dia'){ltPad(L.diaAsk,ltV.lastDia||'',false,async d=>{if(!(d>0))return;ltV.lastDia=d;try{await post('/lathe?do=dia&d='+d);for(const k of [4,5,6,8])if(ltV[k].side!=1)ltV[k].dstock=d;if(ltV[7].side!=1&&!ltV[7].thr)ltV[7].dnom=d;ltSave();if(ltPart&&!ltPart.cut){ltPart.d=d;ltPart.ro=ltPart.ro.map(()=>d/2);partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}});return}
   // Z0 on a part not cut yet moves the part's face there (the part is declared with its face at Z0)
-  try{await post('/lathe?do='+b.dataset.z);await gdTouched('z');if(ltPart&&!ltPart.cut){ltPart.z0=0-partOff();partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}return}
+  try{await post('/lathe?do='+b.dataset.z);if(ltPart&&!ltPart.cut){ltPart.z0=0-partOff();partSave();partFill(ltCur())}ltForm();msg(L.zeroDone)}catch(err){msg(err.message)}return}
  if(b.dataset.rc){recClick(b.dataset.rc);return}
  if(b.dataset.cn){if(st.on)return;cnClick(b.dataset.cn);return}
  if(b.dataset.advp){if(st.on)return;ltSet(m,'passes',+b.dataset.advp);ltForm();return}
@@ -1853,28 +1870,22 @@ function partSheet(){const L=ltT(),P=L.part,c=ltPart||{d:30,len:60,bore:0},row=(
   if(k=='none'){ltPart=null;partSave();sheetClose();ltForm();if(st.lathe)ltShow();return}
   if(k=='new'){if(!(vals.d>0&&vals.len>0&&vals.bore>=0&&vals.bore<vals.d)){msg(P.bad);return}partNew(vals.d,vals.len,vals.bore);sheetClose();partFill(ltCur());ltForm();if(st.lathe)ltShow();msg(P.made);return}
   ltPad(P[k],vals[k],false,n=>{if(n==='')return;vals[k]=+n;b.textContent=+n})}}
-// ---------------------------------------------------------------- Touch-off guard.
-// START of an operation that uses the zeros waits until they were set (or confirmed) since the last event that can
-// spoil them: the first use, an H4 restart, a tool change (button), a new part (Z0: its face). The H4 reports the
-// work and machine positions (st.z / st.lathe.zm), so the zero's offset (work - machine) is known: a zero changed
-// from the H4 keys is noticed too, and then asks once whether the zeros are right. Kept in this tablet.
-let ltGd={},ltGdKey='';try{ltGd=JSON.parse(localStorage.getItem('h4guard')||'{}')||{}}catch(e){}
-const gdSave=()=>{try{localStorage.setItem('h4guard',JSON.stringify(ltGd))}catch(e){}};
-const gdOff=a=>st.lathe&&st.lathe[a+'m']!=null&&st[a]!=null?+st[a]-st.lathe[a+'m']:null;
-function gdEvent(why,z,x){ltGd.why=why;ltGd.boot=st.boot;if(z)ltGd.z=null;if(x)ltGd.x=null;gdSave()}
-// the zero's offset once the H4 has it: the second status read after the H4 took the zero (at most 3 s)
-async function gdTouched(a){const p0=polls,t0=Date.now();
- while(polls<p0+2&&Date.now()-t0<3000)await ltSleep(100);
- ltGd[a]=gdOff(a);if(ltGd.boot==null)ltGd.boot=st.boot;if(ltGd.bootChk){delete ltGd.bootChk[a];if(!ltGd.bootChk.z&&!ltGd.bootChk.x)delete ltGd.bootChk}gdSave()}
-function gdConfirm(){for(const a of ['z','x'])if(ltGd[a]!=null)ltGd[a]=gdOff(a);delete ltGd.bootChk;gdSave()}
-// per axis: 'need' (touch it), 'changed' (changed on the H4: confirm), '' (fine)
-function gdState(){if(st.boot!=null&&ltGd.boot!=null&&st.boot!=ltGd.boot){ltGd.boot=st.boot;ltGd.why='boot';ltGd.bootChk={z:1,x:1};gdSave()}
- const r={};for(const a of ['z','x']){const o=gdOff(a);r[a]=ltGd[a]==null?'need':ltGd.bootChk&&ltGd.bootChk[a]?'changed':o!=null&&Math.abs(o-ltGd[a])>0.002?'changed':''}return r}
+// ---------------------------------------------------------------- Lathe zeros (app 1.75 / firmware 1.54).
+// The H4 keeps whether its lathe zeros were set (/status "lz": Z, X: 0 to be set, 1 set, 2 kept from before a restart,
+// to be confirmed; "lzw": why 0 first, 1 restart, 2 new part, 3 new tool). A zero from the app (Touch Z0, Ø -> X0) or
+// from the H4's keys (Z, X, numpad + A) counts alike. Until 1.74 the app kept its own guard on the tablet and did not
+// see a zero set on the H4's keys. A START of an operation that uses the zeros waits until they are set.
+let ltGdKey='';
+const LZWHY=['first','boot','part','tool'];
+function gdEvent(why,z,x){post('/lathe?do=zinv&why='+why+'&z='+(z?1:0)+'&x='+(x?1:0)).catch(e=>msg(e.message))}
+function gdConfirm(){post('/lathe?do=zok').catch(e=>msg(e.message))}
+// per axis: 'need' (set it), 'changed' (kept through a restart: confirm), '' (fine); an older firmware: no guard
+function gdState(){const l=st.lz,r={};for(const [i,a] of [[0,'z'],[1,'x']])r[a]=!l?'':l[i]==0?'need':l[i]==2?'changed':'';return r}
 const gdAxes=m=>[4,5,7,8].includes(m)?['z','x']:m==6?['x']:[];  // the operations that use the zeros
 // what the guard says for this operation ('' = START allowed); html with the confirm button when asked
 function gdNote(m,html){const L=ltT().gd,g=gdState(),ax=gdAxes(m),need=ax.filter(a=>g[a]=='need'),chg=ax.filter(a=>g[a]=='changed');
- if(need.length)return L.need.replace('{w}',need.map(a=>L[a]).join(L.and)).replace('{why}',L.why[ltGd.why||'first']);
- if(chg.length)return (ltGd.bootChk?L.bootKept:L.changed.replace('{a}',chg.map(a=>a.toUpperCase()).join(L.and)))+(html?` <button type="button" class="ltgdok" data-gd="ok">${L.ok}</button>`:'');
+ if(need.length)return L.need.replace('{w}',need.map(a=>L[a]).join(L.and)).replace('{why}',L.why[LZWHY[st.lzw]||'first']);
+ if(chg.length)return L.bootKept+(html?` <button type="button" class="ltgdok" data-gd="ok">${L.ok}</button>`:'');
  return ''}
 // ---------------------------------------------------------------- Measure and correct (Turning).
 // After a Turning that ended normally the page asks for the measured Ø. Still too large (outside) / too small (bore):
@@ -2123,8 +2134,9 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closes
 window.ltReady=true;ltLang();
 if(DEMO)$('demoTag').hidden=false;
 scApply();
-// the app opens on Control (owner 2026-11-05), not on the screen used last; a browser reload keeps its screen (#...)
-{let t0=location.hash.slice(1);t0=TN.includes(t0)?t0:'control';
+// app 1.75: the app opens on the screen of the H4's mode (Lathe or CNC, chosen at the first status); a browser
+// reload keeps its screen (#...)
+{let t0=location.hash.slice(1);t0=TN.includes(t0)?t0:'lathe';
  tab(t0,true);try{history.replaceState({t:t0},'','#'+t0)}catch(e){}}
 setList();listFiles();loadCfg();poll();
 </script></body></html>

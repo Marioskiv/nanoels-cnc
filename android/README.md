@@ -9,6 +9,11 @@ answers the H4's page address with it, so it talks to the H4 exactly as before, 
 update, without flashing the H4. The firmware (1.16 and newer) keeps only a small emergency page for any browser.
 With an older firmware the screen still works and asks once for a firmware update.
 
+Since app 1.75 (firmware 1.54) **the screen is the H4's mode**: the app opens on *Lathe* (the H4 in a lathe mode,
+nothing of G-code shown), *CNC (G-code)* puts the H4 in GCODE mode with the program inside it, and a mode changed on
+the H4's keys moves the app to that screen. The lathe zeros (ZERO Z / ZERO X, ✓ or ✗) are kept by the H4, so a zero
+from the H4's keys counts as one from the app.
+
 ## Install
 
 1. On the phone open **https://github.com/Marioskiv/nanoels-cnc/releases/latest/download/H4CNC.apk** (always the

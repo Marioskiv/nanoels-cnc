@@ -73,6 +73,43 @@ unsigned long heldKeyMs = 0;
 // /cmd?do=gcode, or the H4's keys); until 1.50 each of them switched the H4 to GCODE by itself, also out of a lathe mode.
 #define NOT_GCODE_TEXT "The H4 is in a lathe mode: choose GCODE first (the GCODE button)"
 
+// The lathe zeros (firmware 1.54), Z and X: LZ_NEED to be set (never, or after a new tool / part), LZ_SET set since
+// the H4 started, LZ_KEPT kept from before a restart (to be confirmed: the H4 cannot know what moved while it was off).
+// A zero set from the keys or from the app counts alike (latheZeroCount, h4.ino).
+#define LZ_NEED 0
+#define LZ_SET 1
+#define LZ_KEPT 2
+#define LZ_WHY_FIRST 0
+#define LZ_WHY_BOOT 1
+#define LZ_WHY_PART 2
+#define LZ_WHY_TOOL 3
+int latheZeroState[2] = {LZ_NEED, LZ_NEED};
+int latheZeroWhy = LZ_WHY_FIRST;
+uint32_t latheZeroSeen[2] = {0, 0};
+bool latheZeroInit = false;
+void latheZeroTick() {
+  Axis* ax[2] = {&z, &x};
+  if (!latheZeroInit) {  // after a start: zeros stored from before count as kept
+    latheZeroInit = true;
+    bool kept = false;
+    for (int i = 0; i < 2; i++) {
+      latheZeroSeen[i] = latheZeroCount[i];
+      if (latheOriginOf(ax[i]) != 0) {
+        latheZeroState[i] = LZ_KEPT;
+        kept = true;
+      }
+    }
+    latheZeroWhy = kept ? LZ_WHY_BOOT : LZ_WHY_FIRST;
+  }
+  for (int i = 0; i < 2; i++) {
+    if (latheZeroCount[i] != latheZeroSeen[i]) {
+      latheZeroSeen[i] = latheZeroCount[i];
+      latheZeroState[i] = LZ_SET;
+    }
+  }
+}
+
+
 // One G-code line typed on the page (MDI), run as a one-line program.
 char mdiProgram[200];
 
@@ -259,6 +296,8 @@ String statusJson() {
   json += ",\"cActive\":" + String(a1.active ? 1 : 0);
   json += ",\"restart\":\"" + jsonEscape(restartText) + "\""; // restarted while moving, not confirmed (safety.ino)
   json += ",\"lzv\":" + String(latheZView) + ",\"lxv\":" + String(latheXView); // how the lathe modes show Z / X
+  latheZeroTick();
+  json += ",\"lz\":[" + String(latheZeroState[0]) + "," + String(latheZeroState[1]) + "],\"lzw\":" + String(latheZeroWhy);
   json += ",\"inch\":" + String(measure == MEASURE_METRIC ? 0 : 1);
   json += ",\"feed\":" + String(cnc_st_realtime_rate(), 1);
   json += ",\"rpm\":" + String(getApproxRpm());
@@ -732,6 +771,22 @@ void handleLathe() {
   String what = server.arg("do");
   // How the lathe modes show Z and X, on the H4's display and on this page (latheview.ino). Saved like the
   // H4's other values (when nothing moves). Only the display changes, never the motion.
+  // The lathe zeros' state (firmware 1.54): kept by the H4, the same whether they were set from the app or the keys.
+  if (what == "zinv") {  // the app: a new tool / a new part - the zeros must be set again
+    latheZeroTick();
+    int why = server.arg("why") == "part" ? LZ_WHY_PART : LZ_WHY_TOOL;
+    if (server.arg("z") != "0") latheZeroState[0] = LZ_NEED;
+    if (server.arg("x") != "0") latheZeroState[1] = LZ_NEED;
+    latheZeroWhy = why;
+    server.send(200, "text/plain", "Zeros to be set again");
+    return;
+  }
+  if (what == "zok") {  // the app: the zeros kept through a restart are right
+    latheZeroTick();
+    for (int i = 0; i < 2; i++) if (latheZeroState[i] == LZ_KEPT) latheZeroState[i] = LZ_SET;
+    server.send(200, "text/plain", "Zeros confirmed");
+    return;
+  }
   if (what == "view") {
     int zv = server.arg("z").toInt(), xv = server.arg("x").toInt();
     if (server.arg("z") == "" || server.arg("x") == "" || !latheViewValid(zv, xv)) {
@@ -761,6 +816,7 @@ void handleLathe() {
       long du = lround(d * (measure == MEASURE_METRIC ? 10000.0 : 254000.0));
       long pos = x.pos + du / x.screwPitch * x.motorSteps;
       x.originPos = -(x.pos + pos) / 2;
+      latheZeroSet(&x);
     }
     server.send(200, "text/plain", "Zero set");
     return;

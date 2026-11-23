@@ -180,7 +180,7 @@ const bool WIFI_ENABLED = true; // web page on the controller: G-code files, sta
 #define SOFTWARE_VERSION 12
 // Version of this CNC fork's firmware: the app compares it with the newest "firmware-v..." release on GitHub.
 // Raise it with every firmware change that is released.
-#define FW_VERSION "1.53"
+#define FW_VERSION "1.54"
 
 // To be changed whenever a different PCB / encoder / stepper / ... design is used.
 #define HARDWARE_VERSION 4
@@ -3490,8 +3490,18 @@ void markOrigin() {
   zeroSpindlePos();
 }
 
+// Firmware 1.54: every lathe zero set (Z / X keys, numpad + A, the app's Touch Z0 / Ø -> X0) is counted here, so the
+// H4 itself knows whether the lathe zeros were set since a restart, a new tool or a new part (wifi.ino, /status "lz").
+volatile uint32_t latheZeroCount[2] = {0, 0};  // Z, X
+void latheZeroSet(Axis* a) {
+  if (mode == MODE_GCODE) return;  // the GCODE zero is G-code's own (G10 L20)
+  if (a == &z) latheZeroCount[0] = latheZeroCount[0] + 1;
+  else if (a == &x) latheZeroCount[1] = latheZeroCount[1] + 1;
+}
+
 void markAxis0(Axis* a) {
   a->originPos = -a->pos;
+  latheZeroSet(a);
 }
 
 Axis* getAsyncAxis() {
@@ -4146,12 +4156,14 @@ bool processNumpadResult(int keyCode) {
   // Set axis 0 newDu ahead.
   if (keyCode == B_Z || keyCode == B_X || (mode == MODE_A1 && keyCode == B_MODE_THREAD)) {
     a->originPos = -pos;
+    latheZeroSet(a);
     return true;
   }
 
   // Set X axis 0 from diameter.
   if (keyCode == B_A) {
     a->originPos = -(a->pos + pos) / 2;
+    latheZeroSet(a);
     return true;
   }
 
