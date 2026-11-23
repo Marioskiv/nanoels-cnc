@@ -1468,7 +1468,8 @@ void appStepMove(Axis* a) {
   int i = appAxisIndex(a);
   long d = appStepReq[i];
   appStepReq[i] = 0;
-  if (d == 0 || isOn || mode == MODE_GCODE || emergencyStop != ESTOP_NONE) return;
+  // as the keys: nothing while ON, nor while the pitch axis waits for the spindle (SYN)
+  if (d == 0 || isOn || mode == MODE_GCODE || emergencyStop != ESTOP_NONE || (spindlePosSync != 0 && a == getPitchAxis())) return;
   long posCopy = a->pos + a->pendingPos;
   long t = posCopy + d;
   if (t > a->leftStop) t = a->leftStop;  // not out of the stops, as the keys

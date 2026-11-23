@@ -367,6 +367,7 @@ String statusJson() {
   }
   json += "],\"log\":" + String((unsigned long)cncLogCount);
   json += ",\"held\":" + String(heldKey);
+  json += ",\"syn\":" + String(spindlePosSync != 0 ? 1 : 0);  // 1.56: Z waits for the spindle (SYN on the H4 screen)
   json += ",\"mdi\":" + String(gcodeProgramData == mdiProgram && cncRunActive() ? 1 : 0);
   json += ",\"in\":" + String((int)inRaw);
   json += ",\"act\":[" + String(inHomeX ? 1 : 0) + "," + String(inHomeZ ? 1 : 0) + "," + String(inAlarm ? 1 : 0) + "]";
@@ -1049,6 +1050,10 @@ void handleJogStep() {
   Axis* a = ax == "x" ? &x : (ax == "z" ? &z : NULL);
   if (a == NULL) {
     server.send(400, "text/plain", ax == "c" ? "C does not move in the lathe modes: choose GCODE first" : "Bad axis");
+    return;
+  }
+  if (spindlePosSync != 0 && a == getPitchAxis()) {
+    server.send(409, "text/plain", "Z waits for the chuck (SYN): turn the chuck by hand a little (at most one turn)");
     return;
   }
   double d = 0, f = 0;
