@@ -187,7 +187,8 @@ async function waitIdle(timeoutMs = 60000) {
     await page.evaluate(() => tab('control'));
     await page.waitForFunction(() => st.gcodeMode === 1, null, { timeout: 10000 }).catch(() => {});
     ok(back == 'lathe' && await page.evaluate(() => st.gcodeMode === 1), 'the H4 switched to a lathe mode: the app goes to Lathe (' + back + '); back to CNC');
-    ok(await page.evaluate(() => !!$('ctl').querySelector('#pad') && getComputedStyle(document.querySelector('#pad .pb[data-a="C"]')).display != 'none'), 'back on CNC: the jog box is there again, with C');
+    ok(await page.evaluate(() => !!$('ctl').querySelector('#pad') && !$('jogBox').classList.contains('lathe') &&
+      (!st.cActive || getComputedStyle(document.querySelector('#pad .pb[data-a="C"]')).display != 'none')), 'back on CNC: the jog box is there again (with C when the H4 has C)');
 
     // 2. Home All from the page with the simulated switches: X switch 20 mm toward minus, Z switch 5 mm toward plus
     //    (motor steps: X runs inverted, so its switch is at +20 mm x steps/mm on the motor)
