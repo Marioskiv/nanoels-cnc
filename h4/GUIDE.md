@@ -339,7 +339,8 @@ program runs.
   Parting: Ø → X0) does not START while one is needed - the first use, **New tool** (button next to the zeros), a
   **New part** (Z0 on its face; on a part not cut yet *Touch Z0* also moves the part's face there); the note under
   the form says which and why. After an H4 restart the zeros are kept: the note asks to confirm them (*The zeros are
-  right*) or to touch them again. On the Lathe screen the **jog box** is the one of the CNC screen (see section 10), without C.
+  right*) or to touch them again. On the Lathe screen the **jog box** is the one of the CNC screen (see section 10), without C;
+  it is hidden until **Jog ▾** is pressed (app 1.79, the tablet keeps the choice). The gamepad moves Z and X together.
   Stops left by an operation are shown above it with **Clear stops** (a jog button clears them first). Since firmware
   1.57 there is no **SYN** wait after a stop is cleared (the original H4 held Z until the spindle turned back into
   step): Z moves at once and Feed takes the spindle from where Z stands (the old thread phase is not kept; the
