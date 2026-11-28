@@ -17,6 +17,10 @@ from the H4's keys counts as one from the app.
 Since app 1.77 (firmware 1.56) the CNC and Lathe screens share **one jog box** (the same steps, buttons, wheel and
 speeds); in a lathe mode the H4 makes the moves itself, without G-code, and C is not shown.
 
+Since app 1.79 (firmware 1.58) the Lathe screen keeps the jog box hidden until **Jog ▾** is pressed, the gamepad moves Z
+and X together there as in GCODE mode, and *Machine parameters, Spindle encoder* has **Encoder counts the other way**
+for an encoder that counts backwards (a quarter turn forward reads about 270° instead of 90°).
+
 ## Install
 
 1. On the phone open **https://github.com/Marioskiv/nanoels-cnc/releases/latest/download/H4CNC.apk** (always the
